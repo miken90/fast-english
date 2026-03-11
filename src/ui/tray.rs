@@ -27,7 +27,7 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&quit_item);
 
-    let icon_rgba = vec![0x33, 0x99, 0xFF, 0xFF].repeat(16 * 16);
+    let icon_rgba = generate_tray_icon();
     let icon = match Icon::from_rgba(icon_rgba, 16, 16) {
         Ok(i) => i,
         Err(e) => {
@@ -89,6 +89,52 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
     });
 
     Some(tray)
+}
+
+/// Generate a 16x16 RGBA tray icon — Electric Blue rounded square with white "F" lettermark.
+#[cfg(target_os = "windows")]
+fn generate_tray_icon() -> Vec<u8> {
+    const W: usize = 16;
+    // Electric Blue background
+    const BG: [u8; 4] = [0x3B, 0x82, 0xF6, 0xFF];
+    // White "F" pixels
+    const FG: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF];
+    // Transparent (outside rounded corners)
+    const TR: [u8; 4] = [0x00, 0x00, 0x00, 0x00];
+
+    // 16x16 grid: 1 = white (F stroke), 0 = blue bg, 9 = transparent (corners)
+    #[rustfmt::skip]
+    let grid: [[u8; W]; W] = [
+        [9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9],
+        [9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 9],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9],
+        [9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9],
+        [9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9],
+    ];
+
+    let mut rgba = Vec::with_capacity(W * W * 4);
+    for row in &grid {
+        for &cell in row {
+            let pixel = match cell {
+                1 => FG,
+                9 => TR,
+                _ => BG,
+            };
+            rgba.extend_from_slice(&pixel);
+        }
+    }
+    rgba
 }
 
 #[cfg(not(target_os = "windows"))]

@@ -3,32 +3,23 @@ use crate::selection::SelectionContext;
 use crate::settings::AppSettings;
 use crate::ui::{popup_position, settings_views};
 use iced::window;
-use iced::{Size, Task};
+use iced::{Point, Size, Task};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tracing::info;
 
 use super::popup::Message;
 
-// -- Popup window management --
+/// Offscreen position used to hide the popup without closing the window.
+const OFFSCREEN: Point = Point::new(-9999.0, -9999.0);
 
-pub(crate) fn show_popup(
-    popup_window_id: &mut Option<window::Id>,
-    ctx: &SelectionContext,
-) -> Task<Message> {
-    let close_task = if let Some(id) = popup_window_id.take() {
-        window::close(id)
-    } else {
-        Task::none()
-    };
+// -- Popup window management (single persistent window) --
 
-    let (screen_w, screen_h) = popup_position::get_screen_size();
-    let placement =
-        popup_position::calculate_position(ctx.bounds.as_ref(), screen_w, screen_h);
-
+/// Create the popup window at startup (offscreen). Called once from `run_with`.
+pub(crate) fn create_popup() -> (window::Id, Task<Message>) {
     let (id, open_task) = window::open(window::Settings {
-        size: Size::new(placement.width, placement.height),
-        position: window::Position::Specific(iced::Point::new(placement.x, placement.y)),
+        size: Size::new(340.0, 280.0),
+        position: window::Position::Specific(OFFSCREEN),
         decorations: false,
         transparent: true,
         level: window::Level::AlwaysOnTop,
@@ -41,19 +32,61 @@ pub(crate) fn show_popup(
         },
         ..Default::default()
     });
-
-    info!(x = placement.x, y = placement.y, "Opening popup {:?}", id);
-
-    Task::batch([close_task, open_task.map(Message::PopupOpened)])
+    info!("Creating persistent popup window {:?}", id);
+    (id, open_task.map(Message::PopupOpened))
 }
 
+/// Show popup at the correct position for the given selection.
+/// Moves the persistent window onscreen and resizes it.
+pub(crate) fn show_popup(popup_window_id: window::Id, ctx: &SelectionContext) -> Task<Message> {
+    let (screen_w, screen_h) = popup_position::get_screen_size();
+    let placement = popup_position::calculate_position(ctx.bounds.as_ref(), screen_w, screen_h);
+
+    info!(
+        x = placement.x,
+        y = placement.y,
+        "Showing popup {:?}",
+        popup_window_id
+    );
+    Task::batch([
+        window::move_to(popup_window_id, Point::new(placement.x, placement.y)),
+        window::resize(
+            popup_window_id,
+            Size::new(placement.width, placement.height),
+        ),
+    ])
+}
+
+/// Hide the popup by moving it offscreen. Window stays alive for reuse.
 pub(crate) fn hide_popup(
     popup_state: &mut PopupState,
-    popup_window_id: &mut Option<window::Id>,
+    popup_window_id: Option<window::Id>,
 ) -> Task<Message> {
     *popup_state = PopupState::Hidden;
-    if let Some(id) = popup_window_id.take() {
-        window::close(id)
+    if let Some(id) = popup_window_id {
+        window::move_to(id, OFFSCREEN)
+    } else {
+        Task::none()
+    }
+}
+
+/// Resize the popup window to fit the given state.
+pub(crate) fn resize_for_state(
+    popup_window_id: Option<window::Id>,
+    state: &PopupState,
+) -> Task<Message> {
+    let height = match state {
+        PopupState::Hidden => return Task::none(),
+        PopupState::Options(_) => popup_position::OPTIONS_HEIGHT,
+        PopupState::ToneSelection(_) => popup_position::TONE_HEIGHT,
+        PopupState::TranslateSelection(_) => popup_position::TRANSLATE_HEIGHT,
+        PopupState::TranslateResult { .. } => popup_position::TRANSLATE_RESULT_HEIGHT,
+        PopupState::Processing { .. } => popup_position::PROCESSING_HEIGHT,
+        PopupState::Result { .. } => popup_position::RESULT_HEIGHT,
+        PopupState::Error { .. } => popup_position::ERROR_HEIGHT,
+    };
+    if let Some(id) = popup_window_id {
+        window::resize(id, Size::new(popup_position::POPUP_WIDTH, height))
     } else {
         Task::none()
     }
@@ -73,7 +106,7 @@ pub(crate) fn open_settings(
     *settings_form = Some(settings_views::SettingsForm::from_settings(settings));
 
     let (id, open_task) = window::open(window::Settings {
-        size: Size::new(420.0, 480.0),
+        size: Size::new(420.0, 600.0),
         decorations: false,
         transparent: true,
         level: window::Level::AlwaysOnTop,

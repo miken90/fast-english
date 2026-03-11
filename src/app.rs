@@ -6,6 +6,10 @@ pub enum PopupState {
     Hidden,
     Options(SelectionContext),
     ToneSelection(SelectionContext),
+    TranslateSelection(SelectionContext),
+    TranslateResult {
+        context: SelectionContext,
+    },
     Processing {
         context: SelectionContext,
         tool: WritingToolKind,
@@ -44,7 +48,39 @@ pub enum WritingToolKind {
     EnhanceWriting,
     FixGrammar,
     ChangeTone(ToneOption),
+    Translate {
+        from: TranslateLanguage,
+        to: TranslateLanguage,
+    },
 }
+
+/// Language option for translation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TranslateLanguage {
+    pub id: &'static str,
+    pub name: &'static str,
+}
+
+impl std::fmt::Display for TranslateLanguage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+pub const TRANSLATE_LANGS: &[TranslateLanguage] = &[
+    TranslateLanguage {
+        id: "auto",
+        name: "Auto Detect",
+    },
+    TranslateLanguage {
+        id: "en",
+        name: "English",
+    },
+    TranslateLanguage {
+        id: "vi",
+        name: "Vietnamese",
+    },
+];
 
 impl std::fmt::Display for WritingToolKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -52,6 +88,7 @@ impl std::fmt::Display for WritingToolKind {
             Self::EnhanceWriting => write!(f, "Enhance Writing"),
             Self::FixGrammar => write!(f, "Fix Grammar"),
             Self::ChangeTone(tone) => write!(f, "Change Tone → {}", tone.name),
+            Self::Translate { from, to } => write!(f, "Translate {} → {}", from.name, to.name),
         }
     }
 }
@@ -124,5 +161,11 @@ pub const DEFAULT_TOOLS: &[WritingTool] = &[
         title: "Fix Grammar",
         short_description: "Correct grammar and spelling",
         prompt_instruction: "Correct grammar, spelling, and punctuation. Do not explain changes. Return only the corrected text.",
+    },
+    WritingTool {
+        id: "translate",
+        title: "Translate",
+        short_description: "Translate text between languages",
+        prompt_instruction: "Translate the text. Return only the translated text.",
     },
 ];

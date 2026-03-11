@@ -1,36 +1,19 @@
 use crate::app::{PopupState, WritingToolKind, DEFAULT_TOOLS};
 use crate::selection::SelectionContext;
-use crate::settings::{AIProvider, AppSettings, ProviderConfig};
+use crate::settings::AppSettings;
 use iced::Task;
 
 use super::popup::Message;
 
 /// Create an AI client from settings. Shared between request dispatch and connection test.
 pub fn create_ai_client(
-    provider: &AIProvider,
     api_key: String,
-    config: &ProviderConfig,
+    base_url: &str,
+    model: &str,
 ) -> Result<Box<dyn crate::ai::client::AIClient>, String> {
-    match provider {
-        AIProvider::OpenAI => {
-            let c = crate::ai::openai::OpenAIClient::new(
-                api_key,
-                config.base_url.clone(),
-                config.model.clone(),
-            )
-            .map_err(|e| format!("Failed to create OpenAI client: {}", e))?;
-            Ok(Box::new(c))
-        }
-        AIProvider::Anthropic => {
-            let c = crate::ai::anthropic::AnthropicClient::new(
-                api_key,
-                config.base_url.clone(),
-                config.model.clone(),
-            )
-            .map_err(|e| format!("Failed to create Anthropic client: {}", e))?;
-            Ok(Box::new(c))
-        }
-    }
+    let c = crate::ai::openai::OpenAIClient::new(api_key, base_url.to_string(), model.to_string())
+        .map_err(|e| format!("Failed to create AI client: {}", e))?;
+    Ok(Box::new(c))
 }
 
 /// Start an async AI request and return a Task that produces the result.
@@ -41,27 +24,24 @@ pub fn start_request(settings: &AppSettings, input: &str, tool: &WritingToolKind
 
     Task::perform(
         async move {
-            let config = settings.active_config();
-            let api_key = crate::persistence::KeyStore::load(
-                &settings.selected_provider.to_string(),
-            )
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+            let api_key = crate::persistence::KeyStore::load("api")
+                .ok()
+                .flatten()
+                .unwrap_or_default();
 
             if api_key.is_empty() {
                 return Err("No API key configured. Open Settings to add one.".to_string());
             }
 
             let client: Box<dyn crate::ai::client::AIClient> =
-                create_ai_client(&settings.selected_provider, api_key, config)?;
+                create_ai_client(api_key, &settings.base_url, &settings.model)?;
 
             match client.process(&input, &instruction).await {
                 Ok(raw) => Ok(crate::ai::prompt::PromptBuilder::clean_output(&raw)),
                 Err(e) => Err(e.to_string()),
             }
         },
-        |result| Message::AiResponse(result),
+        Message::AiResponse,
     )
 }
 
@@ -80,6 +60,19 @@ fn tool_instruction(tool: &WritingToolKind) -> String {
             .unwrap_or("Fix grammar.")
             .to_string(),
         WritingToolKind::ChangeTone(tone) => tone.prompt_instruction.to_string(),
+        WritingToolKind::Translate { from, to } => {
+            if from.id == "auto" {
+                format!(
+                    "Detect the language of the following text and translate it to {}. Return only the translated text.",
+                    to.name
+                )
+            } else {
+                format!(
+                    "Translate the following text from {} to {}. Return only the translated text.",
+                    from.name, to.name
+                )
+            }
+        }
     }
 }
 
@@ -88,8 +81,11 @@ pub fn extract_context(state: &PopupState) -> Option<SelectionContext> {
     match state {
         PopupState::Processing { context, .. } => Some(context.clone()),
         PopupState::Result { context, .. } => Some(context.clone()),
+        PopupState::TranslateResult { context, .. } => Some(context.clone()),
         PopupState::Error { context, .. } => Some(context.clone()),
-        PopupState::Options(ctx) | PopupState::ToneSelection(ctx) => Some(ctx.clone()),
+        PopupState::Options(ctx)
+        | PopupState::ToneSelection(ctx)
+        | PopupState::TranslateSelection(ctx) => Some(ctx.clone()),
         PopupState::Hidden => None,
     }
 }

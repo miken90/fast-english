@@ -37,7 +37,7 @@ fn main() -> Result<()> {
 
     // Load settings from disk
     let settings = settings::AppSettings::load();
-    info!(provider = %settings.selected_provider, "Settings loaded");
+    info!(base_url = %settings.base_url, model = %settings.model, "Settings loaded");
 
     // Create the async runtime for background tasks (selection monitor, AI)
     let runtime = tokio::runtime::Builder::new_multi_thread()

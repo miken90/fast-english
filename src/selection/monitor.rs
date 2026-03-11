@@ -88,17 +88,17 @@ fn detect_selection() -> Option<SelectionContext> {
     None
 }
 
-/// Manual trigger — tries all tiers including clipboard fallback (Tier 3).
-/// Returns the selection context directly for use with Task::perform.
+/// Manual trigger — tries clipboard fallback first for universal app support,
+/// then falls back to UIA tiers. Returns the selection context directly.
 pub async fn try_manual_capture() -> Option<SelectionContext> {
-    // First try non-invasive tiers
-    if let Some(ctx) = detect_selection() {
+    // Tier 3: Clipboard fallback first — works across almost all Windows apps
+    #[cfg(target_os = "windows")]
+    if let Some(ctx) = super::clipboard_fallback::get_selection_via_clipboard() {
         return Some(ctx);
     }
 
-    // Tier 3: Clipboard fallback — simulate Ctrl+C, read clipboard
-    #[cfg(target_os = "windows")]
-    if let Some(ctx) = super::clipboard_fallback::get_selection_via_clipboard() {
+    // Fall back to non-invasive UIA tiers
+    if let Some(ctx) = detect_selection() {
         return Some(ctx);
     }
 

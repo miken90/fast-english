@@ -1,0 +1,284 @@
+# AGENTS.md — Fast English
+
+This file provides guidance when working with code in this repository.
+
+## Role & Responsibilities
+
+Analyze user requirements, delegate tasks to appropriate sub-agents, and ensure cohesive delivery of features that meet specifications and architectural standards.
+
+## Workflows
+
+- Primary workflow: `$HOME/AGENTS.md`
+- Development rules: `$HOME/AGENTS.md`
+- Orchestration protocols: `$HOME/AGENTS.md`
+- Documentation management: `$HOME/AGENTS.md`
+
+**IMPORTANT:** Analyze the skills catalog and activate relevant skills during the process.
+**IMPORTANT:** Follow development rules in `$HOME/AGENTS.md` strictly.
+**IMPORTANT:** Sacrifice grammar for concision in reports. List unresolved questions at end.
+
+## Python Scripts (Skills)
+
+When running Python scripts from skills, use the venv Python interpreter:
+- **Linux/macOS:** `skills/.venv/bin/python3 scripts/xxx.py`
+
+**IMPORTANT:** When scripts fail, try to fix them directly.
+
+## [IMPORTANT] Consider Modularization
+- If a code file exceeds 200 lines, consider modularizing it
+- Check existing modules before creating new
+- Use snake_case naming for Rust files (project convention)
+- After modularization, continue with main task
+- Exception: Markdown, plain text, bash scripts, config files
+
+## Documentation Management
+
+Keep docs in `./docs` folder:
+```
+./docs
+├── project-overview-pdr.md
+├── code-standards.md
+├── codebase-summary.md
+├── design-guidelines.md
+├── deployment-guide.md
+├── system-architecture.md
+└── project-roadmap.md
+```
+
+---
+
+## Project-Specific: Fast English (Windows Desktop App)
+
+### Tech Stack
+- **Language:** Rust (edition 2021)
+- **UI:** iced 0.13 (daemon pattern)
+- **Async:** tokio (multi-thread)
+- **Windows APIs:** `windows` crate 0.58, `uiautomation` 0.24
+- **System:** tray-icon, global-hotkey, arboard (clipboard)
+- **AI:** reqwest + serde_json (OpenAI/Anthropic)
+
+### Architecture
+- `src/main.rs` — entry, COM STA init, runtime, event channel
+- `src/app.rs` — PopupState state machine, AppEvent, WritingToolKind
+- `src/selection/` — UIA text detection (Tier 1-3), monitor polling
+- `src/ui/` — iced popup, views, positioning, AI integration
+- `src/ai/` — AIClient trait, OpenAI/Anthropic clients
+- `src/editing/` — text replacement via UIA SetValue / clipboard paste
+- `src/settings.rs` + `src/persistence.rs` — config + DPAPI key storage
+
+### [CRITICAL] Build & Run — Windows Only
+
+This is a **Windows-only** application. All build, check, and run commands **MUST** use PowerShell remoting.
+
+#### Why
+- Dev environment runs on WSL2 (Linux), but the app targets Windows
+- Rust compilation requires Windows SDK, Win32 APIs, COM interfaces
+- `cargo check` / `cargo build` will fail on Linux due to `windows`, `uiautomation`, `winreg` crates
+- UIA, clipboard, hotkey features are Windows-only at runtime
+
+#### How to Build/Check/Run
+
+**Always use PowerShell** for cargo commands:
+
+```bash
+# Check compilation (fast, no binary output)
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo check 2>&1"
+
+# Build debug
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo build 2>&1"
+
+# Build release
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo build --release 2>&1"
+
+# Run debug
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo run 2>&1"
+
+# Run with logging
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; \$env:RUST_LOG='fast_english=debug'; cargo run 2>&1"
+
+# Format check
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo fmt --check 2>&1"
+
+# Clippy lint
+powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo clippy 2>&1"
+```
+
+**IMPORTANT:** The WSL path `/home/canhnguyen/WORKSPACES/PERSONAL/fast-eng` maps to Windows path `D:\WORKSPACES\PERSONAL\fast-eng`. Always use the Windows path (`D:\\WORKSPACES\\PERSONAL\\fast-eng`) inside PowerShell commands.
+
+**IMPORTANT:** After modifying any `.rs` file, run `cargo check` via PowerShell to verify compilation. Do NOT rely on Linux `cargo check` — it will show false errors from Windows-only dependencies.
+
+#### Other Windows Commands
+
+```bash
+# Kill running instance
+powershell.exe -Command "Stop-Process -Name fast-english -ErrorAction SilentlyContinue"
+
+# Check if running
+powershell.exe -Command "Get-Process fast-english -ErrorAction SilentlyContinue"
+```
+
+### Code Conventions
+- **File naming:** snake_case (Rust standard)
+- **State machine:** `PopupState` enum with associated data
+- **Event flow:** tokio mpsc channel → iced subscription → Message dispatch
+- **Platform gating:** `#[cfg(target_os = "windows")]` for Win32-specific code
+- **Error handling:** `anyhow::Result` + `tracing` structured logging
+- **Unsafe code:** minimal, only for Win32 FFI (DPAPI, COM, SendInput)
+- **Formatting:** `rustfmt` standard, 4-space indent
+
+---
+
+## Rule: development-rules
+
+# Development Rules
+
+**IMPORTANT:** Follow **YAGNI** - **KISS** - **DRY** principles always.
+
+## General
+- **File Naming**: snake_case for Rust files; kebab-case for docs/scripts
+- **File Size**: Keep code files under 200 lines
+- Use `gh` for Github, `psql` for Postgres debugging
+- **[IMPORTANT]** Follow codebase structure and code standards during implementation
+- **[IMPORTANT]** Implement real code, not simulations or mocks
+- **[IMPORTANT]** Use PowerShell for all cargo/build/run commands (see Build section)
+
+## Code Quality
+- Ensure no syntax errors and code compiles (via `powershell.exe cargo check`)
+- Prioritize functionality and readability
+- Use try-catch error handling & cover security standards
+
+## Pre-commit/Push Rules
+- Run `cargo fmt --check` and `cargo clippy` via PowerShell before commit
+- Run tests before push (DO NOT ignore failed tests)
+- **DO NOT** commit secrets (dotenv, API keys, credentials)
+- Use conventional commit format, no AI references
+
+## Code Implementation
+- Write clean, readable, maintainable code
+- Follow established architectural patterns
+- Handle edge cases and error scenarios
+- **DO NOT** create new enhanced files, update existing files directly
+---
+
+## Rule: documentation-management
+
+# Project Documentation Management
+
+### Roadmap & Changelog Maintenance
+- **Project Roadmap** (`./docs/development-roadmap.md`): Track project phases, milestones, progress
+- **Project Changelog** (`./docs/project-changelog.md`): Record changes, features, fixes
+- **System Architecture** (`./docs/system-architecture.md`): System design documentation
+- **Code Standards** (`./docs/code-standards.md`): Coding conventions and standards
+
+### Update Protocol
+1. **Before Updates**: Read current roadmap and changelog status
+2. **During Updates**: Maintain version consistency and formatting
+3. **After Updates**: Verify links, dates, cross-references
+4. **Quality Check**: Ensure updates align with actual progress
+
+### Plans
+
+Save plans in `plans/` directory with timestamp and descriptive name.
+
+**Example:** `plans/251101-1505-authentication-and-profile-implementation/`
+
+#### File Organization
+
+```
+plans/
+├── 20251101-1505-feature-name/
+│   ├── research/
+│   ├── reports/
+│   ├── plan.md
+│   ├── phase-01-setup.md
+│   ├── phase-02-implement.md
+│   └── phase-03-test.md
+└── ...
+```
+
+##### Overview Plan (plan.md)
+- Keep under 80 lines
+- List phases with status/progress
+- Link to detailed phase files
+
+##### Phase Files (phase-XX-name.md)
+Each should contain: Context Links, Overview, Requirements, Architecture, Related Code Files, Implementation Steps, Todo List, Success Criteria, Risk Assessment, Security Considerations, Next Steps.
+---
+
+## Rule: orchestration-protocol
+
+# Orchestration Protocol
+
+## Delegation Context (MANDATORY)
+
+When spawning subagents, **ALWAYS** include:
+1. **Work Context Path**: Git root of primary files
+2. **Reports Path**: `{work_context}/plans/reports/`
+3. **Plans Path**: `{work_context}/plans/`
+
+#### Sequential Chaining
+- **Planning → Implementation → Testing → Review**: Feature development
+- **Research → Design → Code → Documentation**: New components
+- Each agent completes fully before next begins
+
+#### Parallel Execution
+- Independent components can run in parallel
+- Ensure no file conflicts or shared resource contention
+- Plan integration points before parallel execution
+---
+
+## Rule: primary-workflow
+
+# Primary Workflow
+
+**IMPORTANT:** Activate relevant skills as needed. Ensure token efficiency.
+
+#### 1. Code Implementation
+- Delegate to `planner` agent first for implementation plan
+- Use `researcher` agents in parallel for technical research
+- **[IMPORTANT]** After modifying code, run compile check via PowerShell: `powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo check 2>&1"`
+
+#### 2. Testing
+- Delegate to `tester` agent on the **final code**
+- **DO NOT** ignore failing tests
+- **DO NOT** use fake data, mocks, tricks to pass builds
+- Fix failing tests and re-test until all pass
+
+#### 3. Code Quality
+- Delegate to `code-reviewer` agent after tests pass
+
+#### 4. Integration
+- Follow the plan from `planner` agent
+- Maintain backward compatibility
+- Delegate to `docs-manager` agent to update docs
+
+#### 5. Debugging
+- Delegate to `debugger` agent for issue analysis
+- Fix based on report, then re-test
+---
+
+## Rule: team-coordination-rules
+
+# Team Coordination Rules
+
+> Only apply when operating as a teammate within an Agent Team.
+
+## File Ownership (CRITICAL)
+- Each teammate MUST own distinct files — no overlapping edits
+- Define ownership via glob patterns in task descriptions
+- Tester owns test files only
+
+## Git Safety
+- Prefer git worktrees for parallel work
+- Never force-push from a teammate session
+- Commit frequently with descriptive messages
+
+## Report Output
+- Save reports to `plans/reports/`
+- Naming: `{type}-{date}-{slug}.md`
+- Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+
+## Task Claiming
+- Claim lowest-ID unblocked task first
+- Set task to `in_progress` before starting work
+- If all tasks blocked, notify lead

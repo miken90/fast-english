@@ -17,7 +17,12 @@ impl OpenAIClient {
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 
-        Ok(Self { api_key, base_url, model, http })
+        Ok(Self {
+            api_key,
+            base_url,
+            model,
+            http,
+        })
     }
 }
 
@@ -35,7 +40,8 @@ impl AIClient for OpenAIClient {
             "max_tokens": prompt.max_tokens(text),
         });
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(format!("{}/chat/completions", &self.base_url))
             .bearer_auth(&self.api_key)
             .json(&body)
@@ -50,7 +56,9 @@ impl AIClient for OpenAIClient {
         }
 
         let data: OpenAIResponse = resp.json().await?;
-        let content = data.choices.first()
+        let content = data
+            .choices
+            .first()
             .and_then(|c| c.message.content.as_deref())
             .unwrap_or("");
 
@@ -64,7 +72,8 @@ impl AIClient for OpenAIClient {
             "max_tokens": 20,
         });
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(format!("{}/chat/completions", &self.base_url))
             .bearer_auth(&self.api_key)
             .json(&body)
@@ -78,7 +87,9 @@ impl AIClient for OpenAIClient {
         }
 
         let data: OpenAIResponse = resp.json().await?;
-        Ok(data.choices.first()
+        Ok(data
+            .choices
+            .first()
             .and_then(|c| c.message.content.clone())
             .unwrap_or_else(|| "Connected".to_string()))
     }

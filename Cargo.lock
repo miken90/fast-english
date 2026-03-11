@@ -1167,6 +1167,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "fast-english"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "async-trait",
+ "dirs 5.0.1",
+ "embed-resource",
+ "global-hotkey",
+ "iced",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "tray-icon",
+ "uiautomation",
+ "windows 0.58.0",
+ "winreg 0.55.0",
+]
+
+[[package]]
 name = "fast-srgb8"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4623,29 +4646,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702d4415e08923e7e1ef96cd5727c0dfed80b4d2fa25db9647fe5eb6f7c5a4c4"
 dependencies = [
  "winnow 0.7.15",
-]
-
-[[package]]
-name = "fast-english"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "async-trait",
- "dirs 5.0.1",
- "embed-resource",
- "global-hotkey",
- "iced",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "tray-icon",
- "uiautomation",
- "windows 0.58.0",
- "winreg 0.55.0",
 ]
 
 [[package]]

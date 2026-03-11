@@ -1,6 +1,5 @@
 pub mod client;
 pub mod openai;
-pub mod anthropic;
 pub mod prompt;
 
 /// Truncate a string at a character boundary (safe for multi-byte UTF-8).

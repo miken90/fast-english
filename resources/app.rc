@@ -6,4 +6,4 @@
 1 RT_MANIFEST "app.manifest"
 
 // Uncomment when app.ico is available:
-// 1 ICON "app.ico"
+1 ICON "app.ico"
