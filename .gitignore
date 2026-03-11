@@ -1,0 +1,25 @@
+# Rust
+target/
+
+# Distribution
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets
+.env
+*.key
+credentials.json
+
+# Plans (internal)
+plans/
