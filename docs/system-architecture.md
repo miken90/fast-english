@@ -112,17 +112,30 @@ Error → Hidden                 [Dismiss]
 
 ## Data Flow
 
-### Text Rewrite Flow
+### Auto Selection Flow
 
 1. User selects text in any app
 2. Selection monitor polls UIA (every 350ms), detects selection
-3. `AppEvent::TextSelected(ctx)` sent via channel
-4. Iced daemon receives event, transitions to `PopupState::Options`
-5. Popup window shown near selection bounds
-6. User clicks a writing tool
-7. `PopupState::Processing` — AI request fires via reqwest
-8. AI response received → `PopupState::Result`
-9. User clicks Replace → `text_service` replaces text via UIA or clipboard
+3. Debounce: waits 700ms for stable selection before firing
+4. `AppEvent::TextSelected(ctx)` sent via channel
+5. Iced daemon receives event, transitions to `PopupState::Options`
+6. Popup window shown near selection bounds
+7. User clicks a writing tool
+8. `PopupState::Processing` — AI request fires via reqwest
+9. AI response received → `PopupState::Result`
+10. User clicks Replace → `text_service` replaces text via UIA or clipboard
+
+### Manual Capture Flow (Hotkey / Tray)
+
+1. User presses `Ctrl+Alt+T` or clicks tray "Capture" item
+2. `AppEvent::HotkeyPressed` sent via channel
+3. Fresh clipboard capture performed (never uses cached selection)
+4. Popup transitions to `PopupState::Options` with new context
+
+### Copy Feedback
+
+- When user clicks "Copy" in the result view, text is copied to clipboard
+- A 1.5-second iced subscription timer triggers auto-dismiss of the feedback indicator
 
 ### Selection Detection Pipeline
 

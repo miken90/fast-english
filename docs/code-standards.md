@@ -100,7 +100,26 @@ pub trait AIClient: Send + Sync {
 - Prefer immutable bindings (`let` over `let mut`)
 - Use `pub` only when needed; default to private
 - Keep functions focused — one responsibility per function
-- Use `#[cfg(target_os = "windows")]` for platform-specific code
+
+### `unsafe` Code
+- Required for Win32 FFI: DPAPI (`CryptProtectData`/`CryptUnprotectData`), COM STA init
+- Keep `unsafe` blocks as small as possible — wrap in safe helper functions
+- Document the safety invariants with `// SAFETY:` comments
+
+### Platform-Specific Code
+- Use `#[cfg(target_os = "windows")]` for platform-gated items
+- Currently Windows-only; no cross-platform abstractions needed
+
+### Logging
+- Use `tracing` crate (`info!`, `warn!`, `error!`, `debug!`) for structured logging
+- Log at boundaries: AI calls, selection detection, text replacement, errors
+- Never log API keys or user text content
+
+### Settings Form Pattern
+- `AppSettings` — persisted settings (loaded/saved via `persistence.rs`)
+- `SettingsForm` — mutable copy used in the settings UI for editing
+- On save, `SettingsForm` fields are written back to `AppSettings` and persisted
+- This separates in-flight UI edits from committed settings
 
 ### File Size
 - Target under 200 lines per file
