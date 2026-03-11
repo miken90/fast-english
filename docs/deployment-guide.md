@@ -1,4 +1,4 @@
-# ToneWriter — Deployment Guide
+# Fast English — Deployment Guide
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@
 cargo build
 ```
 
-Binary at `target/debug/tone-writer.exe`.
+Binary at `target/debug/fast-english.exe`.
 
 ### Release Build
 
@@ -22,7 +22,7 @@ Binary at `target/debug/tone-writer.exe`.
 cargo build --release
 ```
 
-Binary at `target/release/tone-writer.exe`.
+Binary at `target/release/fast-english.exe`.
 
 ### Automated Release Build
 
@@ -38,30 +38,30 @@ The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script f
 
 1. Install Inno Setup 6+
 2. Build the release binary first (see above)
-3. Open `installer/ToneWriter.iss` in Inno Setup Compiler
+3. Open `installer/FastEnglish.iss` in Inno Setup Compiler
 4. Click Build → Compile
-5. Output: `dist/ToneWriter-Setup-1.0.0.exe`
+5. Output: `dist/FastEnglish-Setup-1.0.0.exe`
 
 ## Installation
 
 ### Portable (No Install)
 
-1. Download or build `ToneWriter.exe`
+1. Download or build `FastEnglish.exe`
 2. Run it from any location
 3. The app appears in the system tray
 
 ### Via Installer
 
-1. Run `ToneWriter-Setup-x.x.x.exe`
+1. Run `FastEnglish-Setup-x.x.x.exe`
 2. Follow the wizard
-3. Optionally enable "Start ToneWriter when Windows starts"
+3. Optionally enable "Start Fast English when Windows starts"
 4. The app launches and appears in the system tray
 
 ## Configuration
 
 ### AI Provider Setup
 
-1. Right-click the ToneWriter system tray icon → **Settings**
+1. Right-click the Fast English system tray icon → **Settings**
 2. Select your provider (OpenAI or Anthropic)
 3. Enter your API key
 4. (Optional) Customize the base URL or model
@@ -76,13 +76,13 @@ The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script f
 
 ### Settings Storage
 
-Settings are stored as JSON in `%APPDATA%/ToneWriter/settings.json`. API keys are encrypted via Windows DPAPI.
+Settings are stored as JSON in `%APPDATA%/FastEnglish/settings.json`. API keys are encrypted via Windows DPAPI.
 
 ## Troubleshooting
 
 ### Popup doesn't appear when I select text
 
-1. **Check the system tray**: Ensure ToneWriter is running (icon visible)
+1. **Check the system tray**: Ensure Fast English is running (icon visible)
 2. **Try the hotkey**: Select text, then press `Ctrl+Alt+T`
 3. **Unsupported app**: Some apps don't expose text selection via UI Automation APIs
 4. **Restart the app**: Right-click tray icon → Quit, then relaunch
@@ -102,13 +102,13 @@ Settings are stored as JSON in `%APPDATA%/ToneWriter/settings.json`. API keys ar
 ### Hotkey `Ctrl+Alt+T` doesn't work
 
 1. **Conflict**: Another app may have registered the same hotkey
-2. **Restart**: Quit and relaunch ToneWriter
+2. **Restart**: Quit and relaunch Fast English
 
 ## Uninstalling
 
 ### If installed via installer
-- Use Windows Settings → Apps → ToneWriter → Uninstall
+- Use Windows Settings → Apps → Fast English → Uninstall
 
 ### If using portable version
 - Just delete the exe
-- Optionally remove settings: delete `%APPDATA%/ToneWriter/`
+- Optionally remove settings: delete `%APPDATA%/FastEnglish/`

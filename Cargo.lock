@@ -4626,7 +4626,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tone-writer-win"
+name = "fast-english"
 version = "0.1.0"
 dependencies = [
  "anyhow",

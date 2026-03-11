@@ -20,7 +20,7 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
     let quit_id = MenuId::new("quit");
 
     let settings_item = MenuItem::with_id(settings_id.clone(), "Settings...", true, None);
-    let quit_item = MenuItem::with_id(quit_id.clone(), "Quit ToneWriter", true, None);
+    let quit_item = MenuItem::with_id(quit_id.clone(), "Quit Fast English", true, None);
 
     let menu = Menu::new();
     let _ = menu.append(&settings_item);
@@ -38,7 +38,7 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
 
     let tray = match TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("ToneWriter — AI Writing Assistant")
+        .with_tooltip("Fast English — AI Writing Assistant")
         .with_icon(icon)
         .build()
     {

@@ -1,4 +1,4 @@
-# ToneWriter
+# Fast English
 
 A native Windows system tray app that provides AI-powered text rewriting tools. Select text in any app, and a floating popup appears with writing tools to enhance, restyle, or fix your writing.
 
@@ -24,20 +24,20 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
 
 ### Portable
 
-1. Download `ToneWriter.exe` from Releases
+1. Download `FastEnglish.exe` from Releases
 2. Run the executable — it will appear in your system tray
 3. Right-click the tray icon to open Settings and configure your AI provider API key
 
 ### Installer
 
-1. Download `ToneWriter-Setup-x.x.x.exe` from Releases
+1. Download `FastEnglish-Setup-x.x.x.exe` from Releases
 2. Run the installer
 3. Optionally enable "Start with Windows"
 
 ## Usage
 
 1. **Select text** in any application
-2. The ToneWriter popup appears automatically near your selection (or press `Ctrl+Alt+T`)
+2. The Fast English popup appears automatically near your selection (or press `Ctrl+Alt+T`)
 3. Choose a writing tool:
    - Click **Enhance Writing** for improved clarity
    - Click **Change Tone** and pick a tone
@@ -112,7 +112,7 @@ src/
 
 ## Architecture Overview
 
-ToneWriter follows a centralized state machine pattern:
+Fast English follows a centralized state machine pattern:
 
 - **main.rs** initializes COM, loads settings, starts async runtime, and launches the iced daemon
 - **AppEvent** channel bridges background threads (tray, hotkey, selection monitor) into the UI

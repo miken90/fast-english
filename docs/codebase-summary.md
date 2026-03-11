@@ -1,4 +1,4 @@
-# ToneWriter — Codebase Summary
+# Fast English — Codebase Summary
 
 ## Overview
 
@@ -33,7 +33,7 @@ fast-english/
 ├── scripts/
 │   └── build-release.ps1                  # Release build script
 ├── installer/
-│   └── ToneWriter.iss                     # Inno Setup installer config
+│   └── FastEnglish.iss                    # Inno Setup installer config
 └── docs/                                  # Project documentation
 ```
 
@@ -47,7 +47,7 @@ fast-english/
 | `app.rs` | `PopupState` enum, `AppEvent` channel events, `WritingToolKind`, `ToneOption` |
 | `hotkey.rs` | Registers `Ctrl+Alt+T` via `global-hotkey` crate |
 | `settings.rs` | `AIProvider`, `ProviderConfig`, `AppSettings` models |
-| `persistence.rs` | JSON file storage in `%APPDATA%/ToneWriter/`, DPAPI-encrypted API keys |
+| `persistence.rs` | JSON file storage in `%APPDATA%/FastEnglish/`, DPAPI-encrypted API keys |
 
 ### AI (`src/ai/`)
 

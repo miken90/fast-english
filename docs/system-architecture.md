@@ -1,10 +1,10 @@
-# ToneWriter — System Architecture
+# Fast English — System Architecture
 
 ## High-Level Component Diagram
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   ToneWriter App                     │
+│                   Fast English App                    │
 │                                                     │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
 │  │ main.rs  │→ │ app.rs   │  │ settings.rs      │  │
@@ -52,7 +52,7 @@
 | **main.rs** | Entry point. COM init (STA), settings load, tokio runtime, selection monitor start, hotkey/tray setup, iced daemon launch. |
 | **app.rs** | Defines `PopupState` enum (state machine), `AppEvent` (cross-component events), `WritingToolKind`, `ToneOption`. |
 | **settings.rs** | Data models: `AIProvider`, `ProviderConfig`, `AppSettings`. |
-| **persistence.rs** | JSON file storage in `%APPDATA%/ToneWriter/`. API keys encrypted via Windows DPAPI. |
+| **persistence.rs** | JSON file storage in `%APPDATA%/FastEnglish/`. API keys encrypted via Windows DPAPI. |
 | **hotkey.rs** | Registers global `Ctrl+Alt+T` via `global-hotkey` crate. Sends `AppEvent::HotkeyPressed`. |
 
 ### UI

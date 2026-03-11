@@ -78,7 +78,7 @@ pub fn run(
     let rx_clone = Arc::clone(&rx);
     let settings_clone = settings.clone();
 
-    iced::daemon("ToneWriter", update, view)
+    iced::daemon("Fast English", update, view)
         .subscription(subscription)
         .theme(|_state, _window| Theme::Dark)
         .style(|_state, _theme| iced::daemon::Appearance {

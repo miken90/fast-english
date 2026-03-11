@@ -3,10 +3,10 @@
   <assemblyIdentity
     version="0.1.0.0"
     processorArchitecture="*"
-    name="ToneWriter"
+    name="FastEnglish"
     type="win32"
   />
-  <description>ToneWriter — AI Writing Assistant</description>
+  <description>Fast English — AI Writing Assistant</description>
 
   <!-- DPI awareness (per-monitor v2 on Win10 1703+) -->
   <application xmlns="urn:schemas-microsoft-com:asm.v3">

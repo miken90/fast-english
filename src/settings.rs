@@ -85,7 +85,7 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
-    /// Load settings from `%APPDATA%/ToneWriter/settings.json`.
+    /// Load settings from `%APPDATA%/FastEnglish/settings.json`.
     pub fn load() -> Self {
         let path = Self::config_path();
         match std::fs::read_to_string(&path) {
@@ -116,7 +116,7 @@ impl AppSettings {
     fn config_path() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("ToneWriter")
+            .join("FastEnglish")
             .join("settings.json")
     }
 }

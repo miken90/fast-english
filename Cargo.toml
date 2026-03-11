@@ -1,8 +1,8 @@
 [package]
-name = "tone-writer"
+name = "fast-english"
 version = "0.1.0"
 edition = "2021"
-description = "ToneWriter — AI Writing Assistant for Windows"
+description = "Fast English — AI Writing Assistant for Windows"
 authors = ["Canh Nguyen"]
 
 [dependencies]

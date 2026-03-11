@@ -210,7 +210,7 @@ pub fn settings_content<'a>(form: &'a SettingsForm) -> Element<'a, Message> {
         .text_size(13);
 
     // Auto-start toggle
-    let auto_start_toggle = checkbox("Start ToneWriter when Windows starts", form.auto_start)
+    let auto_start_toggle = checkbox("Start Fast English when Windows starts", form.auto_start)
         .on_toggle(Message::SettingsAutoStartToggled)
         .text_size(13);
 

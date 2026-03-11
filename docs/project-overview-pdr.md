@@ -1,8 +1,8 @@
-# ToneWriter — Product Development Requirements
+# Fast English — Product Development Requirements
 
 ## Vision
 
-ToneWriter eliminates the friction of rewriting text by bringing AI-powered writing tools directly to the user's cursor. Instead of switching to a browser or chat interface, users select text in any Windows app and get instant rewrites in a lightweight floating popup.
+Fast English eliminates the friction of rewriting text by bringing AI-powered writing tools directly to the user's cursor. Instead of switching to a browser or chat interface, users select text in any Windows app and get instant rewrites in a lightweight floating popup.
 
 ## Target Users
 

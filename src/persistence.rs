@@ -2,7 +2,7 @@ use anyhow::Result;
 
 /// API key storage — encrypted with Windows DPAPI (user-scope).
 ///
-/// Keys are stored in `%APPDATA%/ToneWriter/{provider}.key` but the content
+/// Keys are stored in `%APPDATA%/FastEnglish/{provider}.key` but the content
 /// is encrypted via `CryptProtectData` / `CryptUnprotectData` (DPAPI).
 /// Only the same Windows user account can decrypt them.
 pub struct KeyStore;
@@ -45,7 +45,7 @@ impl KeyStore {
 fn key_path(account: &str) -> std::path::PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("ToneWriter")
+        .join("FastEnglish")
         .join(format!("{}.key", account))
 }
 
@@ -140,9 +140,9 @@ pub fn set_auto_start(enabled: bool) -> Result<()> {
 
     if enabled {
         let exe_path = std::env::current_exe()?;
-        key.set_value("ToneWriter", &exe_path.to_string_lossy().to_string())?;
+        key.set_value("FastEnglish", &exe_path.to_string_lossy().to_string())?;
     } else {
-        let _ = key.delete_value("ToneWriter");
+        let _ = key.delete_value("FastEnglish");
     }
     Ok(())
 }

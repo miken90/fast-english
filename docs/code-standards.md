@@ -1,4 +1,4 @@
-# ToneWriter — Code Standards
+# Fast English — Code Standards
 
 ## File Organization
 

@@ -16,10 +16,10 @@ use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("tone_writer=info".parse()?))
+        .with_env_filter(EnvFilter::from_default_env().add_directive("fast_english=info".parse()?))
         .init();
 
-    info!("ToneWriter starting...");
+    info!("Fast English starting...");
 
     // Initialize COM as STA on the main thread.
     // STA is required for tray-icon/global-hotkey Win32 message loop.
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     #[cfg(target_os = "windows")]
     let _tray = ui::tray::create_tray(event_tx.clone());
 
-    info!("ToneWriter ready");
+    info!("Fast English ready");
 
     // Run the iced daemon (blocks until exit).
     // The daemon manages the popup window lifecycle and bridges external events.
@@ -76,6 +76,6 @@ fn main() -> Result<()> {
         CoUninitialize();
     }
 
-    info!("ToneWriter exited");
+    info!("Fast English exited");
     Ok(())
 }
