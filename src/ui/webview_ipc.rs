@@ -20,13 +20,26 @@ pub struct SettingsFormPayload {
     pub auto_start: bool,
 }
 
+/// Payload for translate confirmation. `text` is optional for backward compatibility.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranslateConfirmPayload {
+    pub from: String,
+    pub to: String,
+    #[serde(default)]
+    pub text: Option<String>,
+}
+
 /// Messages sent from JavaScript to Rust via window.ipc.postMessage.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum JsToRust {
     // Popup actions
-    ToolSelected { kind: String },
-    ToneSelected { tone_id: String },
+    ToolSelected {
+        kind: String,
+    },
+    ToneSelected {
+        tone_id: String,
+    },
     Dismiss,
     BackToOptions,
     CopyResult,
@@ -34,19 +47,28 @@ pub enum JsToRust {
     Retry,
     OpenSettings,
     // Translate actions
-    TranslateFromChanged { lang_id: String },
-    TranslateToChanged { lang_id: String },
+    TranslateFromChanged {
+        lang_id: String,
+    },
+    TranslateToChanged {
+        lang_id: String,
+    },
     TranslateSwapLangs,
-    TranslateConfirm { from: String, to: String },
+    TranslateConfirm(TranslateConfirmPayload),
     TranslateCopyResult,
     TranslateReplaceResult,
     // Settings actions
-    SettingsChanged { field: String, value: serde_json::Value },
+    SettingsChanged {
+        field: String,
+        value: serde_json::Value,
+    },
     TestConnection(SettingsFormPayload),
     SaveSettings(SettingsFormPayload),
     CloseSettings,
     // Layout
-    ResizePopup { height: f64 },
+    ResizePopup {
+        height: f64,
+    },
 }
 
 impl RustToJs {

@@ -12,11 +12,12 @@ pub struct OpenAIClient {
 }
 
 impl OpenAIClient {
-    pub fn new(api_key: String, base_url: String, model: String) -> Result<Self> {
-        let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
-
+    pub fn new(
+        api_key: String,
+        base_url: String,
+        model: String,
+        http: reqwest::Client,
+    ) -> Result<Self> {
         Ok(Self {
             api_key,
             base_url,

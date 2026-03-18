@@ -22,9 +22,6 @@ windows = { version = "0.58", features = [
 ] }
 uiautomation = { version = "0.24", features = ["all"] }
 
-# UI
-iced = { version = "0.13", features = ["tokio"] }
-
 # WebView
 wry = "0.54"
 tao = "0.34"

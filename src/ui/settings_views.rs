@@ -42,6 +42,10 @@ impl SettingsForm {
 
     /// Apply form values back to AppSettings and persist keys.
     pub fn apply_to_settings(&self, settings: &mut AppSettings) -> Result<(), String> {
+        if !self.base_url.trim_start().starts_with("https://") {
+            return Err("Base URL must start with https://".to_string());
+        }
+
         settings.base_url = self.base_url.clone();
         settings.model = self.model.clone();
         settings.auto_popup_enabled = self.auto_popup;
