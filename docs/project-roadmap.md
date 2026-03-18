@@ -9,9 +9,10 @@
 - [x] Text selection detection via UI Automation APIs (polling every 350ms)
 - [x] Multi-tier selection: UIA Text Pattern → UIA Value Pattern → clipboard fallback
 - [x] Selection debounce (700ms stable selection before trigger)
-- [x] Floating popup near selected text (iced UI)
+- [x] Floating popup near selected text (WebView2 UI)
 - [x] Global hotkey `Ctrl+Alt+T` to trigger popup (fresh clipboard capture)
 - [x] Three writing tools: Enhance Writing, Change Tone, Fix Grammar
+- [x] Translate feature supporting multiple source and target languages
 - [x] Six tone options: Professional, Casual, Formal, Friendly, Concise, Confident
 - [x] OpenAI integration (gpt-4.1-mini)
 - [x] Anthropic integration (claude-3-5-sonnet-latest)
@@ -22,6 +23,8 @@
 - [x] Copy feedback with 1.5s auto-dismiss
 - [x] Auto-start with Windows (Registry HKCU Run key)
 - [x] Portable exe + Inno Setup installer
+- [x] Architecture migration from iced to WebView2 (wry/tao)
+- [x] Refreshed app icon, branding, and tray icons
 
 ### Known Limitations
 - No unit or integration tests

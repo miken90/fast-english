@@ -53,7 +53,7 @@
 | `persistence.rs` | Persist settings in `%APPDATA%/FastEnglish/`; API keys protected with DPAPI. |
 | `hotkey.rs` | Registers global `Ctrl+Alt+T`, emits `AppEvent::HotkeyPressed`. |
 
-### UI (WebView Cutover)
+### UI (WebView2)
 
 | Component | Role |
 |---|---|
@@ -64,7 +64,7 @@
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. |
 | `ui/settings_views.rs` | Rust-side `SettingsForm` model + apply/persist logic used by WebView settings flow. |
 | `assets/popup/*` | Offline popup/settings frontend assets (HTML/CSS/JS) inlined into WebView at runtime. |
-| `ui/popup_views.rs`, `ui/popup_window.rs` | Legacy iced compatibility stubs kept to avoid abrupt API churn during cutover. |
+| `ui/popup_views.rs`, `ui/popup_window.rs` | Deprecated iced UI stubs set for removal. |
 
 ### AI, Selection, Editing
 

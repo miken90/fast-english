@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Windows 10 or later
+- Windows 10 or later (Microsoft Edge WebView2 Runtime required)
 - Rust toolchain (1.75+) via [rustup](https://rustup.rs/)
 - Visual Studio Build Tools with MSVC and Windows 10 SDK
 
@@ -79,6 +79,10 @@ The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script f
 Settings are stored as JSON in `%APPDATA%/FastEnglish/settings.json`. API keys are encrypted via Windows DPAPI.
 
 ## Troubleshooting
+
+### Initialization Failure
+
+1. **WebView2 Runtime missing**: Fast English requires the Microsoft Edge WebView2 Runtime. It is usually pre-installed on modern Windows versions. If missing, [download and install it](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
 
 ### Popup doesn't appear when I select text
 

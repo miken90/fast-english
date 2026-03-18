@@ -5,7 +5,7 @@
 ### Directory Convention
 - Group files by feature/responsibility (`ai/`, `selection/`, `editing/`, `ui/`).
 - Keep core orchestration at `src/` root (`main.rs`, `app.rs`, `settings.rs`, `persistence.rs`, `hotkey.rs`).
-- For UI migration compatibility, legacy iced stubs may remain until explicitly removed.
+- Deprecated iced stubs (e.g., `popup_views.rs`, `popup_window.rs`) should not be modified and will be completely removed in a future PR once WebView is finalized.
 
 ### File Naming
 - **snake_case** for Rust files.
@@ -50,7 +50,7 @@
 - Popup and settings windows live in separate modules (`webview_popup.rs`, `webview_settings.rs`).
 - Validate WebView2 runtime before starting window loop.
 - Keep non-Windows stubs behind `#[cfg(not(target_os = "windows"))]`.
-- Inline local HTML/CSS/JS assets via `include_str!` for offline/runtime-stable loading.
+- Store local HTML/CSS/JS assets in `assets/popup/` and inline them via `include_str!` for offline/runtime-stable loading.
 
 ### IPC Message Format
 - Use serde-tagged envelope format:

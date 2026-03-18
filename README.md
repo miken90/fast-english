@@ -11,9 +11,10 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
   - **Enhance Writing** — improve clarity and flow
   - **Change Tone** — rewrite in Professional, Casual, Formal, Friendly, Concise, or Confident tone
   - **Fix Grammar** — correct grammar and spelling errors
+  - **Translate** — seamlessly translate selected text between languages
 - **AI providers** — supports OpenAI (gpt-4.1-mini) and Anthropic (claude-3-5-sonnet-latest)
 - **In-place replacement** — replaces selected text directly via UI Automation or clipboard fallback
-- **Native Rust** — built with Rust, iced UI framework, and Windows APIs
+- **Native Rust** — built with Rust, WebView2 (wry/tao), and Windows APIs
 
 ## Requirements
 
@@ -101,22 +102,42 @@ src/
 │   └── clipboard.rs           # Clipboard read/write operations
 └── ui/
     ├── mod.rs                 # UI module exports
-    ├── popup.rs               # Iced daemon (popup lifecycle, event bridge)
-    ├── popup_window.rs        # Win32 popup window management
-    ├── popup_views.rs         # Popup UI views (options, tone picker, result)
-    ├── popup_ai.rs            # AI request handling from popup
-    ├── popup_position.rs      # Popup positioning near selection
-    ├── settings_views.rs      # Settings UI views
-    └── tray.rs                # System tray icon and menu
+    ├── webview_popup.rs       # WebView2 popup window (primary)
+    ├── webview_settings.rs    # WebView2 settings window (primary)
+    ├── webview_bridge.rs      # Rust↔JS IPC bridge
+    ├── webview_ipc.rs         # IPC message types
+    ├── tray.rs                # System tray icon and menu (embedded PNG)
+    ├── popup.rs               # (DEPRECATED stub)
+    ├── popup_window.rs        # (DEPRECATED stub)
+    ├── popup_views.rs         # (DEPRECATED stub)
+    ├── popup_ai.rs            # (DEPRECATED stub)
+    ├── popup_position.rs      # (DEPRECATED stub)
+    └── settings_views.rs      # (DEPRECATED stub)
+
+assets/
+├── popup/
+│   ├── index.html             # Popup HTML
+│   ├── popup.js               # Popup JavaScript logic
+│   ├── popup.css              # Popup styles
+│   ├── settings.html          # Settings HTML
+│   ├── settings.js            # Settings JavaScript
+│   └── settings.css           # Settings styles
+
+resources/
+├── app.ico                    # Application icon
+├── app.rc                     # Windows resource file
+├── tray_dark.png              # Dark mode tray icon
+└── tray_light.png             # Light mode tray icon
 ```
 
 ## Architecture Overview
 
-Fast English follows a centralized state machine pattern:
+Fast English uses a hybrid Rust + WebView2 architecture:
 
-- **main.rs** initializes COM, loads settings, starts async runtime, and launches the iced daemon
+- **main.rs** initializes COM, loads settings, starts async runtime, and launches the WebView2 UI
 - **AppEvent** channel bridges background threads (tray, hotkey, selection monitor) into the UI
-- **PopupState** enum drives the popup UI rendering
+- **PopupState** enum drives the UI state, mirrored to JS via the Rust↔JS bridge
+- **WebView2** (wry/tao) hosts the frontend using standard web technologies (HTML/CSS/JS)
 - **Selection monitor** polls via Windows UI Automation APIs every 350ms
 - **AI layer** uses a trait-based design (`AIClient`) with swappable provider implementations
 - **Text replacement** via UI Automation setValue or clipboard paste fallback

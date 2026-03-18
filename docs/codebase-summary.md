@@ -18,7 +18,7 @@ fast-english/
 ├── build.rs
 ├── src/
 │   ├── main.rs                            # Entry point, COM init, runtime wiring
-│   ├── app.rs                             # PopupState, AppEvent, writing tool models
+│   ├── app.rs                             # PopupState, AppEvent, writing tool and translation models
 │   ├── hotkey.rs                          # Global Ctrl+Alt+T registration
 │   ├── settings.rs                        # Settings model
 │   ├── persistence.rs                     # JSON storage + DPAPI key storage
@@ -93,5 +93,5 @@ fast-english/
 
 ## Current Notes
 
-- `src/ui/popup.rs` is large (~700 LOC) and a future modularization candidate.
+- `src/ui/popup.rs` is large and a future modularization candidate.
 - Build/lint currently complete with warnings (dead code and minor clippy suggestions) but no hard failures.

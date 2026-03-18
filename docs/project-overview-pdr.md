@@ -40,6 +40,7 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 | Enhance Writing | Improve clarity, flow, and readability | — |
 | Change Tone | Rewrite in a specific tone | Professional, Casual, Formal, Friendly, Concise, Confident |
 | Fix Grammar | Correct grammar and spelling | — |
+| Translate | Translate text between languages | Source and target languages |
 
 ### 4. AI Provider Integration
 - Supports OpenAI and Anthropic APIs
@@ -60,7 +61,7 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 
 ## Technical Constraints
 
-- Windows 10+ only (UI Automation, iced UI framework)
+- Windows 10+ only (UI Automation, WebView2 runtime dependency)
 - AI features require user-provided API key (no bundled keys)
 - System tray app (no main window)
 
