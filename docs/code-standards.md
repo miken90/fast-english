@@ -3,128 +3,95 @@
 ## File Organization
 
 ### Directory Convention
-- Group files by **feature/responsibility**, not by type
-- Top-level modules: `ai/`, `selection/`, `editing/`, `ui/`
-- Core files at `src/` root: `main.rs`, `app.rs`, `settings.rs`, `persistence.rs`, `hotkey.rs`
+- Group files by feature/responsibility (`ai/`, `selection/`, `editing/`, `ui/`).
+- Keep core orchestration at `src/` root (`main.rs`, `app.rs`, `settings.rs`, `persistence.rs`, `hotkey.rs`).
+- For UI migration compatibility, legacy iced stubs may remain until explicitly removed.
 
 ### File Naming
-- **snake_case** for all Rust source files
-- One primary type/module per file
-- Keep files under 200 lines where possible
-
-### File Structure (within a file)
-```rust
-// 1. Imports
-use crate::app::AppEvent;
-use anyhow::Result;
-
-// 2. Constants
-const POLL_INTERVAL: Duration = Duration::from_millis(350);
-
-// 3. Type definitions (structs, enums, traits)
-pub struct SelectionContext { ... }
-
-// 4. Implementations
-impl SelectionContext { ... }
-
-// 5. Free functions
-pub fn detect_selection() -> Option<SelectionContext> { ... }
-```
+- **snake_case** for Rust files.
+- One primary module responsibility per file.
+- Prefer files under 200 lines; if larger, document reason and plan modularization.
 
 ## Naming Conventions
 
 ### Types
-- **Structs**: PascalCase — `SelectionContext`, `AppSettings`, `ProviderConfig`
-- **Enums**: PascalCase, variants in PascalCase — `AIProvider::OpenAI`, `PopupState::Hidden`
-- **Traits**: PascalCase — `AIClient`
+- Structs/enums/traits: PascalCase.
+- Enum variants: PascalCase.
+- Keep IPC enum variant names action-oriented (`ToolSelected`, `SaveSettings`, etc.).
 
 ### Functions and Methods
-- **snake_case** — `detect_selection()`, `test_connection()`, `clean_output()`
-- **Boolean methods**: prefix with `is_`, `has_`, `should_`
+- snake_case (`start_ai_request`, `check_webview2_runtime`).
+- Boolean helpers prefixed with `is_`, `has_`, `should_`.
 
 ### Constants
-- **SCREAMING_SNAKE_CASE** — `POLL_INTERVAL`, `POPUP_WIDTH`
+- SCREAMING_SNAKE_CASE (`POLL_INTERVAL`, `RESULT_HEIGHT`).
 
-## Rust Patterns
+## Rust Runtime Patterns
 
-### Concurrency Model
-- **tokio** for async runtime (multi-threaded)
-- **tokio::sync::mpsc** for cross-component event channel
-- **async/await** for AI network calls and selection polling
-- COM initialized as STA on main thread
+### Concurrency and Threads
+- Use tokio runtime for async background work (selection polling, AI HTTP).
+- Use `tokio::mpsc` for app/event orchestration.
+- For WebView windows, run `tao::EventLoop` on dedicated OS threads.
+- Bridge tokio <-> tao using explicit channels (`std::mpsc` + `EventLoopProxy`).
 
 ### State Management
-```rust
-pub enum PopupState {
-    Hidden,
-    Options(SelectionContext),
-    ToneSelection(SelectionContext),
-    Processing { context: SelectionContext, tool: WritingToolKind },
-    Result { context: SelectionContext, tool: WritingToolKind, output: String },
-    Error { context: SelectionContext, message: String },
-}
-```
-- Enum with associated data for state + context
-- Iced views match on state enum for rendering
-
-### Trait-Based Abstraction
-```rust
-#[async_trait]
-pub trait AIClient: Send + Sync {
-    async fn process(&self, text: &str, instruction: &str) -> Result<String>;
-    async fn test_connection(&self) -> Result<String>;
-}
-```
-- Trait objects for swappable components
-- Enables adding new AI providers without modifying consumers
+- `PopupState` is canonical business/UI state authority.
+- WebView frontends render state snapshots provided by Rust; JS must not invent backend state.
+- Keep state transitions centralized in runtime coordinator (`ui/popup.rs`).
 
 ### Error Handling
-- Use `anyhow::Result` for application-level errors
-- Use `tracing` for structured logging
-- Map errors to user-visible state (`PopupState::Error`)
+- Use `anyhow::Result` for app-level fallible boundaries.
+- Convert operational failures into user-visible state (`PopupState::Error`) where relevant.
+- Log errors with `tracing` and enough context for debugging.
 
-## UI Patterns
+## WebView and IPC Standards
 
-### Iced Framework
-- **Daemon pattern**: `iced::daemon` for popup lifecycle management
-- Views driven by `PopupState` enum via pattern matching
-- Win32 interop for window management (topmost, positioning)
+### WebView Module Conventions
+- Popup and settings windows live in separate modules (`webview_popup.rs`, `webview_settings.rs`).
+- Validate WebView2 runtime before starting window loop.
+- Keep non-Windows stubs behind `#[cfg(not(target_os = "windows"))]`.
+- Inline local HTML/CSS/JS assets via `include_str!` for offline/runtime-stable loading.
 
-### System Tray
-- `tray-icon` crate for system tray icon and menu
-- Events sent via `AppEvent` channel
+### IPC Message Format
+- Use serde-tagged envelope format:
 
-## Code Quality Guidelines
+```json
+{
+  "type": "MessageKind",
+  "payload": { "field": "value" }
+}
+```
 
-### General
-- Prefer immutable bindings (`let` over `let mut`)
-- Use `pub` only when needed; default to private
-- Keep functions focused — one responsibility per function
+- Define message contracts in a single place (`webview_ipc.rs`).
+- JS->Rust payloads must deserialize into typed enums (`JsToRust`).
+- Rust->JS updates should be generated from typed state and serialized JSON helpers.
 
-### `unsafe` Code
-- Required for Win32 FFI: DPAPI (`CryptProtectData`/`CryptUnprotectData`), COM STA init
-- Keep `unsafe` blocks as small as possible — wrap in safe helper functions
-- Document the safety invariants with `// SAFETY:` comments
+### IPC Safety Rules
+- Validate/parse all inbound IPC with typed deserialization and explicit error logging.
+- Never pass raw API keys/secrets into JS payloads.
+- Escape user/AI text before embedding in HTML-rendered UI state (`escape_html`).
 
-### Platform-Specific Code
-- Use `#[cfg(target_os = "windows")]` for platform-gated items
-- Currently Windows-only; no cross-platform abstractions needed
+## Settings and Persistence Pattern
 
-### Logging
-- Use `tracing` crate (`info!`, `warn!`, `error!`, `debug!`) for structured logging
-- Log at boundaries: AI calls, selection detection, text replacement, errors
-- Never log API keys or user text content
+- Use `SettingsForm` as mutable UI-edit model.
+- Apply form changes back to `AppSettings` via explicit `apply_to_settings` routine.
+- Persist API keys only through DPAPI-backed storage.
 
-### Settings Form Pattern
-- `AppSettings` — persisted settings (loaded/saved via `persistence.rs`)
-- `SettingsForm` — mutable copy used in the settings UI for editing
-- On save, `SettingsForm` fields are written back to `AppSettings` and persisted
-- This separates in-flight UI edits from committed settings
+## Platform-Specific Rules
 
-### File Size
-- Target under 200 lines per file
-- Extract submodules when files grow too large
+- Windows-only app behavior is acceptable; gate platform specifics with `#[cfg(target_os = "windows")]`.
+- Keep Win32 `unsafe` blocks minimal and document safety assumptions.
 
-### Formatting
-- Standard `rustfmt` formatting
-- 4-space indentation
+## Logging and Security
+
+- Use structured `tracing` logs (`info!`, `debug!`, `warn!`, `error!`).
+- Log lifecycle boundaries (startup, WebView runtime checks, IPC parse errors, AI/edit failures).
+- Never log secrets or full sensitive user content.
+
+## Quality Gates
+
+- Required verification (PowerShell on Windows path):
+  - `cargo check`
+  - `cargo fmt --check`
+  - `cargo clippy`
+- Warnings may exist temporarily, but new code should avoid introducing avoidable lint/format issues.

@@ -3,118 +3,95 @@
 ## Overview
 
 - **Language**: Rust (2021 edition)
-- **UI Framework**: iced 0.13
 - **Platform**: Windows 10+
+- **UI Stack**: WebView2 via `wry` + `tao` (WebView popup + settings windows)
 - **Build system**: Cargo
-- **Key dependencies**: windows (Win32 APIs), uiautomation, iced, tray-icon, global-hotkey, reqwest, tokio
-- **Tests**: None currently
+- **Key dependencies**: `windows`, `uiautomation`, `wry`, `tao`, `tray-icon`, `global-hotkey`, `reqwest`, `tokio`
+- **Tests**: limited module-level tests (for IPC serde); no broad integration/E2E suite yet
 
 ## Directory Structure
 
-```
+```text
 fast-english/
-├── Cargo.toml                             # Rust package manifest
-├── Cargo.lock                             # Dependency lock file
-├── build.rs                               # Build script (resource embedding)
+├── Cargo.toml
+├── Cargo.lock
+├── build.rs
 ├── src/
-│   ├── main.rs                            # Entry point, COM init, runtime
-│   ├── app.rs                             # State machine, events, tool types
+│   ├── main.rs                            # Entry point, COM init, runtime wiring
+│   ├── app.rs                             # PopupState, AppEvent, writing tool models
 │   ├── hotkey.rs                          # Global Ctrl+Alt+T registration
 │   ├── settings.rs                        # Settings model
-│   ├── persistence.rs                     # JSON file-based storage
-│   ├── ai/                                # AI provider clients & prompts
-│   │   └── mod.rs                         # Module exports
-│   ├── selection/                         # Text selection monitoring (UIA)
-│   │   └── mod.rs                         # SelectionContext, Rect types
-│   ├── editing/                           # Text replacement services
-│   │   └── mod.rs                         # Module exports
-│   └── ui/                                # All UI components
-│       ├── mod.rs                         # Module exports
-│       ├── popup*.rs                      # Floating popup (iced daemon)
-│       ├── settings_views.rs              # Settings UI
-│       └── tray.rs                        # System tray icon
-├── resources/                             # Windows resources (manifest, rc)
+│   ├── persistence.rs                     # JSON storage + DPAPI key storage
+│   ├── ai/
+│   │   ├── client.rs                      # AIClient trait
+│   │   ├── openai.rs                      # OpenAI client
+│   │   ├── anthropic.rs                   # Anthropic client
+│   │   ├── prompt.rs                      # Prompt/output normalization
+│   │   └── mod.rs
+│   ├── selection/
+│   │   ├── monitor.rs                     # Polling + debounce + manual capture
+│   │   ├── uia_text.rs                    # UIA text pattern detection
+│   │   ├── uia_value.rs                   # UIA value pattern detection
+│   │   ├── clipboard_fallback.rs          # Ctrl+C fallback capture
+│   │   └── mod.rs
+│   ├── editing/
+│   │   ├── text_service.rs                # Replace selection flow
+│   │   ├── clipboard.rs                   # Clipboard helpers
+│   │   └── mod.rs
+│   └── ui/
+│       ├── mod.rs
+│       ├── popup.rs                       # WebView runtime/state coordinator
+│       ├── webview_popup.rs               # Popup WebView thread (tao+wry)
+│       ├── webview_settings.rs            # Settings WebView thread
+│       ├── webview_bridge.rs              # Popup/settings state -> JSON bridge
+│       ├── webview_ipc.rs                 # Typed Rust<->JS IPC contracts
+│       ├── popup_position.rs              # Popup placement utilities
+│       ├── settings_views.rs              # Rust settings form model/apply logic
+│       ├── tray.rs                        # System tray menu/events
+│       ├── popup_ai.rs                    # Shared AI helpers used by popup runtime
+│       ├── popup_views.rs                 # Deprecated iced popup stub
+│       ├── popup_window.rs                # Deprecated iced window stub
+│       └── theme.rs                       # Legacy theme constants (currently unused)
+├── assets/
+│   └── popup/
+│       ├── index.html                     # Popup UI markup
+│       ├── popup.css                      # Popup styling
+│       ├── popup.js                       # Popup client logic + IPC posts
+│       ├── settings.html                  # Settings UI markup
+│       ├── settings.css                   # Settings styling
+│       └── settings.js                    # Settings client logic + IPC posts
+├── resources/
 ├── scripts/
-│   └── build-release.ps1                  # Release build script
 ├── installer/
-│   └── FastEnglish.iss                    # Inno Setup installer config
-└── docs/                                  # Project documentation
+└── docs/
 ```
 
-## Module Descriptions
-
-### Core (`src/`)
+## UI Module Summary (`src/ui/`)
 
 | File | Purpose |
-|------|---------|
-| `main.rs` | Entry point; COM init (STA), settings load, tokio runtime, iced daemon launch |
-| `app.rs` | `PopupState` enum, `AppEvent` channel events, `WritingToolKind`, `ToneOption` |
-| `hotkey.rs` | Registers `Ctrl+Alt+T` via `global-hotkey` crate |
-| `settings.rs` | `AIProvider`, `ProviderConfig`, `AppSettings` models |
-| `persistence.rs` | JSON file storage in `%APPDATA%/FastEnglish/`, DPAPI-encrypted API keys |
+|---|---|
+| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls, copy/replace flows, and pushes state to WebViews. |
+| `webview_popup.rs` | Popup window lifecycle on dedicated thread; show/hide/resize/set-state command handling. |
+| `webview_settings.rs` | Settings window lifecycle on dedicated thread; settings/test/save feedback command handling. |
+| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers. |
+| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper. |
+| `settings_views.rs` | Mutable `SettingsForm` model + persistence apply routine reused by WebView settings flow. |
+| `popup_position.rs` | Calculates popup position and state-dependent heights. |
+| `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
+| `popup_ai.rs` | Provider client creation + tool instruction helpers used by popup runtime. |
+| `popup_views.rs` / `popup_window.rs` | Deprecated iced modules retained as compatibility stubs. |
 
-### AI (`src/ai/`)
+## Runtime Patterns
 
-| File | Purpose |
-|------|---------|
-| `mod.rs` | Module exports and re-exports |
-| `client.rs` | `AIClient` trait definition |
-| `openai.rs` | OpenAI Chat Completions API client via reqwest |
-| `anthropic.rs` | Anthropic Messages API client via reqwest |
-| `prompt.rs` | System/user prompt construction, output cleaning |
+- **Event-driven core**: `AppEvent` channel drives runtime transitions.
+- **Popup state authority**: `PopupState` remains single source of truth; JS mirrors Rust state.
+- **Two-thread WebView UI model**: popup and settings each run on dedicated `tao` event-loop threads.
+- **Typed IPC contracts**: JSON messages use `{ type, payload }` and deserialize into `JsToRust`.
+- **Safe output rendering**: bridge escapes AI output before injecting into JS state payloads.
+- **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
+- **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
 
-### Selection (`src/selection/`)
+## Current Notes
 
-| File | Purpose |
-|------|---------|
-| `mod.rs` | `SelectionContext`, `Rect` types, module exports |
-| `monitor.rs` | Polling loop (350ms) with 700ms debounce for selection changes |
-| `uia_text.rs` | UI Automation Text Pattern detection |
-| `uia_value.rs` | UI Automation Value Pattern detection |
-| `clipboard_fallback.rs` | Clipboard-based selection detection fallback |
-
-### Editing (`src/editing/`)
-
-| File | Purpose |
-|------|---------|
-| `mod.rs` | Module exports |
-| `text_service.rs` | Text replacement via UIA SetValue + clipboard paste fallback |
-| `clipboard.rs` | Clipboard read/write, save/restore, simulated Ctrl+V |
-
-### UI (`src/ui/`)
-
-| File | Purpose |
-|------|---------|
-| `mod.rs` | Module exports |
-| `popup.rs` | Iced daemon managing popup lifecycle and event bridge (427 LOC — modularization candidate) |
-| `popup_window.rs` | Win32 popup window creation and management |
-| `popup_views.rs` | Popup UI views (options, tone picker, result, error) |
-| `popup_ai.rs` | AI request handling triggered from popup |
-| `popup_position.rs` | Popup positioning near selection bounds |
-| `settings_views.rs` | Settings UI views |
-| `tray.rs` | System tray icon and context menu |
-
-## Lines of Code
-
-| Module | Files | LOC (approx) |
-|--------|-------|---------------|
-| Core (`src/`) | 5 | 536 |
-| AI (`src/ai/`) | 5 (incl. `mod.rs`) | 306 |
-| Selection (`src/selection/`) | 5 (incl. `mod.rs`) | 450 |
-| Editing (`src/editing/`) | 3 (incl. `mod.rs`) | 110 |
-| UI (`src/ui/`) | 8 (incl. `mod.rs`) | 948 |
-| **Total** | **26** | **~2,350** |
-
-> ⚠️ `src/ui/popup.rs` is 427 lines — the largest file and a modularization candidate (target <200 lines).
-
-## Key Patterns
-
-- **Event-driven architecture**: `AppEvent` channel bridges background threads into iced UI
-- **Trait-based DI**: `AIClient` trait enables swappable AI provider implementations
-- **Enum-driven UI**: `PopupState` enum drives popup view rendering
-- **Polling-based selection**: Timer-driven UIA polling (350ms) with 700ms debounce for stable selection
-- **Multi-tier detection**: UIA Text Pattern → UIA Value Pattern → clipboard fallback
-- **Layered text editing**: UIA setValue → clipboard paste fallback chain
-- **Settings form pattern**: Separate `SettingsForm` struct for UI editing vs persisted `AppSettings`
-- **Copy feedback**: 1.5s auto-dismiss timer subscription after copy action
-- **DPAPI encryption**: `CryptProtectData`/`CryptUnprotectData` for API key storage at rest
+- `src/ui/popup.rs` is large (~700 LOC) and a future modularization candidate.
+- Build/lint currently complete with warnings (dead code and minor clippy suggestions) but no hard failures.

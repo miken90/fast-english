@@ -3,44 +3,42 @@
 ## High-Level Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Fast English App                    │
-│                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ main.rs  │→ │ app.rs   │  │ settings.rs      │  │
-│  │ COM init │  │ State    │  │ persistence.rs   │  │
-│  │ Runtime  │  │ Machine  │  │ (JSON + DPAPI)   │  │
-│  └──────────┘  └──────────┘  └──────────────────┘  │
-│       │              ↕                              │
-│  ┌────┴────────────────────────────────────────┐    │
-│  │         AppEvent Channel (tokio mpsc)        │    │
-│  └────┬────────┬────────┬──────────┬───────────┘    │
-│       ↓        ↓        ↓          ↓                │
-│  ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────────┐   │
-│  │ tray   │ │hotkey│ │monitor │ │ popup (iced)  │   │
-│  │        │ │Ctrl+ │ │UIA poll│ │ views, AI,    │   │
-│  │        │ │Alt+T │ │ 350ms  │ │ positioning   │   │
-│  └────────┘ └──────┘ └────────┘ └──────────────┘   │
-│                          ↕              ↕           │
-│                    ┌──────────┐  ┌─────────────┐    │
-│                    │selection │  │ editing     │    │
-│                    │ UIA Text │  │ UIA SetValue│    │
-│                    │ UIA Value│  │ Clipboard   │    │
-│                    │ Clipboard│  │ fallback    │    │
-│                    └──────────┘  └─────────────┘    │
-│                                        ↕           │
-│                                 ┌─────────────┐    │
-│                                 │ ai/         │    │
-│                                 │ OpenAI      │    │
-│                                 │ Anthropic   │    │
-│                                 │ PromptBuilder│    │
-│                                 └─────────────┘    │
-└─────────────────────────────────────────────────────┘
-         ↕                    ↕              ↕
-   ┌──────────┐        ┌──────────┐   ┌──────────┐
-   │ Win32    │        │ OpenAI   │   │Anthropic │
-   │ UIA APIs │        │ API      │   │ API      │
-   └──────────┘        └──────────┘   └──────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           Fast English (Windows)                            │
+│                                                                              │
+│  ┌───────────────┐     ┌─────────────────────────┐    ┌──────────────────┐ │
+│  │ main.rs       │     │ app.rs                  │    │ settings.rs      │ │
+│  │ COM STA init  │────▶│ PopupState + AppEvent   │◀──▶│ persistence.rs   │ │
+│  │ runtime setup │     │ tool + translate models │    │ JSON + DPAPI     │ │
+│  └───────┬───────┘     └─────────────┬───────────┘    └──────────────────┘ │
+│          │                           │                                      │
+│          │                  tokio::mpsc AppEvent channel                    │
+│          │                           │                                      │
+│  ┌───────▼────────┐         ┌────────▼─────────┐         ┌───────────────┐ │
+│  │ selection/*     │         │ ui/popup.rs      │         │ ui/tray.rs     │ │
+│  │ UIA polling     │────────▶│ WebView runtime   │◀────────│ tray + menu    │ │
+│  │ 350ms + debounce│         │ state orchestration│        │ + hotkey flow  │ │
+│  └────────────────┘         └───────┬──────────┘         └───────────────┘ │
+│                                      │                                        │
+│                   ┌──────────────────┴──────────────────┐                     │
+│                   │ Rust↔JS bridge (IPC + JSON state)   │                     │
+│                   │ webview_bridge.rs + webview_ipc.rs  │                     │
+│                   └───────────────┬──────────────────────┘                     │
+│                                   │                                            │
+│      ┌────────────────────────────┴─────────────────────────────┐              │
+│      │ Dedicated tao EventLoop threads (wry WebView)            │              │
+│      │ - webview_popup.rs    (floating popup)                   │              │
+│      │ - webview_settings.rs (settings window)                  │              │
+│      └────────────────────────────┬──────────────────────────────┘              │
+│                                   │                                            │
+│                         assets/popup/*.html|css|js                             │
+│                                                                              │
+│  ┌─────────────────────┐                 ┌──────────────────────────────────┐ │
+│  │ ai/*                │                 │ editing/*                         │ │
+│  │ OpenAI/Anthropic    │────────────────▶│ replace via UIA SetValue         │ │
+│  │ prompt cleaning     │                 │ fallback clipboard paste          │ │
+│  └─────────────────────┘                 └──────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Responsibilities
@@ -48,130 +46,98 @@
 ### Core
 
 | Component | Role |
-|-----------|------|
-| **main.rs** | Entry point. COM init (STA), settings load, tokio runtime, selection monitor start, hotkey/tray setup, iced daemon launch. |
-| **app.rs** | Defines `PopupState` enum (state machine), `AppEvent` (cross-component events), `WritingToolKind`, `ToneOption`. |
-| **settings.rs** | Data models: `AIProvider`, `ProviderConfig`, `AppSettings`. |
-| **persistence.rs** | JSON file storage in `%APPDATA%/FastEnglish/`. API keys encrypted via Windows DPAPI. |
-| **hotkey.rs** | Registers global `Ctrl+Alt+T` via `global-hotkey` crate. Sends `AppEvent::HotkeyPressed`. |
+|---|---|
+| `main.rs` | Entry point. COM STA init, settings load, tokio runtime, monitor/tray/hotkey wiring, starts WebView popup runtime. |
+| `app.rs` | Shared domain types: `PopupState`, `AppEvent`, `WritingToolKind`, tone/translate constants. |
+| `settings.rs` | App settings model (`AppSettings`, provider fields, toggles). |
+| `persistence.rs` | Persist settings in `%APPDATA%/FastEnglish/`; API keys protected with DPAPI. |
+| `hotkey.rs` | Registers global `Ctrl+Alt+T`, emits `AppEvent::HotkeyPressed`. |
 
-### UI
-
-| Component | Role |
-|-----------|------|
-| **tray.rs** | Creates system tray icon with context menu (Settings, Quit). |
-| **popup.rs** | Iced daemon managing popup lifecycle and bridging `AppEvent` into iced `Message`. |
-| **popup_window.rs** | Win32 window creation for popup (topmost, no taskbar). |
-| **popup_views.rs** | Iced views for each popup state (options, tone picker, processing, result, error). |
-| **popup_ai.rs** | Handles AI requests from the popup (creates client, processes, cleans output). |
-| **popup_position.rs** | Calculates popup position near selection bounds with screen-edge detection. |
-| **settings_views.rs** | Iced settings views for provider config and writing tools. |
-
-### AI
+### UI (WebView Cutover)
 
 | Component | Role |
-|-----------|------|
-| **client.rs** | `AIClient` trait: `process(text, instruction)` and `test_connection()`. |
-| **openai.rs** | OpenAI Chat Completions API client via reqwest. |
-| **anthropic.rs** | Anthropic Messages API client via reqwest. |
-| **prompt.rs** | Constructs system/user prompts. Strips AI commentary from output. |
+|---|---|
+| `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. |
+| `ui/webview_popup.rs` | Popup window thread (`tao` EventLoop + `wry` WebView), receives show/hide/resize/state commands, forwards JS events to Rust. |
+| `ui/webview_settings.rs` | Settings window thread (`tao` EventLoop + `wry` WebView), handles settings rendering and JS actions. |
+| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output. |
+| `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. |
+| `ui/settings_views.rs` | Rust-side `SettingsForm` model + apply/persist logic used by WebView settings flow. |
+| `assets/popup/*` | Offline popup/settings frontend assets (HTML/CSS/JS) inlined into WebView at runtime. |
+| `ui/popup_views.rs`, `ui/popup_window.rs` | Legacy iced compatibility stubs kept to avoid abrupt API churn during cutover. |
 
-### Selection
+### AI, Selection, Editing
 
-| Component | Role |
-|-----------|------|
-| **monitor.rs** | Async polling loop (350ms) with debounce. Detects selection changes, sends `AppEvent::TextSelected`. |
-| **uia_text.rs** | UI Automation Text Pattern — reads selected text from focused element. |
-| **uia_value.rs** | UI Automation Value Pattern — reads value and detects selection via clipboard snapshot. |
-| **clipboard_fallback.rs** | Simulates Ctrl+C to capture selection when UIA methods fail. |
+| Area | Key Modules | Role |
+|---|---|---|
+| AI | `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs` | Provider abstraction, API calls, prompt/output handling. |
+| Selection | `selection/monitor.rs`, `uia_text.rs`, `uia_value.rs`, `clipboard_fallback.rs` | Detect selected text (UIA tiers + clipboard fallback) and emit context events. |
+| Editing | `editing/text_service.rs`, `editing/clipboard.rs` | Replace selected text (UIA SetValue first, clipboard paste fallback). |
 
-### Editing
+## State Machine
 
-| Component | Role |
-|-----------|------|
-| **text_service.rs** | Replaces selected text. Tries UIA SetValue first, falls back to clipboard paste. |
-| **clipboard.rs** | Clipboard read/write, save/restore around paste operations, simulated Ctrl+V. |
+`PopupState` remains the source of truth for popup behavior:
 
-## State Machine — PopupState
+- `Hidden`
+- `Options(context)`
+- `ToneSelection(context)`
+- `TranslateSelection(context)`
+- `Processing { context, tool }`
+- `Result { context, tool, output }`
+- `TranslateResult { context }`
+- `Error { context, message }`
 
-```
-Hidden → Options(ctx)          [Selection detected or Ctrl+Alt+T]
-Options → ToneSelection(ctx)   [User clicks "Change Tone"]
-Options → Processing{ctx,tool} [User clicks "Enhance" or "Fix Grammar"]
-Options → Hidden               [Dismiss]
-ToneSelection → Processing     [User selects a tone]
-ToneSelection → Options        [Back]
-ToneSelection → Hidden         [Dismiss]
-Processing → Result{ctx,output}[AI response received]
-Processing → Error{ctx,msg}    [AI request failed]
-Result → Hidden                [Replace / Copy / Dismiss]
-Result → Options               [Try again]
-Error → Options                [Try again]
-Error → Hidden                 [Dismiss]
-```
+WebView rendering is a projection of `PopupState`, not a separate business-state machine.
 
-## Data Flow
+## IPC Message Flow (Rust ↔ JS)
 
-### Auto Selection Flow
+### Message shape
 
-1. User selects text in any app
-2. Selection monitor polls UIA (every 350ms), detects selection
-3. Debounce: waits 700ms for stable selection before firing
-4. `AppEvent::TextSelected(ctx)` sent via channel
-5. Iced daemon receives event, transitions to `PopupState::Options`
-6. Popup window shown near selection bounds
-7. User clicks a writing tool
-8. `PopupState::Processing` — AI request fires via reqwest
-9. AI response received → `PopupState::Result`
-10. User clicks Replace → `text_service` replaces text via UIA or clipboard
-
-### Manual Capture Flow (Hotkey / Tray)
-
-1. User presses `Ctrl+Alt+T` or clicks tray "Capture" item
-2. `AppEvent::HotkeyPressed` sent via channel
-3. Fresh clipboard capture performed (never uses cached selection)
-4. Popup transitions to `PopupState::Options` with new context
-
-### Copy Feedback
-
-- When user clicks "Copy" in the result view, text is copied to clipboard
-- A 1.5-second iced subscription timer triggers auto-dismiss of the feedback indicator
-
-### Selection Detection Pipeline
-
-```
-Timer fires (every 350ms)
-  → Tier 1: UIA Text Pattern (get selected text range)
-  → Tier 2: UIA Value Pattern (get element value + clipboard snapshot)
-  → Tier 3: Clipboard fallback (simulate Ctrl+C)
-  → Debounce: wait 700ms for stable selection
-  → Send AppEvent::TextSelected(context)
+```json
+{
+  "type": "ToolSelected",
+  "payload": { "kind": "enhance-writing" }
+}
 ```
 
-### Text Editing Pipeline
+- Rust receives JS events via `window.ipc.postMessage(...)` and deserializes into `JsToRust`.
+- Rust sends UI updates by evaluating scripts like `setState(<json>)`, where JSON comes from `webview_bridge`.
 
-```
-text_service::replace(context, new_text)
-  → Try: UIA SetValue on focused element
-    → Success? Done.
-    → Failure? Continue to fallback.
-  → Fallback: Clipboard paste
-    → Save current clipboard
-    → Write new text to clipboard
-    → Simulate Ctrl+V
-    → Restore original clipboard
-```
+### Typical interaction flow
+
+1. Selection monitor emits `AppEvent::TextSelected(context)`.
+2. `ui/popup.rs` updates `PopupState::Options(context)` and sends `WebViewPopupCommand::Show + SetState`.
+3. JS user action (for example `ToolSelected`) posts IPC to Rust.
+4. Rust transitions to `Processing`, executes AI request, then transitions to `Result`/`Error`.
+5. Rust sends fresh `SetState` JSON; JS re-renders view.
+6. Replace/copy actions route back through Rust editing/clipboard services.
 
 ## Threading Model
 
-- **Main thread**: Win32 message loop (STA COM), tray icon, hotkey listener
-- **Tokio runtime**: Selection monitor polling, AI network requests
-- **Iced daemon**: UI rendering and event processing (runs on main thread)
-- **AppEvent channel**: tokio mpsc bridges background threads to UI
+- **Main thread (Windows STA)**
+  - COM initialization/uninitialization.
+  - Startup wiring (settings, monitor spawn, tray, hotkey).
+  - Runs `ui::popup::run(...)` lifecycle.
+
+- **Tokio runtime (multi-thread)**
+  - Selection polling loop.
+  - AI network requests.
+  - Async internal event fan-in.
+
+- **WebView UI threads (blocking tao loops)**
+  - `webview-popup` thread: popup `tao::EventLoop<WebViewPopupCommand>`.
+  - `webview-settings` thread: settings `tao::EventLoop<SettingsCommand>`.
+  - Each has a command-forwarder thread (`std::mpsc` receiver → `EventLoopProxy`).
+
+- **Cross-thread bridges**
+  - `tokio::mpsc` for app/runtime events.
+  - `std::mpsc` for command delivery into tao loops.
+  - WebView IPC callbacks (`JsToRust`) re-enter tokio side through unbounded channel.
 
 ## Security Considerations
 
-- API keys encrypted via Windows DPAPI before storage
-- No API keys bundled in the app; user must provide their own
-- Network calls use HTTPS to AI provider endpoints
-- No analytics or telemetry; all data stays local
+- API keys are stored only in DPAPI-protected storage; not persisted in WebView assets.
+- User-facing text injected into HTML contexts is escaped in `webview_bridge::escape_html`.
+- IPC payloads are structured typed messages with serde deserialization boundaries.
+- All provider traffic remains HTTPS to configured endpoints.
+- No telemetry/analytics pipeline is introduced by WebView cutover.

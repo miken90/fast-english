@@ -1,0 +1,220 @@
+================================================================================
+                    WRY WEBVIEW RESEARCH - EXECUTIVE REPORT
+================================================================================
+
+PROJECT: Fast English Windows Desktop App
+TASK: Replace iced 0.13 popup UI with wry WebView for HTML/CSS/JS rendering
+DATE: March 17, 2026
+RESEARCHER: Agent (AI)
+
+================================================================================
+RESEARCH QUESTIONS ANSWERED: 5/5 ✓
+================================================================================
+
+Q1: wry crate latest version, API for frameless/transparent on Windows?
+─────────────────────────────────────────────────────────────────────────
+✓ ANSWER: Yes, fully supported.
+  Version: wry 0.54.3 (latest stable)
+  Dependency: tao 0.34.6 (window manager)
+  
+  CODE PATTERN:
+  .with_decorations(false)      // Remove title bar
+  .with_transparent(true)        // Enable transparency
+  .with_always_on_top(true)     // Popup behavior
+  .with_background_color((0,0,0,0))  // RGBA transparent
+
+  LIMITATION: Windows 7 NOT supported (alpha ignored)
+  REQUIREMENT: Windows 8+ only
+
+
+Q2: wry IPC - How to communicate Rust ↔ JavaScript?
+─────────────────────────────────────────────────────────────────────────
+✓ ANSWER: Two patterns supported.
+
+  PATTERN A (Recommended):
+    JS → Rust: window.ipc.postMessage(JSON.stringify(data))
+    Rust → JS: webview.evaluate_script("window.dispatchEvent(...)")
+  
+  PATTERN B (Alternative):
+    Use custom protocol for static assets
+    register with_custom_protocol("wry", handler)
+
+  IPC Handler signature:
+    .with_ipc_handler(move |request| {
+        let body = request.body();  // JSON string from JS
+        // Process and route to tokio async tasks
+    })
+
+
+Q3: wry + tao window management - positioning, resizing, show/hide?
+─────────────────────────────────────────────────────────────────────────
+✓ ANSWER: Full programmatic control via tao API.
+  
+  KEY METHODS:
+    window.set_inner_size(LogicalSize)
+    window.set_outer_position(LogicalPosition)
+    window.set_visible(bool)
+    window.set_always_on_top(bool)
+    window.focus()
+  
+  SUPPORTS:
+    - Positioning near cursor
+    - Dynamic resizing
+    - Show/hide without closing
+    - Always-on-top behavior
+
+
+Q4: wry vs tauri-lite - is wry standalone sufficient? Binary size impact?
+─────────────────────────────────────────────────────────────────────────
+✓ ANSWER: Use wry ONLY. Tauri not needed.
+  
+  COMPARISON:
+    wry only:    15-20 MB binary
+    Tauri:       40-60 MB binary
+  
+  YOUR USE CASE:
+    ✓ Only need popup, not full framework
+    ✓ IPC via ipc_handler is straightforward
+    ✓ No need for plugin system/auto-updater
+  
+  RECOMMENDATION: Skip Tauri overhead
+
+
+Q5: Can wry coexist with existing tokio runtime?
+─────────────────────────────────────────────────────────────────────────
+✓ ANSWER: YES, with proper threading pattern.
+  
+  KEY INSIGHT:
+    tao EventLoop is blocking → must run on separate thread
+    tokio runtime continues independently on main thread
+  
+  PATTERN:
+    1. Spawn std::thread for tao EventLoop (blocks)
+    2. Use Arc<Mutex<>> for shared state between threads
+    3. Use EventLoopProxy::send_event() for signaling
+    4. tokio continues in main thread (no blocking)
+  
+  INTEGRATION:
+    .with_ipc_handler() uses blocking_send() → safe in sync context
+    Route heavy work to tokio via mpsc channel
+
+
+================================================================================
+KEY FINDINGS & GOTCHAS
+================================================================================
+
+✅ WHAT WORKS:
+  - Transparent backgrounds (W8+)
+  - Borderless windows
+  - Always-on-top behavior
+  - Positioning & sizing
+  - CSS backdrop-filter, SVG, animations, custom fonts
+  - Bidirectional IPC (Rust↔JS)
+  - Coexistence with tokio runtime
+
+⚠️  GOTCHAS:
+  1. Windows 7 transparency NOT supported
+  2. IPC handler NOT Send/Sync → can't use async/await directly
+     Solution: Use blocking_send() inside handler, route to mpsc
+  3. WebView lifecycle must be managed (store in struct)
+  4. tao EventLoop blocks → must be on separate thread
+  5. Only Windows supported (use #[cfg(target_os = "windows")])
+
+
+================================================================================
+ARCHITECTURE RECOMMENDATION
+================================================================================
+
+┌─────────────────────────────────────────────┐
+│  tokio runtime (main thread)                │
+│  ├─ Global hotkey monitor                   │
+│  ├─ Selection monitor (UIA)                 │
+│  ├─ AI processing                           │
+│  └─ Text editing (UIA/clipboard)            │
+└────────────────────┬────────────────────────┘
+                     │
+         Shared PopupState (Arc<Mutex>)
+                     │
+┌────────────────────▼────────────────────────┐
+│  UI Thread (separate)                       │
+│  ├─ tao EventLoop (blocking)                │
+│  ├─ wry WebView (transparent popup)         │
+│  ├─ Window management (show/hide/pos)       │
+│  └─ IPC handler → tokio tasks               │
+└─────────────────────────────────────────────┘
+
+
+================================================================================
+CONCRETE CODE EXAMPLES PROVIDED
+================================================================================
+
+Report includes 12+ working code patterns:
+
+1. Transparent frameless window setup
+2. Bidirectional IPC (JS→Rust and Rust→JS)
+3. Window positioning (near cursor example)
+4. tokio + wry integration (2 patterns)
+5. IPC handler with blocking_send
+6. Custom protocol for assets
+7. Window visibility & focus control
+8. State management with Arc<Mutex>
+9. EventLoopProxy signaling pattern
+10. Glassmorphism CSS example
+11. File structure recommendation
+12. Error handling patterns
+
+
+================================================================================
+UNRESOLVED QUESTIONS (For Future Investigation)
+================================================================================
+
+1. Custom fonts: Bundle system fonts? Use @font-face data URI?
+2. SVG performance: Any issues with animated SVGs in transparent popup?
+3. DPI scaling: How does wry handle 125%, 150%, 200% scaling?
+4. Clipboard from JS: Direct access or IPC route through Rust?
+5. WebView2 min version: Minimum Runtime required on end-user Windows?
+
+
+================================================================================
+NEXT STEPS RECOMMENDATION
+================================================================================
+
+READY TO PROCEED:  YES ✓
+
+Timeline estimate:
+  Phase 1: Prototype minimal popup        (2 hours)
+  Phase 2: Test IPC communication         (3 hours)
+  Phase 3: Integrate with existing app    (4 hours)
+  Phase 4: Performance baseline           (2 hours)
+
+TOTAL: ~11 hours from research to production-ready
+
+
+================================================================================
+DOCUMENTATION LOCATION
+================================================================================
+
+Full detailed report:
+  /mnt/d/WORKSPACES/PERSONAL/fast-eng/plans/reports/wry-research-findings.md
+
+Quick summary (this should read):
+  /mnt/d/WORKSPACES/PERSONAL/fast-eng/plans/reports/RESEARCH_SUMMARY.md
+
+Code snippets and examples embedded in full report above.
+
+
+================================================================================
+VERDICT: WRY IS SUITABLE FOR THIS PROJECT
+================================================================================
+
+✓ Transparent frameless windows work on Windows 8+
+✓ Glassmorphism, SVG icons, CSS animations all supported
+✓ Lightweight IPC for Rust↔JS communication
+✓ Full window control (position, size, visibility, z-order)
+✓ Compatible with existing tokio runtime (no major refactoring)
+✓ No need for Tauri bloat (wry sufficient)
+✓ Binary size reduction vs iced: likely 5-10 MB improvement
+
+RECOMMENDATION: Proceed with wry 0.54.3 + tao 0.34.6 for popup replacement.
+
+================================================================================

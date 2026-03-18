@@ -23,3 +23,6 @@ credentials.json
 
 # Plans (internal)
 plans/
+.cocoindex_code/
+.beads/
+.teams/
