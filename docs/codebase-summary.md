@@ -24,10 +24,10 @@ fast-english/
 │   ├── persistence.rs                     # JSON storage + DPAPI key storage
 │   ├── ai/
 │   │   ├── client.rs                      # AIClient trait
-│   │   ├── openai.rs                      # OpenAI client
+│   │   ├── openai.rs                      # OpenAI client (shared reqwest::Client)
 │   │   ├── anthropic.rs                   # Anthropic client
 │   │   ├── prompt.rs                      # Prompt/output normalization
-│   │   └── mod.rs
+│   │   └── mod.rs                         # create_ai_client() factory
 │   ├── selection/
 │   │   ├── monitor.rs                     # Polling + debounce + manual capture
 │   │   ├── uia_text.rs                    # UIA text pattern detection
@@ -46,17 +46,13 @@ fast-english/
 │       ├── webview_bridge.rs              # Popup/settings state -> JSON bridge
 │       ├── webview_ipc.rs                 # Typed Rust<->JS IPC contracts
 │       ├── popup_position.rs              # Popup placement utilities
-│       ├── settings_views.rs              # Rust settings form model/apply logic
-│       ├── tray.rs                        # System tray menu/events
-│       ├── popup_ai.rs                    # Shared AI helpers used by popup runtime
-│       ├── popup_views.rs                 # Deprecated iced popup stub
-│       ├── popup_window.rs                # Deprecated iced window stub
-│       └── theme.rs                       # Legacy theme constants (currently unused)
+│       ├── settings_views.rs              # Settings form model + HTTPS validation
+│       └── tray.rs                        # System tray menu/events
 ├── assets/
 │   └── popup/
 │       ├── index.html                     # Popup UI markup
 │       ├── popup.css                      # Popup styling
-│       ├── popup.js                       # Popup client logic + IPC posts
+│       ├── popup.js                       # Popup client logic + IPC + inline MD parser
 │       ├── settings.html                  # Settings UI markup
 │       ├── settings.css                   # Settings styling
 │       └── settings.js                    # Settings client logic + IPC posts
@@ -70,16 +66,14 @@ fast-english/
 
 | File | Purpose |
 |---|---|
-| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls, copy/replace flows, and pushes state to WebViews. |
+| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), copy/replace flows, and pushes state to WebViews. Also handles hotkey toggle + empty selection fallback. |
 | `webview_popup.rs` | Popup window lifecycle on dedicated thread; show/hide/resize/set-state command handling. |
 | `webview_settings.rs` | Settings window lifecycle on dedicated thread; settings/test/save feedback command handling. |
 | `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers. |
 | `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper. |
-| `settings_views.rs` | Mutable `SettingsForm` model + persistence apply routine reused by WebView settings flow. |
+| `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
 | `popup_position.rs` | Calculates popup position and state-dependent heights. |
 | `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
-| `popup_ai.rs` | Provider client creation + tool instruction helpers used by popup runtime. |
-| `popup_views.rs` / `popup_window.rs` | Deprecated iced modules retained as compatibility stubs. |
 
 ## Runtime Patterns
 
@@ -93,5 +87,7 @@ fast-english/
 
 ## Current Notes
 
-- `src/ui/popup.rs` is large and a future modularization candidate.
-- Build/lint currently complete with warnings (dead code and minor clippy suggestions) but no hard failures.
+- `src/ui/popup.rs` is large (~860 lines) and a future modularization candidate.
+- Build/lint complete with warnings (dead code and minor clippy suggestions) but no hard failures.
+- Dead files (popup_ai, popup_views, popup_window, theme) and iced dependency removed in cleanup.
+- Shared `reqwest::Client` via `Arc` used across AI providers.

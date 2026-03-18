@@ -57,20 +57,20 @@
 
 | Component | Role |
 |---|---|
-| `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. |
+| `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. Hotkey toggles popup + supports empty selection. |
 | `ui/webview_popup.rs` | Popup window thread (`tao` EventLoop + `wry` WebView), receives show/hide/resize/state commands, forwards JS events to Rust. |
 | `ui/webview_settings.rs` | Settings window thread (`tao` EventLoop + `wry` WebView), handles settings rendering and JS actions. |
 | `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output. |
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. |
-| `ui/settings_views.rs` | Rust-side `SettingsForm` model + apply/persist logic used by WebView settings flow. |
-| `assets/popup/*` | Offline popup/settings frontend assets (HTML/CSS/JS) inlined into WebView at runtime. |
-| `ui/popup_views.rs`, `ui/popup_window.rs` | Deprecated iced UI stubs set for removal. |
+| `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. |
+| `ui/popup_position.rs` | Popup placement + state-dependent window heights. |
+| `assets/popup/*` | Offline popup/settings frontend assets (HTML/CSS/JS) inlined into WebView at runtime. Includes inline MD parser for Convert Prompt rich preview. |
 
 ### AI, Selection, Editing
 
 | Area | Key Modules | Role |
 |---|---|---|
-| AI | `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs` | Provider abstraction, API calls, prompt/output handling. |
+| AI | `ai/mod.rs`, `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs` | Provider abstraction (shared `reqwest::Client`), API calls, prompt/output handling. `create_ai_client()` factory in `mod.rs`. |
 | Selection | `selection/monitor.rs`, `uia_text.rs`, `uia_value.rs`, `clipboard_fallback.rs` | Detect selected text (UIA tiers + clipboard fallback) and emit context events. |
 | Editing | `editing/text_service.rs`, `editing/clipboard.rs` | Replace selected text (UIA SetValue first, clipboard paste fallback). |
 
@@ -139,5 +139,5 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 - API keys are stored only in DPAPI-protected storage; not persisted in WebView assets.
 - User-facing text injected into HTML contexts is escaped in `webview_bridge::escape_html`.
 - IPC payloads are structured typed messages with serde deserialization boundaries.
-- All provider traffic remains HTTPS to configured endpoints.
+- HTTPS enforcement: provider base URLs must use `https://`; validated before settings are persisted.
 - No telemetry/analytics pipeline is introduced by WebView cutover.

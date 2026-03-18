@@ -5,14 +5,15 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
 ## Features
 
 - **System tray app** — lives in your system tray, always accessible
-- **Global hotkey** — press `Ctrl+Alt+T` to trigger the popup from any application
+- **Global hotkey** — press `Ctrl+Alt+T` to trigger the popup from any application (toggles on/off, works with or without text selection)
 - **Auto-detection** — automatically detects text selection via Windows UI Automation APIs
 - **Writing tools**:
   - **Enhance Writing** — improve clarity and flow
   - **Change Tone** — rewrite in Professional, Casual, Formal, Friendly, Concise, or Confident tone
   - **Fix Grammar** — correct grammar and spelling errors
-  - **Translate** — seamlessly translate selected text between languages
-- **AI providers** — supports OpenAI (gpt-4.1-mini) and Anthropic (claude-3-5-sonnet-latest)
+  - **Translate** — translate between 15 languages with editable input and re-translate support
+  - **Convert Prompt** — convert text into structured AI prompts with markdown formatting and rich preview
+- **AI providers** — supports OpenAI-compatible APIs (gpt-4.1-mini default) via configurable base URL
 - **In-place replacement** — replaces selected text directly via UI Automation or clipboard fallback
 - **Native Rust** — built with Rust, WebView2 (wry/tao), and Windows APIs
 
@@ -85,13 +86,13 @@ src/
 ├── settings.rs                # Settings model (AIProvider, ProviderConfig, AppSettings)
 ├── persistence.rs             # JSON file-based settings & API key storage
 ├── ai/
-│   ├── mod.rs                 # AI module exports
+│   ├── mod.rs                 # AI module exports + create_ai_client()
 │   ├── client.rs              # AIClient trait
-│   ├── openai.rs              # OpenAI API client
+│   ├── openai.rs              # OpenAI API client (shared reqwest::Client)
 │   ├── anthropic.rs           # Anthropic API client
 │   └── prompt.rs              # Prompt builder & output cleaner
 ├── selection/
-│   ├── mod.rs                 # Selection types (SelectionContext, Rect)
+│   ├── mod.rs                 # Selection types (SelectionContext, Rect, Tier)
 │   ├── monitor.rs             # Polling-based selection detection
 │   ├── uia_text.rs            # UI Automation text pattern detection
 │   ├── uia_value.rs           # UI Automation value pattern detection
@@ -102,22 +103,19 @@ src/
 │   └── clipboard.rs           # Clipboard read/write operations
 └── ui/
     ├── mod.rs                 # UI module exports
-    ├── webview_popup.rs       # WebView2 popup window (primary)
-    ├── webview_settings.rs    # WebView2 settings window (primary)
-    ├── webview_bridge.rs      # Rust↔JS IPC bridge
+    ├── popup.rs               # WebView runtime, state coordinator, IPC handling
+    ├── webview_popup.rs       # WebView2 popup window
+    ├── webview_settings.rs    # WebView2 settings window
+    ├── webview_bridge.rs      # Rust↔JS IPC bridge (state → JSON)
     ├── webview_ipc.rs         # IPC message types
-    ├── tray.rs                # System tray icon and menu (embedded PNG)
-    ├── popup.rs               # (DEPRECATED stub)
-    ├── popup_window.rs        # (DEPRECATED stub)
-    ├── popup_views.rs         # (DEPRECATED stub)
-    ├── popup_ai.rs            # (DEPRECATED stub)
-    ├── popup_position.rs      # (DEPRECATED stub)
-    └── settings_views.rs      # (DEPRECATED stub)
+    ├── popup_position.rs      # Popup placement + state-dependent heights
+    ├── settings_views.rs      # Settings form model + HTTPS validation
+    └── tray.rs                # System tray icon and menu (embedded PNG)
 
 assets/
 ├── popup/
 │   ├── index.html             # Popup HTML
-│   ├── popup.js               # Popup JavaScript logic
+│   ├── popup.js               # Popup JavaScript logic + inline MD parser
 │   ├── popup.css              # Popup styles
 │   ├── settings.html          # Settings HTML
 │   ├── settings.js            # Settings JavaScript
@@ -139,8 +137,10 @@ Fast English uses a hybrid Rust + WebView2 architecture:
 - **PopupState** enum drives the UI state, mirrored to JS via the Rust↔JS bridge
 - **WebView2** (wry/tao) hosts the frontend using standard web technologies (HTML/CSS/JS)
 - **Selection monitor** polls via Windows UI Automation APIs every 350ms
-- **AI layer** uses a trait-based design (`AIClient`) with swappable provider implementations
+- **AI layer** uses a trait-based design (`AIClient`) with a shared `reqwest::Client` instance
 - **Text replacement** via UI Automation setValue or clipboard paste fallback
+- **Hotkey** toggles popup; works with or without text selection (empty selection opens tool menu)
+- **HTTPS enforcement** validates provider base URLs before persisting settings
 
 ## License
 
