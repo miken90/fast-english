@@ -58,13 +58,14 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
             json!({"view": "tone", "tones": tones}).to_string()
         }
 
-        PopupState::TranslateSelection(_) => {
+        PopupState::TranslateSelection(sel_ctx) => {
             let languages = lang_list();
             json!({
                 "view": "translate-select",
                 "from": lang_obj(&ctx.translate_from),
                 "to": lang_obj(&ctx.translate_to),
-                "languages": languages
+                "languages": languages,
+                "original": escape_html(&sel_ctx.text)
             })
             .to_string()
         }

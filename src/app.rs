@@ -47,6 +47,7 @@ pub enum AppEvent {
 pub enum WritingToolKind {
     EnhanceWriting,
     FixGrammar,
+    ConvertPrompt,
     ChangeTone(ToneOption),
     Translate {
         from: TranslateLanguage,
@@ -80,6 +81,54 @@ pub const TRANSLATE_LANGS: &[TranslateLanguage] = &[
         id: "vi",
         name: "Vietnamese",
     },
+    TranslateLanguage {
+        id: "es",
+        name: "Spanish",
+    },
+    TranslateLanguage {
+        id: "fr",
+        name: "French",
+    },
+    TranslateLanguage {
+        id: "de",
+        name: "German",
+    },
+    TranslateLanguage {
+        id: "it",
+        name: "Italian",
+    },
+    TranslateLanguage {
+        id: "pt",
+        name: "Portuguese",
+    },
+    TranslateLanguage {
+        id: "ru",
+        name: "Russian",
+    },
+    TranslateLanguage {
+        id: "ja",
+        name: "Japanese",
+    },
+    TranslateLanguage {
+        id: "ko",
+        name: "Korean",
+    },
+    TranslateLanguage {
+        id: "zh",
+        name: "Chinese (Simplified)",
+    },
+    TranslateLanguage {
+        id: "zh-TW",
+        name: "Chinese (Traditional)",
+    },
+    TranslateLanguage {
+        id: "th",
+        name: "Thai",
+    },
+    TranslateLanguage {
+        id: "id",
+        name: "Indonesian",
+    },
 ];
 
 impl std::fmt::Display for WritingToolKind {
@@ -87,6 +136,7 @@ impl std::fmt::Display for WritingToolKind {
         match self {
             Self::EnhanceWriting => write!(f, "Enhance Writing"),
             Self::FixGrammar => write!(f, "Fix Grammar"),
+            Self::ConvertPrompt => write!(f, "Convert Prompt"),
             Self::ChangeTone(tone) => write!(f, "Change Tone → {}", tone.name),
             Self::Translate { from, to } => write!(f, "Translate {} → {}", from.name, to.name),
         }
@@ -161,6 +211,12 @@ pub const DEFAULT_TOOLS: &[WritingTool] = &[
         title: "Fix Grammar",
         short_description: "Correct grammar and spelling",
         prompt_instruction: "Correct grammar, spelling, and punctuation. Do not explain changes. Return only the corrected text.",
+    },
+    WritingTool {
+        id: "convert-prompt",
+        title: "Convert Prompt",
+        short_description: "Convert text into an AI prompt",
+        prompt_instruction: "Turn this text into a clear, structured prompt that can be used with an AI assistant. Preserve intent, add useful context, constraints, and output format where appropriate. Return only the final prompt in clean markdown format.",
     },
     WritingTool {
         id: "translate",

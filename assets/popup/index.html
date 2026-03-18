@@ -114,6 +114,11 @@
         </div>
       </div>
 
+      <div class="translate-input-wrapper">
+        <div class="translate-panel-label">Text</div>
+        <textarea class="translate-text-box translate-text-box--textarea" id="translate-input-text" placeholder="Enter or edit text to translate..."></textarea>
+      </div>
+
       <div class="action-row" style="padding-top: 4px;">
         <button class="btn-primary" id="translate-confirm-btn">
           Translate
@@ -144,7 +149,7 @@
       <div class="translate-panels">
         <div>
           <div class="translate-panel-label" id="tr-from-label">Original</div>
-          <div class="translate-text-box" id="tr-original-text"></div>
+          <textarea class="translate-text-box translate-text-box--textarea" id="tr-original-text"></textarea>
         </div>
 
         <div class="translate-divider" style="padding: 6px 0;">
@@ -164,6 +169,7 @@
       <div id="translate-copy-feedback" class="copy-feedback"></div>
 
       <div class="action-row">
+        <button class="btn-primary" id="translate-retranslate-btn">Re-translate</button>
         <button class="btn-primary" id="translate-replace-btn">Replace</button>
         <button class="btn-secondary" id="translate-copy-btn">Copy</button>
       </div>
@@ -199,12 +205,14 @@
 
       <div class="result-text-wrapper">
         <div class="result-text-glow"></div>
-        <div class="result-text" id="result-output"></div>
+        <textarea class="result-textarea" id="result-output" readonly></textarea>
+        <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
       </div>
 
       <div id="result-copy-feedback" class="copy-feedback"></div>
 
       <div class="action-row">
+        <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
         <button class="btn-primary" id="result-replace-btn">Replace Selection</button>
         <button class="btn-secondary" id="result-copy-btn">Copy</button>
       </div>

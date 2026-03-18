@@ -1,7 +1,7 @@
 use crate::app::{
     AppEvent, PopupState, TranslateLanguage, WritingToolKind, TONES, TRANSLATE_LANGS,
 };
-use crate::selection::SelectionContext;
+use crate::selection::{SelectionContext, Tier};
 use crate::settings::AppSettings;
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge::{self, BridgeContext};
@@ -28,6 +28,7 @@ struct AppState {
     settings_form: Option<SettingsForm>,
     current_selection: Option<SelectionContext>,
     settings: AppSettings,
+    http_client: reqwest::Client,
     last_tool: Option<WritingToolKind>,
     translate_from: TranslateLanguage,
     translate_to: TranslateLanguage,
@@ -37,7 +38,6 @@ struct AppState {
     copy_feedback: bool,
     last_auto_shown: Option<String>,
     ignore_auto_until: Option<Instant>,
-    spinner_tick: usize,
     webview_popup_tx: std_mpsc::Sender<WebViewPopupCommand>,
     webview_settings_tx: std_mpsc::Sender<SettingsCommand>,
 }
@@ -66,11 +66,16 @@ pub fn run(
 
     let _webview_thread = spawn_webview_thread(webview_popup_rx, webview_settings_rx, webview_ipc_tx);
 
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()?;
+
     let state = AppState {
         popup_state: PopupState::Hidden,
         settings_form: None,
         current_selection: None,
         settings,
+        http_client,
         last_tool: None,
         translate_from: TRANSLATE_LANGS[0].clone(),
         translate_to: TRANSLATE_LANGS[1].clone(),
@@ -80,7 +85,6 @@ pub fn run(
         copy_feedback: false,
         last_auto_shown: None,
         ignore_auto_until: None,
-        spinner_tick: 0,
         webview_popup_tx,
         webview_settings_tx,
     };
@@ -123,9 +127,7 @@ fn run_async_event_loop(
     main_thread_id: u32,
 ) {
     runtime.block_on(async move {
-        let mut tick_100ms = tokio::time::interval(Duration::from_millis(100));
         let mut tick_1500ms = tokio::time::interval(Duration::from_millis(1500));
-        tick_100ms.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         tick_1500ms.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
@@ -151,17 +153,6 @@ fn run_async_event_loop(
                         break;
                     };
                     handle_internal_event(&mut state, internal);
-                }
-
-                _ = tick_100ms.tick() => {
-                    if state.popup_visible
-                        && matches!(state.popup_state, PopupState::Processing { .. })
-                    {
-                        state.spinner_tick = state.spinner_tick.wrapping_add(1);
-                    }
-                    if state.popup_visible && is_esc_pressed() {
-                        dismiss_popup(&mut state);
-                    }
                 }
 
                 _ = tick_1500ms.tick() => {
@@ -286,11 +277,22 @@ fn handle_app_event(
         }
 
         AppEvent::HotkeyPressed | AppEvent::TrayClicked => {
+            if state.popup_visible {
+                dismiss_popup(state);
+                return true;
+            }
             let tx = internal_tx.clone();
             tokio::spawn(async move {
-                if let Some(ctx) = crate::selection::monitor::try_manual_capture().await {
-                    let _ = tx.send(InternalEvent::ManualCaptureResult(ctx));
-                }
+                let ctx = crate::selection::monitor::try_manual_capture()
+                    .await
+                    .unwrap_or_else(|| SelectionContext {
+                        text: String::new(),
+                        bounds: None,
+                        source_app: String::from("manual"),
+                        detection_tier: Tier::ClipboardFallback,
+                        is_editable: false,
+                    });
+                let _ = tx.send(InternalEvent::ManualCaptureResult(ctx));
             });
         }
 
@@ -408,12 +410,27 @@ fn handle_webview_ipc(
             }
         }
 
-        JsToRust::TranslateConfirm { .. } => {
+        JsToRust::TranslateConfirm(payload) => {
+            if let Some(lang) = find_translate_language(&payload.from) {
+                state.translate_from = lang;
+            }
+            if let Some(lang) = find_translate_language(&payload.to) {
+                state.translate_to = lang;
+            }
+
             let maybe_ctx = match &state.popup_state {
-                PopupState::TranslateSelection(ctx) => Some(ctx.clone()),
+                PopupState::TranslateSelection(ctx) => {
+                    let mut ctx = ctx.clone();
+                    if let Some(text) = payload.text.as_ref() {
+                        ctx.text = text.clone();
+                    }
+                    Some(ctx)
+                }
                 PopupState::TranslateResult { context, .. } => {
                     let mut ctx = context.clone();
-                    if !state.translate_original_content.is_empty() {
+                    if let Some(text) = payload.text.as_ref() {
+                        ctx.text = text.clone();
+                    } else if !state.translate_original_content.is_empty() {
                         ctx.text = state.translate_original_content.clone();
                     }
                     Some(ctx)
@@ -422,6 +439,10 @@ fn handle_webview_ipc(
             };
 
             if let Some(ctx) = maybe_ctx {
+                if let Some(text) = payload.text {
+                    state.translate_original_content = text;
+                }
+
                 let tool = WritingToolKind::Translate {
                     from: state.translate_from.clone(),
                     to: state.translate_to.clone(),
@@ -542,12 +563,13 @@ fn handle_webview_ipc(
             let base_url = form.base_url.clone();
             let model = form.model.clone();
             let api_key = form.api_key.clone();
+            let http_client = state.http_client.clone();
             let tx = internal_tx.clone();
             tokio::spawn(async move {
                 let result = if api_key.is_empty() {
                     Err("No API key configured".to_string())
                 } else {
-                    match crate::ui::popup_ai::create_ai_client(api_key, &base_url, &model) {
+                    match crate::ai::create_ai_client(api_key, &base_url, &model, http_client) {
                         Ok(client) => client.test_connection().await.map_err(|e| e.to_string()),
                         Err(e) => Err(e),
                     }
@@ -688,6 +710,7 @@ fn start_ai_request(
     push_popup_state(state);
 
     let settings = state.settings.clone();
+    let http_client = state.http_client.clone();
     tokio::spawn(async move {
         let api_key = crate::persistence::KeyStore::load("api")
             .ok()
@@ -697,10 +720,11 @@ fn start_ai_request(
         let result = if api_key.is_empty() {
             Err("No API key configured. Open Settings to add one.".to_string())
         } else {
-            match crate::ui::popup_ai::create_ai_client(
+            match crate::ai::create_ai_client(
                 api_key,
                 &settings.base_url,
                 &settings.model,
+                http_client,
             ) {
                 Ok(client) => {
                     let instruction = tool_instruction(&tool);
@@ -751,6 +775,12 @@ fn tool_instruction(tool: &WritingToolKind) -> String {
             .find(|t| t.id == "fix-grammar")
             .map(|t| t.prompt_instruction)
             .unwrap_or("Fix grammar.")
+            .to_string(),
+        WritingToolKind::ConvertPrompt => crate::app::DEFAULT_TOOLS
+            .iter()
+            .find(|t| t.id == "convert-prompt")
+            .map(|t| t.prompt_instruction)
+            .unwrap_or("Turn this text into a clear prompt.")
             .to_string(),
         WritingToolKind::ChangeTone(tone) => tone.prompt_instruction.to_string(),
         WritingToolKind::Translate { from, to } => {
@@ -825,6 +855,7 @@ fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
     match kind {
         "enhance-writing" | "enhance_writing" => Some(WritingToolKind::EnhanceWriting),
         "fix-grammar" | "fix_grammar" => Some(WritingToolKind::FixGrammar),
+        "convert-prompt" | "convert_prompt" => Some(WritingToolKind::ConvertPrompt),
         "change-tone" | "change_tone" => Some(WritingToolKind::ChangeTone(TONES[0].clone())),
         "translate" => Some(WritingToolKind::Translate {
             from: TRANSLATE_LANGS[0].clone(),
@@ -834,13 +865,3 @@ fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn is_esc_pressed() -> bool {
-    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_ESCAPE};
-    unsafe { GetAsyncKeyState(VK_ESCAPE.0 as i32) < 0 }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn is_esc_pressed() -> bool {
-    false
-}

@@ -434,10 +434,23 @@ body {
   font-size: 12.5px;
   color: var(--text-secondary);
   line-height: 1.6;
-  min-height: 70px;
-  max-height: 90px;
+  min-height: 100px;
+  max-height: 130px;
   overflow-y: auto;
   font-family: inherit;
+}
+
+.translate-text-box--textarea {
+  width: 100%;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.translate-text-box--textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+  background: rgba(255,255,255,0.03);
 }
 
 .translate-text-box--result {
@@ -533,7 +546,7 @@ body {
 }
 .result-text-wrapper:hover .result-text-glow { opacity: 1; }
 
-.result-text {
+.result-textarea {
   position: relative;
   background: rgba(0,0,0,0.35);
   border: 1px solid var(--border-subtle);
@@ -542,10 +555,87 @@ body {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);
-  min-height: 110px;
-  max-height: 200px;
+  min-height: 130px;
+  max-height: 280px;
+  overflow-y: auto;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  white-space: pre-wrap;
+  width: 100%;
+  resize: vertical;
+  outline: none;
+}
+.result-textarea:focus {
+  border-color: var(--primary);
+}
+
+.result-rich-preview {
+  position: relative;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  min-height: 130px;
+  max-height: 280px;
   overflow-y: auto;
   font-family: inherit;
+}
+
+/* Markdown rendered elements */
+.result-rich-preview h1, .md-h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0 0 8px; }
+.result-rich-preview h2, .md-h2 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0 0 6px; }
+.result-rich-preview h3, .md-h3 { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
+.result-rich-preview h4, .md-h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+.result-rich-preview strong { color: var(--text-primary); }
+.md-code-block {
+  background: rgba(0,0,0,0.5);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.md-inline-code {
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+}
+.result-rich-preview ul {
+  padding-left: 18px;
+  margin: 4px 0;
+}
+.result-rich-preview li {
+  margin: 2px 0;
+}
+
+/* Toggle button */
+.btn-toggle-md {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all var(--transition-fast);
+}
+.btn-toggle-md:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+}
+
+/* Translate input wrapper */
+.translate-input-wrapper {
+  padding: 0 16px 8px;
 }
 
 /* ---------- Action Buttons ---------- */

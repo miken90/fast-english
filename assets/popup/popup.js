@@ -55,6 +55,10 @@ const TOOL_ICONS = {
     colorClass: 'tool-icon--green',
     svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
   },
+  'convert_prompt': {
+    colorClass: 'tool-icon--blue',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5V4a2 2 0 012-2h8l6 6v11.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 19.5z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
+  },
   'change_tone': {
     colorClass: 'tool-icon--purple',
     svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>'
@@ -162,9 +166,15 @@ function renderOptions(data) {
   const previewEl = document.getElementById('options-preview');
   if (previewEl) {
     const preview = data.preview || '';
-    previewEl.textContent = preview.length > 70
-      ? '"' + preview.slice(0, 67) + '…"'
-      : (preview ? '"' + preview + '"' : '');
+    if (preview) {
+      previewEl.textContent = preview.length > 70
+        ? '"' + preview.slice(0, 67) + '…"'
+        : '"' + preview + '"';
+      previewEl.style.display = '';
+    } else {
+      previewEl.textContent = '';
+      previewEl.style.display = 'none';
+    }
   }
 
   // Tool list
@@ -236,6 +246,12 @@ function renderTranslateSelect(data) {
   _translateToId = data.to ? data.to.id : (_translateLanguages[1] ? _translateLanguages[1].id : '');
 
   populateLangDropdowns();
+
+  // Populate input textarea
+  var inputEl = document.getElementById('translate-input-text');
+  if (inputEl) {
+    inputEl.value = data.original || '';
+  }
 }
 
 function populateLangDropdowns() {
@@ -272,10 +288,13 @@ function renderTranslateResult(data) {
   if (fromLabel) fromLabel.textContent = data.from ? data.from.name : 'Original';
   if (toLabel)   toLabel.textContent   = data.to   ? data.to.name   : 'Translated';
 
+  const originalText = unescHtml(data.original || '');
+  const translatedText = unescHtml(data.translated || '');
+
   const origEl  = document.getElementById('tr-original-text');
   const transEl = document.getElementById('tr-translated-text');
-  if (origEl)  origEl.textContent  = data.original   || '';
-  if (transEl) transEl.textContent = data.translated || '';
+  if (origEl)  origEl.value = originalText;
+  if (transEl) transEl.textContent = translatedText;
 
   const feedback = document.getElementById('translate-copy-feedback');
   if (feedback) {
@@ -298,10 +317,19 @@ function renderProcessing(data) {
 }
 
 function renderResult(data) {
-  const outputEl = document.getElementById('result-output');
-  if (outputEl) outputEl.textContent = data.output || '';
+  var outputEl = document.getElementById('result-output');
+  var richEl = document.getElementById('result-rich-preview');
+  if (outputEl) outputEl.value = data.output || '';
+  if (richEl) {
+    richEl.innerHTML = simpleMarkdown(data.output || '');
+    richEl.style.display = 'none';
+  }
+  // Reset toggle state
+  var toggleBtn = document.getElementById('result-toggle-md');
+  if (toggleBtn) toggleBtn.textContent = 'Rich';
+  if (outputEl) outputEl.style.display = '';
 
-  const feedback = document.getElementById('result-copy-feedback');
+  var feedback = document.getElementById('result-copy-feedback');
   if (feedback) {
     feedback.textContent = '';
     feedback.classList.remove('visible');
@@ -367,6 +395,15 @@ function escHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function unescHtml(str) {
+  return String(str)
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 // ─── Event Binding ─────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -402,9 +439,11 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   bindClick('translate-confirm-btn', function() {
+    var inputText = getInputValue('translate-input-text');
     sendToRust('TranslateConfirm', {
       from: _translateFromId,
-      to:   _translateToId
+      to:   _translateToId,
+      text: inputText || null
     });
   });
 
@@ -418,6 +457,14 @@ document.addEventListener('DOMContentLoaded', function() {
     sendToRust('TranslateCopyResult');
   });
 
+  bindClick('translate-retranslate-btn', function() {
+    sendToRust('TranslateConfirm', {
+      from: _translateFromId,
+      to:   _translateToId,
+      text: getInputValue('tr-original-text')
+    });
+  });
+
   bindClick('translate-replace-btn', function() {
     sendToRust('TranslateReplaceResult');
   });
@@ -426,13 +473,31 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('result-close', function() { sendToRust('Dismiss'); });
 
   bindClick('result-copy-btn', function() {
-    var text = getTextContent('result-output');
+    var text = getInputValue('result-output');
     copyToClipboard(text, 'result-copy-feedback');
     sendToRust('CopyResult');
   });
 
   bindClick('result-replace-btn', function() {
     sendToRust('ReplaceResult');
+  });
+
+  bindClick('result-toggle-md', function() {
+    var outputEl = document.getElementById('result-output');
+    var richEl = document.getElementById('result-rich-preview');
+    var btn = document.getElementById('result-toggle-md');
+    if (!outputEl || !richEl || !btn) return;
+    if (richEl.style.display === 'none') {
+      richEl.innerHTML = simpleMarkdown(outputEl.value);
+      richEl.style.display = '';
+      outputEl.style.display = 'none';
+      btn.textContent = 'Raw';
+    } else {
+      richEl.style.display = 'none';
+      outputEl.style.display = '';
+      btn.textContent = 'Rich';
+    }
+    autoResizePopup();
   });
 
   // ── Error View ──
@@ -463,4 +528,45 @@ function bindChange(id, fn) {
 function getTextContent(id) {
   var el = document.getElementById(id);
   return el ? el.textContent : '';
+}
+
+function getInputValue(id) {
+  var el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+/**
+ * Minimal markdown → HTML converter for rich preview.
+ * Handles: headings, bold, italic, inline code, code blocks, lists, paragraphs.
+ */
+function simpleMarkdown(text) {
+  if (!text) return '';
+  var html = escHtml(text);
+  // Code blocks (``` ... ```)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+    return '<pre class="md-code-block"><code>' + code.trim() + '</code></pre>';
+  });
+  // Headings
+  html = html.replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>');
+  // Bold + italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+  // Unordered list items
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  // Collapse adjacent </ul><ul>
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  // Line breaks → paragraphs (double newline)
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  html = '<p>' + html + '</p>';
+  // Clean empty tags
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  return html;
 }
