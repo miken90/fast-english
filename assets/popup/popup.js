@@ -26,7 +26,7 @@ function sendToRust(type, payload) {
 
 // ─── View Management ───────────────────────────────────────────────────────
 
-const VIEWS = ['options', 'tone', 'translate-select', 'translate-result', 'processing', 'result', 'error'];
+const VIEWS = ['options', 'tone', 'translate-select', 'prompt-editor', 'translate-result', 'processing', 'result', 'error'];
 
 /**
  * Show one view, hide all others.
@@ -119,6 +119,11 @@ window.setState = function(data) {
       showView('translate-result');
       break;
 
+    case 'prompt-editor':
+      renderPromptEditor(data);
+      showView('prompt-editor');
+      break;
+
     case 'processing':
       renderProcessing(data);
       showView('processing');
@@ -152,7 +157,7 @@ function autoResizePopup() {
   requestAnimationFrame(function() {
     var container = document.querySelector('.popup-container');
     if (!container) return;
-    var height = container.scrollHeight;
+    var height = container.scrollHeight + 12;
     if (height > 0) {
       sendToRust('ResizePopup', { height: height });
     }
@@ -275,6 +280,13 @@ function populateLangDropdowns() {
     if (lang.id === _translateToId) optTo.selected = true;
     toSel.appendChild(optTo);
   });
+}
+
+function renderPromptEditor(data) {
+  var inputEl = document.getElementById('prompt-editor-input');
+  if (inputEl) {
+    inputEl.value = unescHtml(data.original || '');
+  }
 }
 
 function renderTranslateResult(data) {
@@ -447,6 +459,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // ── Prompt Editor ──
+  bindClick('prompt-editor-back', function() { sendToRust('BackToOptions'); });
+  bindClick('prompt-editor-close', function() { sendToRust('Dismiss'); });
+  bindClick('prompt-editor-confirm-btn', function() {
+    var text = getInputValue('prompt-editor-input');
+    sendToRust('PromptEditorConfirm', { text: text });
+  });
+
   // ── Translate Result ──
   bindClick('translate-result-back',  function() { sendToRust('BackToOptions'); });
   bindClick('translate-result-close', function() { sendToRust('Dismiss'); });
@@ -557,11 +577,11 @@ function simpleMarkdown(text) {
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
-  // Unordered list items
+  // Unordered list items (group consecutive bullets into one <ul>)
   html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
-  // Collapse adjacent </ul><ul>
-  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  html = html.replace(/(?:^|\n)(<li>.*<\/li>(?:\n<li>.*<\/li>)*)/gm, function(_, items) {
+    return '\n<ul>' + items + '</ul>';
+  });
   // Line breaks → paragraphs (double newline)
   html = html.replace(/\n\n/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');

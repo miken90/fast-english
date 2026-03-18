@@ -86,7 +86,9 @@ body {
   border-radius: 0;
   box-shadow: none;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   width: 100%;
   height: 100%;
 }
@@ -109,6 +111,8 @@ body {
 /* ---------- Views ---------- */
 .view {
   display: none;
+  width: 100%;
+  overflow: visible;
 }
 
 .view.active {
@@ -558,6 +562,7 @@ body {
   min-height: 130px;
   max-height: 280px;
   overflow-y: auto;
+  overflow-wrap: break-word;
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   white-space: pre-wrap;
   width: 100%;
@@ -578,8 +583,9 @@ body {
   line-height: 1.6;
   color: var(--text-secondary);
   min-height: 130px;
-  max-height: 280px;
+  max-height: 400px;
   overflow-y: auto;
+  overflow-wrap: break-word;
   font-family: inherit;
 }
 

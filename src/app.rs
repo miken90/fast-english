@@ -7,6 +7,7 @@ pub enum PopupState {
     Options(SelectionContext),
     ToneSelection(SelectionContext),
     TranslateSelection(SelectionContext),
+    PromptEditor(SelectionContext),
     TranslateResult {
         context: SelectionContext,
     },
@@ -37,7 +38,7 @@ pub enum AppEvent {
 
     // System
     HotkeyPressed,
-    TrayClicked,
+    OpenPopupRequested,
     SettingsRequested,
     QuitRequested,
 }

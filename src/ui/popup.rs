@@ -64,7 +64,8 @@ pub fn run(
     let (webview_ipc_tx, webview_ipc_rx) = mpsc::unbounded_channel::<JsToRust>();
     let (internal_tx, internal_rx) = mpsc::unbounded_channel::<InternalEvent>();
 
-    let _webview_thread = spawn_webview_thread(webview_popup_rx, webview_settings_rx, webview_ipc_tx);
+    let _webview_thread =
+        spawn_webview_thread(webview_popup_rx, webview_settings_rx, webview_ipc_tx);
 
     let http_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -250,6 +251,7 @@ fn handle_app_event(
                     | PopupState::Error { .. }
                     | PopupState::ToneSelection(_)
                     | PopupState::TranslateSelection(_)
+                    | PopupState::PromptEditor(_)
                     | PopupState::TranslateResult { .. }
             ) {
                 return true;
@@ -276,7 +278,7 @@ fn handle_app_event(
             }
         }
 
-        AppEvent::HotkeyPressed | AppEvent::TrayClicked => {
+        AppEvent::HotkeyPressed | AppEvent::OpenPopupRequested => {
             if state.popup_visible {
                 dismiss_popup(state);
                 return true;
@@ -332,8 +334,9 @@ fn handle_webview_ipc(
         JsToRust::Dismiss => dismiss_popup(state),
 
         JsToRust::BackToOptions => {
-            if let PopupState::ToneSelection(ctx) | PopupState::TranslateSelection(ctx) =
-                &state.popup_state
+            if let PopupState::ToneSelection(ctx)
+            | PopupState::TranslateSelection(ctx)
+            | PopupState::PromptEditor(ctx) = &state.popup_state
             {
                 state.popup_state = PopupState::Options(ctx.clone());
                 push_popup_state(state);
@@ -357,6 +360,12 @@ fn handle_webview_ipc(
 
                     if matches!(tool, WritingToolKind::Translate { .. }) {
                         state.popup_state = PopupState::TranslateSelection(ctx.clone());
+                        push_popup_state(state);
+                        return;
+                    }
+
+                    if matches!(tool, WritingToolKind::ConvertPrompt) {
+                        state.popup_state = PopupState::PromptEditor(ctx.clone());
                         push_popup_state(state);
                         return;
                     }
@@ -448,6 +457,14 @@ fn handle_webview_ipc(
                     to: state.translate_to.clone(),
                 };
                 start_ai_request(state, ctx, tool, internal_tx);
+            }
+        }
+
+        JsToRust::PromptEditorConfirm { text } => {
+            if let PopupState::PromptEditor(ctx) = &state.popup_state {
+                let mut next_ctx = ctx.clone();
+                next_ctx.text = text;
+                start_ai_request(state, next_ctx, WritingToolKind::ConvertPrompt, internal_tx);
             }
         }
 
@@ -618,7 +635,7 @@ fn handle_webview_ipc(
 
         JsToRust::ResizePopup { height } => {
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
-                width: 340.0,
+                width: 380.0,
                 height,
             });
         }
@@ -728,8 +745,10 @@ fn start_ai_request(
             ) {
                 Ok(client) => {
                     let instruction = tool_instruction(&tool);
-                    match client.process(&input, &instruction).await {
-                        Ok(raw) => Ok(crate::ai::prompt::PromptBuilder::clean_output(&raw)),
+                    let system_override = system_override_for_tool(&tool);
+                    let max_tokens = max_tokens_for_tool(&input, &tool);
+                    match client.process(&input, &instruction, system_override, max_tokens).await {
+                        Ok(raw) => Ok(clean_output_for_tool(&raw, &tool)),
                         Err(e) => Err(e.to_string()),
                     }
                 }
@@ -749,7 +768,8 @@ fn popup_ai_context(state: &PopupState) -> Option<SelectionContext> {
         PopupState::Error { context, .. } => Some(context.clone()),
         PopupState::Options(ctx)
         | PopupState::ToneSelection(ctx)
-        | PopupState::TranslateSelection(ctx) => Some(ctx.clone()),
+        | PopupState::TranslateSelection(ctx)
+        | PopupState::PromptEditor(ctx) => Some(ctx.clone()),
         PopupState::Hidden => None,
     }
 }
@@ -799,6 +819,33 @@ fn tool_instruction(tool: &WritingToolKind) -> String {
     }
 }
 
+fn system_override_for_tool(tool: &WritingToolKind) -> Option<&'static str> {
+    match tool {
+        WritingToolKind::ConvertPrompt => {
+            Some(crate::ai::prompt::PromptBuilder::new().convert_prompt_system_prompt())
+        }
+        _ => None,
+    }
+}
+
+fn clean_output_for_tool(raw: &str, tool: &WritingToolKind) -> String {
+    match tool {
+        WritingToolKind::ConvertPrompt => {
+            crate::ai::prompt::PromptBuilder::clean_convert_prompt_output(raw)
+        }
+        _ => crate::ai::prompt::PromptBuilder::clean_output(raw),
+    }
+}
+
+fn max_tokens_for_tool(input: &str, tool: &WritingToolKind) -> Option<usize> {
+    match tool {
+        WritingToolKind::ConvertPrompt => {
+            Some(crate::ai::prompt::PromptBuilder::new().max_tokens_for_convert(input))
+        }
+        _ => None,
+    }
+}
+
 fn dismiss_popup(state: &mut AppState) {
     state.popup_visible = false;
     state.ignore_auto_until = Some(Instant::now() + Duration::from_secs(1));
@@ -808,8 +855,17 @@ fn dismiss_popup(state: &mut AppState) {
 
 fn show_popup(state: &AppState, ctx: &SelectionContext) {
     let (sw, sh) = crate::ui::popup_position::get_screen_size();
-    let (x, y, w, h) =
-        crate::ui::popup_position::calculate_position_f64(ctx.bounds.as_ref(), sw, sh);
+
+    // No text selected → always center on screen.
+    // Cannot rely on calculate_position because get_caret_pos() returns
+    // a valid value whenever any app has keyboard focus (VS Code, browser, etc.).
+    let has_selection = !ctx.text.is_empty() || ctx.bounds.is_some();
+    let (x, y, w, h) = if has_selection {
+        crate::ui::popup_position::calculate_position_f64(ctx.bounds.as_ref(), sw, sh)
+    } else {
+        crate::ui::popup_position::center_on_screen_f64(sw, sh)
+    };
+
     let _ = state.webview_popup_tx.send(WebViewPopupCommand::Show {
         x,
         y,
@@ -830,14 +886,6 @@ fn push_popup_state(state: &AppState) {
     let _ = state
         .webview_popup_tx
         .send(WebViewPopupCommand::SetState { json });
-
-    if state.popup_visible {
-        let h = webview_bridge::height_for_state(&state.popup_state);
-        let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
-            width: 380.0,
-            height: h,
-        });
-    }
 }
 
 fn normalize_text(text: &str) -> String {
@@ -864,4 +912,3 @@ fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
         _ => None,
     }
 }
-

@@ -55,6 +55,9 @@ pub enum JsToRust {
     },
     TranslateSwapLangs,
     TranslateConfirm(TranslateConfirmPayload),
+    PromptEditorConfirm {
+        text: String,
+    },
     TranslateCopyResult,
     TranslateReplaceResult,
     // Settings actions

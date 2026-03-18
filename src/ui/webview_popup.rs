@@ -75,19 +75,13 @@ fn run_event_loop(
     use tao::event::{Event, StartCause};
     use tao::event_loop::{ControlFlow, EventLoopBuilder};
     use tao::window::WindowBuilder;
-    use wry::WebViewBuilder;
+    use wry::{WebContext, WebViewBuilder};
 
     // --- Assets ---
     let popup_html = include_str!("../../assets/popup/index.html");
     let popup_css = include_str!("../../assets/popup/popup.css");
     let popup_js = include_str!("../../assets/popup/popup.js");
-    let full_popup_html = inline_assets(
-        popup_html,
-        popup_css,
-        popup_js,
-        "popup.css",
-        "popup.js",
-    );
+    let full_popup_html = inline_assets(popup_html, popup_css, popup_js, "popup.css", "popup.js");
 
     let settings_html = include_str!("../../assets/popup/settings.html");
     let settings_css = include_str!("../../assets/popup/settings.css");
@@ -103,6 +97,13 @@ fn run_event_loop(
     // --- EventLoop (one per process) ---
     #[cfg(target_os = "windows")]
     use tao::platform::windows::{EventLoopBuilderExtWindows, WindowBuilderExtWindows};
+
+    let webview_data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()))
+        .join("FastEnglish")
+        .join("webview-data");
+    let _ = std::fs::create_dir_all(&webview_data_dir);
+    let mut webview_context = WebContext::new(Some(webview_data_dir));
 
     let event_loop = {
         let mut builder = EventLoopBuilder::<UiCommand>::with_user_event();
@@ -125,7 +126,7 @@ fn run_event_loop(
         .expect("Failed to create popup window");
 
     let ipc_tx_popup = ipc_tx.clone();
-    let popup_webview = WebViewBuilder::new()
+    let popup_webview = WebViewBuilder::new_with_web_context(&mut webview_context)
         .with_html(&full_popup_html)
         .with_ipc_handler(move |request| {
             let body = request.body();
@@ -152,7 +153,7 @@ fn run_event_loop(
         .expect("Failed to create settings window");
 
     let ipc_tx_settings = ipc_tx.clone();
-    let settings_webview = WebViewBuilder::new()
+    let settings_webview = WebViewBuilder::new_with_web_context(&mut webview_context)
         .with_html(&full_settings_html)
         .with_ipc_handler(move |request| {
             let body = request.body();
@@ -184,10 +185,7 @@ fn run_event_loop(
         .name("settings-cmd-fwd".into())
         .spawn(move || {
             while let Ok(cmd) = settings_rx.recv() {
-                if proxy_settings
-                    .send_event(UiCommand::Settings(cmd))
-                    .is_err()
-                {
+                if proxy_settings.send_event(UiCommand::Settings(cmd)).is_err() {
                     break;
                 }
             }
@@ -243,9 +241,8 @@ fn run_event_loop(
                             let wsize = settings_window.inner_size();
                             let cx = (msize.width.saturating_sub(wsize.width)) / 2;
                             let cy = (msize.height.saturating_sub(wsize.height)) / 2;
-                            settings_window.set_outer_position(
-                                tao::dpi::PhysicalPosition::new(cx, cy),
-                            );
+                            settings_window
+                                .set_outer_position(tao::dpi::PhysicalPosition::new(cx, cy));
                         }
                         settings_window.set_visible(true);
                         settings_window.set_focus();
@@ -276,13 +273,7 @@ fn run_event_loop(
 }
 
 /// Inline CSS and JS assets into the HTML so `with_html()` works without relative paths.
-fn inline_assets(
-    html: &str,
-    css: &str,
-    js: &str,
-    css_filename: &str,
-    js_filename: &str,
-) -> String {
+fn inline_assets(html: &str, css: &str, js: &str, css_filename: &str, js_filename: &str) -> String {
     let css_link = format!(r#"<link rel="stylesheet" href="{}">"#, css_filename);
     let js_tag = format!(r#"<script src="{}"></script>"#, js_filename);
     let html = html.replace(&css_link, &format!("<style>{}</style>", css));

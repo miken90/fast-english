@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::debug;
 
-const POLL_INTERVAL: Duration = Duration::from_millis(350);
+const POLL_INTERVAL: Duration = Duration::from_millis(500);
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(700);
 
 /// Run the selection monitor loop. Polls for text selection changes via multi-tier
@@ -13,7 +13,7 @@ const DEBOUNCE_DELAY: Duration = Duration::from_millis(700);
 /// Uses debounce: waits for selection to be stable for DEBOUNCE_DELAY before
 /// sending the event, preventing repeated popup opens during active text selection.
 ///
-/// Polls for text selection changes every 350ms.
+/// Polls for text selection changes every 500ms.
 pub async fn run(tx: mpsc::Sender<AppEvent>) {
     let mut last_sent_text: Option<String> = None;
     let mut last_sent_app: String = String::new();

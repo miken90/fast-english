@@ -29,16 +29,24 @@ impl OpenAIClient {
 
 #[async_trait]
 impl AIClient for OpenAIClient {
-    async fn process(&self, text: &str, instruction: &str) -> Result<String> {
+    async fn process(
+        &self,
+        text: &str,
+        instruction: &str,
+        system_override: Option<&str>,
+        max_tokens_override: Option<usize>,
+    ) -> Result<String> {
         let prompt = PromptBuilder::new();
+        let system_prompt = system_override.unwrap_or(prompt.system_prompt());
+        let max_tokens = max_tokens_override.unwrap_or_else(|| prompt.max_tokens(text));
         let body = serde_json::json!({
             "model": &self.model,
             "messages": [
-                { "role": "system", "content": prompt.system_prompt() },
+                { "role": "system", "content": system_prompt },
                 { "role": "user", "content": prompt.user_prompt(text, instruction) }
             ],
             "temperature": 0.3,
-            "max_tokens": prompt.max_tokens(text),
+            "max_tokens": max_tokens,
         });
 
         let resp = self
@@ -63,7 +71,7 @@ impl AIClient for OpenAIClient {
             .and_then(|c| c.message.content.as_deref())
             .unwrap_or("");
 
-        Ok(PromptBuilder::clean_output(content))
+        Ok(content.to_string())
     }
 
     async fn test_connection(&self) -> Result<String> {

@@ -19,6 +19,20 @@ fn main() -> Result<()> {
         .with_env_filter(EnvFilter::from_default_env().add_directive("fast_english=info".parse()?))
         .init();
 
+    std::panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
+            .unwrap_or_else(|| "unknown".to_string());
+        let payload = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "<non-string panic payload>".to_string());
+        eprintln!("panic at {location}: {payload}");
+    }));
+
     info!("Fast English starting...");
 
     // Initialize COM as STA on the main thread.
@@ -41,6 +55,7 @@ fn main() -> Result<()> {
 
     // Create the async runtime for background tasks (selection monitor, AI)
     let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
         .enable_all()
         .build()?;
 

@@ -9,6 +9,7 @@ pub const OPTIONS_HEIGHT: f32 = 310.0;
 pub const TONE_HEIGHT: f32 = 400.0;
 pub const TRANSLATE_HEIGHT: f32 = 380.0;
 pub const TRANSLATE_RESULT_HEIGHT: f32 = 560.0;
+pub const PROMPT_EDITOR_HEIGHT: f32 = 420.0;
 pub const PROCESSING_HEIGHT: f32 = 150.0;
 pub const RESULT_HEIGHT: f32 = 420.0;
 pub const ERROR_HEIGHT: f32 = 180.0;
@@ -49,7 +50,7 @@ pub fn get_screen_size() -> (f32, f32) {
 /// 1. Cursor position — if cursor is near/inside selection bounds (mouse select)
 /// 2. Selection bounds bottom-left — when bounds available (keyboard select)
 /// 3. Caret position from UIA — for focused text controls
-/// 4. Top-left corner — final fallback
+/// 4. Center-screen popup — final fallback
 pub fn calculate_position(
     selection_bounds: Option<&Rect>,
     screen_width: f32,
@@ -57,7 +58,24 @@ pub fn calculate_position(
 ) -> PopupPlacement {
     let height = POPUP_INITIAL_HEIGHT;
     let cursor = get_cursor_pos();
-    let (anchor_x, anchor_y) = pick_anchor(cursor, selection_bounds);
+    let caret = get_caret_pos();
+
+    // Center-screen when no selection context exists.
+    // Cursor alone is not an anchor (it's just where the mouse is).
+    if selection_bounds.is_none() && caret.is_none() {
+        let x = ((screen_width - POPUP_WIDTH) / 2.0)
+            .clamp(MARGIN, (screen_width - POPUP_WIDTH - MARGIN).max(MARGIN));
+        let y = ((screen_height - height) / 2.0)
+            .clamp(MARGIN, (screen_height - height - MARGIN).max(MARGIN));
+        return PopupPlacement {
+            x,
+            y,
+            width: POPUP_WIDTH,
+            height,
+        };
+    }
+
+    let (anchor_x, anchor_y) = pick_anchor(cursor, selection_bounds, caret);
 
     // Clamp to screen edges so popup never overflows
     let x = anchor_x.clamp(MARGIN, (screen_width - POPUP_WIDTH - MARGIN).max(MARGIN));
@@ -92,38 +110,58 @@ pub fn calculate_position_f64(
     (p.x as f64, p.y as f64, p.width as f64, p.height as f64)
 }
 
+/// Center the popup on screen. Used when no text is selected.
+pub fn center_on_screen_f64(screen_width: f32, screen_height: f32) -> (f64, f64, f64, f64) {
+    let w = POPUP_WIDTH;
+    let h = POPUP_INITIAL_HEIGHT;
+    let x = ((screen_width - w) / 2.0).clamp(MARGIN, (screen_width - w - MARGIN).max(MARGIN));
+    let y = ((screen_height - h) / 2.0).clamp(MARGIN, (screen_height - h - MARGIN).max(MARGIN));
+    (x as f64, y as f64, w as f64, h as f64)
+}
+
 /// Pick the best anchor point (all values in logical pixels).
-fn pick_anchor(cursor: Option<(f32, f32)>, bounds: Option<&Rect>) -> (f32, f32) {
+fn pick_anchor(
+    cursor: Option<(f32, f32)>,
+    bounds: Option<&Rect>,
+    caret: Option<(f32, f32)>,
+) -> (f32, f32) {
     #[cfg(target_os = "windows")]
     let scale = get_dpi_scale();
     #[cfg(not(target_os = "windows"))]
     let scale = 1.0_f32;
 
-    if let Some((cx, cy)) = cursor {
-        if let Some(b) = bounds {
-            let bx = b.x as f32 / scale;
-            let by = b.y as f32 / scale;
-            let bw = b.width as f32 / scale;
-            let bh = b.height as f32 / scale;
+    // Cursor is only meaningful as an anchor when selection bounds exist
+    // (indicates mouse-driven text selection). Without bounds, cursor
+    // position is just wherever the mouse happens to be — not useful.
+    if let (Some((cx, cy)), Some(b)) = (cursor, bounds) {
+        let bx = b.x as f32 / scale;
+        let by = b.y as f32 / scale;
+        let bw = b.width as f32 / scale;
+        let bh = b.height as f32 / scale;
 
-            // Cursor near selection → mouse-driven select → use cursor
-            let m = 100.0;
-            let near = cx >= bx - m && cx <= bx + bw + m && cy >= by - m && cy <= by + bh + m;
-            if near {
-                return (cx, cy);
-            }
-
-            // Cursor far → keyboard select → use bounds bottom-left
-            return (bx, by + bh);
+        // Cursor near selection → mouse-driven select → use cursor
+        let m = 100.0;
+        let near = cx >= bx - m && cx <= bx + bw + m && cy >= by - m && cy <= by + bh + m;
+        if near {
+            return (cx, cy);
         }
+
+        // Cursor far → keyboard select → use bounds bottom-left
+        return (bx, by + bh);
+    }
+
+    if let Some(b) = bounds {
+        let bx = b.x as f32 / scale;
+        let by = b.y as f32 / scale;
+        let bh = b.height as f32 / scale;
+        return (bx, by + bh);
+    }
+
+    if let Some((cx, cy)) = caret {
         return (cx, cy);
     }
 
-    if let Some((cx, cy)) = get_caret_pos() {
-        return (cx, cy);
-    }
-
-    (MARGIN, MARGIN)
+    (POPUP_WIDTH / 2.0, POPUP_INITIAL_HEIGHT / 2.0)
 }
 
 // -- Platform helpers (DPI, cursor, caret) --
