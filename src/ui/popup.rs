@@ -1,635 +1,839 @@
-use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind};
+use crate::app::{
+    AppEvent, PopupState, TranslateLanguage, WritingToolKind, TONES, TRANSLATE_LANGS,
+};
 use crate::selection::SelectionContext;
 use crate::settings::AppSettings;
-use crate::ui::{popup_ai, popup_views, popup_window, settings_views};
+use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
+use crate::ui::webview_bridge::{self, BridgeContext};
+use crate::ui::webview_ipc::JsToRust;
+use crate::ui::webview_popup::{spawn_webview_thread, WebViewPopupCommand};
+use crate::ui::webview_settings::SettingsCommand;
 use anyhow::Result;
-use iced::widget::text_editor;
-use iced::window;
-use iced::{Element, Subscription, Task, Theme};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use serde_json::json;
+use std::sync::mpsc as std_mpsc;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
-use tracing::{debug, info};
+use tracing::{debug, error};
 
-/// Messages handled by the iced daemon.
+/// Internal async message type kept for compatibility with popup_ai helpers.
 #[derive(Debug, Clone)]
 pub enum Message {
-    // Window lifecycle
-    PopupOpened(window::Id),
-    PopupClosed(window::Id),
-    SettingsWindowOpened(window::Id),
+    AiResponse(std::result::Result<String, String>),
+    TestConnectionResult(std::result::Result<String, String>),
+    ReplaceDone,
+}
 
-    // Forwarded from AppEvent channel
-    TextSelected(SelectionContext),
-    SelectionCleared,
-    HotkeyPressed,
-    TrayClicked,
+struct AppState {
+    popup_state: PopupState,
+    settings_form: Option<SettingsForm>,
+    current_selection: Option<SelectionContext>,
+    settings: AppSettings,
+    last_tool: Option<WritingToolKind>,
+    translate_from: TranslateLanguage,
+    translate_to: TranslateLanguage,
+    translate_original_content: String,
+    translate_output_text: String,
+    popup_visible: bool,
+    copy_feedback: bool,
+    last_auto_shown: Option<String>,
+    ignore_auto_until: Option<Instant>,
+    spinner_tick: usize,
+    webview_popup_tx: std_mpsc::Sender<WebViewPopupCommand>,
+    webview_settings_tx: std_mpsc::Sender<SettingsCommand>,
+}
+
+enum InternalEvent {
     AiResponse(std::result::Result<String, String>),
     ManualCaptureResult(SelectionContext),
-
-    // UI actions (from popup views)
-    ToolSelected(WritingToolKind),
-    ToneSelected(crate::app::ToneOption),
-    TranslateFromChanged(TranslateLanguage),
-    TranslateToChanged(TranslateLanguage),
-    TranslateSwapLangs,
-    TranslateConfirm,
-    TranslateOriginalAction(text_editor::Action),
-    TranslateCopyResult,
-    TranslateReplaceResult,
-    BackToOptions,
-    CopyResult,
-    ReplaceResult,
-    ReplaceDone,
-    Retry,
-    Cancel,
-    Dismiss,
-
-    // Settings actions
-    SettingsRequested,
-    SettingsClosed,
-    SettingsBaseUrlChanged(String),
-    SettingsModelChanged(String),
-    SettingsApiKeyChanged(String),
-    SettingsAutoPopupToggled(bool),
-    SettingsAutoStartToggled(bool),
-    SettingsSave,
-    TestConnection,
     TestConnectionResult(std::result::Result<String, String>),
-
-    // System
-    QuitRequested,
-    Tick,
-    SpinnerTick,
-    PollEscKey,
+    ReplaceDone,
 }
 
-/// Daemon application state.
-pub(crate) struct AppState {
-    popup_state: PopupState,
-    popup_window_id: Option<window::Id>,
-    settings_window_id: Option<window::Id>,
-    settings_form: Option<settings_views::SettingsForm>,
-    current_selection: Option<SelectionContext>,
-    copy_feedback: bool,
-    settings: AppSettings,
-    event_rx: Arc<Mutex<Option<mpsc::Receiver<AppEvent>>>>,
-    last_tool: Option<WritingToolKind>,
-    /// Selected "from" language for translate feature.
-    pub(crate) translate_from: TranslateLanguage,
-    /// Selected "to" language for translate feature.
-    pub(crate) translate_to: TranslateLanguage,
-    /// Editable original text content for translate result.
-    pub(crate) translate_original_content: text_editor::Content,
-    /// Read-only translated output text.
-    pub(crate) translate_output_text: String,
-    /// True while popup is shown onscreen — suppresses auto-monitor events to prevent loop.
-    popup_visible: bool,
-    /// Normalized text of the last auto-shown selection — prevents re-show for same text.
-    last_auto_shown: Option<String>,
-    /// Cooldown: ignore auto TextSelected events until this instant passes.
-    ignore_auto_until: Option<Instant>,
-    /// Spinner animation frame index for processing state.
-    spinner_tick: usize,
-}
-
-/// Run the iced daemon. Blocks the calling thread.
+/// Run WebView runtime loop. Blocks until quit.
+///
+/// The main thread must pump Win32 messages for tray-icon and global-hotkey to
+/// deliver events. The async event loop runs in a background thread instead.
 pub fn run(
     event_rx: mpsc::Receiver<AppEvent>,
     _event_tx: mpsc::Sender<AppEvent>,
     settings: AppSettings,
-    _runtime: tokio::runtime::Runtime,
+    runtime: tokio::runtime::Runtime,
 ) -> Result<()> {
-    let rx = Arc::new(Mutex::new(Some(event_rx)));
-    let rx_clone = Arc::clone(&rx);
-    let settings_clone = settings.clone();
+    let (webview_popup_tx, webview_popup_rx) = std_mpsc::channel::<WebViewPopupCommand>();
+    let (webview_settings_tx, webview_settings_rx) = std_mpsc::channel::<SettingsCommand>();
+    let (webview_ipc_tx, webview_ipc_rx) = mpsc::unbounded_channel::<JsToRust>();
+    let (internal_tx, internal_rx) = mpsc::unbounded_channel::<InternalEvent>();
 
-    iced::daemon("Fast English", update, view)
-        .subscription(subscription)
-        .theme(|_state, _window| Theme::Dark)
-        .style(|_state, _theme| iced::daemon::Appearance {
-            background_color: iced::Color::TRANSPARENT,
-            text_color: iced::Color::WHITE,
+    let _webview_thread = spawn_webview_thread(webview_popup_rx, webview_settings_rx, webview_ipc_tx);
+
+    let state = AppState {
+        popup_state: PopupState::Hidden,
+        settings_form: None,
+        current_selection: None,
+        settings,
+        last_tool: None,
+        translate_from: TRANSLATE_LANGS[0].clone(),
+        translate_to: TRANSLATE_LANGS[1].clone(),
+        translate_original_content: String::new(),
+        translate_output_text: String::new(),
+        popup_visible: false,
+        copy_feedback: false,
+        last_auto_shown: None,
+        ignore_auto_until: None,
+        spinner_tick: 0,
+        webview_popup_tx,
+        webview_settings_tx,
+    };
+
+    push_popup_state(&state);
+
+    // Spawn the async event loop in a background thread.
+    // The main thread must remain free to pump Win32 messages (required by
+    // tray-icon and global-hotkey crates on Windows).
+    let main_thread_id = get_current_thread_id();
+    std::thread::Builder::new()
+        .name("event-loop".into())
+        .spawn(move || {
+            run_async_event_loop(
+                runtime,
+                event_rx,
+                webview_ipc_rx,
+                internal_tx,
+                internal_rx,
+                state,
+                main_thread_id,
+            );
         })
-        .run_with(move || {
-            let (popup_id, popup_task) = popup_window::create_popup();
-            let state = AppState {
-                popup_state: PopupState::Hidden,
-                popup_window_id: Some(popup_id),
-                settings_window_id: None,
-                settings_form: None,
-                current_selection: None,
-                copy_feedback: false,
-                settings: settings_clone,
-                event_rx: rx_clone,
-                last_tool: None,
-                translate_from: crate::app::TRANSLATE_LANGS[0].clone(),
-                translate_to: crate::app::TRANSLATE_LANGS[1].clone(),
-                translate_original_content: text_editor::Content::new(),
-                translate_output_text: String::new(),
-                popup_visible: false,
-                last_auto_shown: None,
-                ignore_auto_until: None,
-                spinner_tick: 0,
-            };
-            (state, popup_task)
-        })
-        .map_err(|e| anyhow::anyhow!("iced daemon error: {}", e))
+        .expect("Failed to spawn event loop thread");
+
+    // Pump Win32 messages on the main thread so tray and hotkey events fire.
+    run_win32_message_pump();
+
+    Ok(())
 }
 
-fn update(state: &mut AppState, message: Message) -> Task<Message> {
-    match message {
-        Message::TextSelected(ctx) => {
-            // Suppress auto-monitor events while popup is visible
-            if state.popup_visible {
-                return Task::none();
-            }
-            // Suppress during cooldown after popup close
-            if state
-                .ignore_auto_until
-                .map_or(false, |t| Instant::now() < t)
-            {
-                return Task::none();
-            }
-            // Suppress if same text already shown (prevents re-show loop)
-            let norm = normalize_text(&ctx.text);
-            if state.last_auto_shown.as_ref() == Some(&norm) {
-                return Task::none();
-            }
-            match &state.popup_state {
-                PopupState::Processing { .. }
-                | PopupState::Result { .. }
-                | PopupState::Error { .. }
-                | PopupState::ToneSelection(_)
-                | PopupState::TranslateSelection(_)
-                | PopupState::TranslateResult { .. } => return Task::none(),
-                _ => {}
-            }
-            if let PopupState::Options(current) = &state.popup_state {
-                if current.text == ctx.text {
-                    return Task::none();
+/// Async event loop — runs on a background thread via `runtime.block_on()`.
+fn run_async_event_loop(
+    runtime: tokio::runtime::Runtime,
+    mut event_rx: mpsc::Receiver<AppEvent>,
+    mut webview_ipc_rx: mpsc::UnboundedReceiver<JsToRust>,
+    internal_tx: mpsc::UnboundedSender<InternalEvent>,
+    mut internal_rx: mpsc::UnboundedReceiver<InternalEvent>,
+    mut state: AppState,
+    main_thread_id: u32,
+) {
+    runtime.block_on(async move {
+        let mut tick_100ms = tokio::time::interval(Duration::from_millis(100));
+        let mut tick_1500ms = tokio::time::interval(Duration::from_millis(1500));
+        tick_100ms.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        tick_1500ms.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                maybe_event = event_rx.recv() => {
+                    let Some(event) = maybe_event else {
+                        break;
+                    };
+                    if !handle_app_event(&mut state, event, internal_tx.clone()) {
+                        break;
+                    }
+                }
+
+                maybe_ipc = webview_ipc_rx.recv() => {
+                    let Some(ipc) = maybe_ipc else {
+                        break;
+                    };
+                    handle_webview_ipc(&mut state, ipc, internal_tx.clone());
+                }
+
+                maybe_internal = internal_rx.recv() => {
+                    let Some(internal) = maybe_internal else {
+                        break;
+                    };
+                    handle_internal_event(&mut state, internal);
+                }
+
+                _ = tick_100ms.tick() => {
+                    if state.popup_visible
+                        && matches!(state.popup_state, PopupState::Processing { .. })
+                    {
+                        state.spinner_tick = state.spinner_tick.wrapping_add(1);
+                    }
+                    if state.popup_visible && is_esc_pressed() {
+                        dismiss_popup(&mut state);
+                    }
+                }
+
+                _ = tick_1500ms.tick() => {
+                    if state.copy_feedback {
+                        state.copy_feedback = false;
+                        push_popup_state(&state);
+                    }
                 }
             }
+        }
+
+        let _ = state.webview_popup_tx.send(WebViewPopupCommand::Close);
+        let _ = state.webview_settings_tx.send(SettingsCommand::Close);
+
+        // Signal the main thread's Win32 message pump to exit.
+        post_quit_to_thread(main_thread_id);
+    });
+}
+
+/// Get current thread ID (Win32).
+#[cfg(target_os = "windows")]
+fn get_current_thread_id() -> u32 {
+    unsafe { windows::Win32::System::Threading::GetCurrentThreadId() }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_current_thread_id() -> u32 {
+    0
+}
+
+/// Post WM_QUIT to a specific thread to break its GetMessage loop.
+#[cfg(target_os = "windows")]
+fn post_quit_to_thread(thread_id: u32) {
+    unsafe {
+        let _ = windows::Win32::UI::WindowsAndMessaging::PostThreadMessageW(
+            thread_id,
+            windows::Win32::UI::WindowsAndMessaging::WM_QUIT,
+            windows::Win32::Foundation::WPARAM(0),
+            windows::Win32::Foundation::LPARAM(0),
+        );
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn post_quit_to_thread(_thread_id: u32) {}
+
+/// Pump Win32 messages on the current thread.
+///
+/// Keeps tray-icon and global-hotkey alive by dispatching their window messages.
+/// Returns when WM_QUIT is received.
+#[cfg(target_os = "windows")]
+fn run_win32_message_pump() {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, GetMessageW, TranslateMessage, MSG,
+    };
+    let mut msg = MSG::default();
+    unsafe {
+        // GetMessageW returns 0 on WM_QUIT, -1 on error.
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn run_win32_message_pump() {
+    // On non-Windows, just park the thread until it's unparked.
+    std::thread::park();
+}
+
+fn handle_app_event(
+    state: &mut AppState,
+    event: AppEvent,
+    internal_tx: mpsc::UnboundedSender<InternalEvent>,
+) -> bool {
+    match event {
+        AppEvent::TextSelected(ctx) => {
+            if state.popup_visible {
+                return true;
+            }
+            if state.ignore_auto_until.is_some_and(|t| Instant::now() < t) {
+                return true;
+            }
+
+            let norm = normalize_text(&ctx.text);
+            if state.last_auto_shown.as_ref() == Some(&norm) {
+                return true;
+            }
+
+            if matches!(
+                state.popup_state,
+                PopupState::Processing { .. }
+                    | PopupState::Result { .. }
+                    | PopupState::Error { .. }
+                    | PopupState::ToneSelection(_)
+                    | PopupState::TranslateSelection(_)
+                    | PopupState::TranslateResult { .. }
+            ) {
+                return true;
+            }
+
             state.current_selection = Some(ctx.clone());
             state.popup_state = PopupState::Options(ctx.clone());
+
             if state.settings.auto_popup_enabled {
                 state.last_auto_shown = Some(norm);
                 state.popup_visible = true;
-                if let Some(id) = state.popup_window_id {
-                    return popup_window::show_popup(id, &ctx);
-                }
+                show_popup(state, &ctx);
+                push_popup_state(state);
             }
         }
 
-        Message::SelectionCleared => {
-            // Only trust clear events when popup is NOT visible (popup steals focus → fake clear)
+        AppEvent::SelectionCleared => {
             if state.popup_visible {
-                return Task::none();
+                return true;
             }
-            // Real clear — reset auto-shown tracker so same text can re-trigger later
             state.last_auto_shown = None;
             if matches!(state.popup_state, PopupState::Options(_)) {
-                return popup_window::hide_popup(&mut state.popup_state, state.popup_window_id);
+                dismiss_popup(state);
             }
         }
 
-        Message::HotkeyPressed | Message::TrayClicked => {
-            // Always do a fresh capture — never rely on cached selection,
-            // which may be stale data from a different app (e.g., browser).
-            return Task::perform(
-                async { crate::selection::monitor::try_manual_capture().await },
-                |result| match result {
-                    Some(ctx) => Message::ManualCaptureResult(ctx),
-                    None => Message::Tick,
-                },
-            );
+        AppEvent::HotkeyPressed | AppEvent::TrayClicked => {
+            let tx = internal_tx.clone();
+            tokio::spawn(async move {
+                if let Some(ctx) = crate::selection::monitor::try_manual_capture().await {
+                    let _ = tx.send(InternalEvent::ManualCaptureResult(ctx));
+                }
+            });
         }
 
-        Message::ToolSelected(kind) => {
-            if let PopupState::Options(ctx) = &state.popup_state {
-                if matches!(kind, WritingToolKind::ChangeTone(_)) {
-                    state.popup_state = PopupState::ToneSelection(ctx.clone());
-                    return popup_window::resize_for_state(
-                        state.popup_window_id,
-                        &state.popup_state,
-                    );
-                }
-                if matches!(kind, WritingToolKind::Translate { .. }) {
-                    state.popup_state = PopupState::TranslateSelection(ctx.clone());
-                    return popup_window::resize_for_state(
-                        state.popup_window_id,
-                        &state.popup_state,
-                    );
-                }
-                let text = ctx.text.clone();
-                let ctx_clone = ctx.clone();
-                state.last_tool = Some(kind.clone());
-                state.popup_state = PopupState::Processing {
-                    context: ctx_clone,
-                    tool: kind.clone(),
-                };
-                let resize =
-                    popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
-                let ai_req = popup_ai::start_request(&state.settings, &text, &kind);
-                return Task::batch([resize, ai_req]);
+        AppEvent::SettingsRequested => {
+            if state.settings_form.is_none() {
+                state.settings_form = Some(SettingsForm::from_settings(&state.settings));
+            }
+            if let Some(form) = &state.settings_form {
+                let _ = state.webview_settings_tx.send(SettingsCommand::Show);
+                let _ = state
+                    .webview_settings_tx
+                    .send(SettingsCommand::SetSettings {
+                        json: webview_bridge::settings_to_json(form),
+                    });
+                let _ = state
+                    .webview_settings_tx
+                    .send(SettingsCommand::SetTestResult {
+                        json: json!({"status": "idle", "message": ""}).to_string(),
+                    });
             }
         }
 
-        Message::BackToOptions => {
+        AppEvent::QuitRequested => {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn handle_webview_ipc(
+    state: &mut AppState,
+    ipc: JsToRust,
+    internal_tx: mpsc::UnboundedSender<InternalEvent>,
+) {
+    match ipc {
+        JsToRust::Dismiss => dismiss_popup(state),
+
+        JsToRust::BackToOptions => {
             if let PopupState::ToneSelection(ctx) | PopupState::TranslateSelection(ctx) =
                 &state.popup_state
             {
                 state.popup_state = PopupState::Options(ctx.clone());
-                return popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
-            }
-            if let PopupState::Result { context, .. }
+                push_popup_state(state);
+            } else if let PopupState::Result { context, .. }
             | PopupState::Error { context, .. }
             | PopupState::TranslateResult { context, .. } = &state.popup_state
             {
                 state.popup_state = PopupState::Options(context.clone());
-                return popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
+                push_popup_state(state);
             }
         }
 
-        Message::ToneSelected(tone) => {
-            if let PopupState::ToneSelection(ctx) = &state.popup_state {
-                let kind = WritingToolKind::ChangeTone(tone);
-                let text = ctx.text.clone();
-                let ctx_clone = ctx.clone();
-                state.last_tool = Some(kind.clone());
-                state.popup_state = PopupState::Processing {
-                    context: ctx_clone,
-                    tool: kind.clone(),
-                };
-                let resize =
-                    popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
-                let ai_req = popup_ai::start_request(&state.settings, &text, &kind);
-                return Task::batch([resize, ai_req]);
+        JsToRust::ToolSelected { kind } => {
+            if let Some(tool) = map_tool_id_to_kind(&kind) {
+                if let PopupState::Options(ctx) = &state.popup_state {
+                    if matches!(tool, WritingToolKind::ChangeTone(_)) {
+                        state.popup_state = PopupState::ToneSelection(ctx.clone());
+                        push_popup_state(state);
+                        return;
+                    }
+
+                    if matches!(tool, WritingToolKind::Translate { .. }) {
+                        state.popup_state = PopupState::TranslateSelection(ctx.clone());
+                        push_popup_state(state);
+                        return;
+                    }
+
+                    start_ai_request(state, ctx.clone(), tool, internal_tx);
+                }
             }
         }
 
-        Message::TranslateFromChanged(lang) => {
-            state.translate_from = lang;
+        JsToRust::ToneSelected { tone_id } => {
+            if let Some(tone) = TONES.iter().find(|t| t.id == tone_id).cloned() {
+                if let PopupState::ToneSelection(ctx) = &state.popup_state {
+                    start_ai_request(
+                        state,
+                        ctx.clone(),
+                        WritingToolKind::ChangeTone(tone),
+                        internal_tx,
+                    );
+                }
+            }
         }
 
-        Message::TranslateToChanged(lang) => {
-            state.translate_to = lang;
+        JsToRust::TranslateFromChanged { lang_id } => {
+            if let Some(lang) = find_translate_language(&lang_id) {
+                state.translate_from = lang;
+                if matches!(
+                    state.popup_state,
+                    PopupState::TranslateSelection(_) | PopupState::TranslateResult { .. }
+                ) {
+                    push_popup_state(state);
+                }
+            }
         }
 
-        Message::TranslateSwapLangs => {
+        JsToRust::TranslateToChanged { lang_id } => {
+            if let Some(lang) = find_translate_language(&lang_id) {
+                state.translate_to = lang;
+                if matches!(
+                    state.popup_state,
+                    PopupState::TranslateSelection(_) | PopupState::TranslateResult { .. }
+                ) {
+                    push_popup_state(state);
+                }
+            }
+        }
+
+        JsToRust::TranslateSwapLangs => {
             if state.translate_from.id != "auto" && state.translate_to.id != "auto" {
                 std::mem::swap(&mut state.translate_from, &mut state.translate_to);
+                push_popup_state(state);
             }
         }
 
-        Message::TranslateConfirm => {
-            // Works from both TranslateSelection (initial) and TranslateResult (re-translate)
-            let ctx = match &state.popup_state {
+        JsToRust::TranslateConfirm { .. } => {
+            let maybe_ctx = match &state.popup_state {
                 PopupState::TranslateSelection(ctx) => Some(ctx.clone()),
                 PopupState::TranslateResult { context, .. } => {
-                    // Re-translate uses the (possibly edited) original text from editor
                     let mut ctx = context.clone();
-                    ctx.text = state.translate_original_content.text();
+                    if !state.translate_original_content.is_empty() {
+                        ctx.text = state.translate_original_content.clone();
+                    }
                     Some(ctx)
                 }
                 _ => None,
             };
-            if let Some(ctx) = ctx {
-                let kind = WritingToolKind::Translate {
+
+            if let Some(ctx) = maybe_ctx {
+                let tool = WritingToolKind::Translate {
                     from: state.translate_from.clone(),
                     to: state.translate_to.clone(),
                 };
-                let text = ctx.text.clone();
-                state.last_tool = Some(kind.clone());
-                state.popup_state = PopupState::Processing {
-                    context: ctx,
-                    tool: kind.clone(),
-                };
-                let resize =
-                    popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
-                let ai_req = popup_ai::start_request(&state.settings, &text, &kind);
-                return Task::batch([resize, ai_req]);
+                start_ai_request(state, ctx, tool, internal_tx);
             }
         }
 
-        Message::TranslateOriginalAction(action) => {
-            state.translate_original_content.perform(action);
-        }
-
-        Message::TranslateCopyResult => {
+        JsToRust::TranslateCopyResult => {
             let _ = arboard::Clipboard::new()
                 .and_then(|mut cb| cb.set_text(state.translate_output_text.clone()));
             state.copy_feedback = true;
+            push_popup_state(state);
         }
 
-        Message::TranslateReplaceResult => {
+        JsToRust::TranslateReplaceResult => {
             let text = state.translate_output_text.clone();
-            state.popup_visible = false;
-            state.ignore_auto_until = Some(Instant::now() + std::time::Duration::from_secs(2));
-            let hide_task = popup_window::hide_popup(&mut state.popup_state, state.popup_window_id);
-            let replace_task = Task::perform(
-                async move {
-                    if let Err(e) = crate::editing::text_service::replace_selection(&text).await {
-                        tracing::error!("Replace failed: {}", e);
-                    }
-                },
-                |_| Message::ReplaceDone,
-            );
-            return Task::batch([hide_task, replace_task]);
+            dismiss_popup(state);
+            tokio::spawn(async move {
+                if let Err(e) = crate::editing::text_service::replace_selection(&text).await {
+                    error!("Replace failed: {}", e);
+                }
+            });
         }
 
-        Message::ManualCaptureResult(ctx) => {
-            // Manual hotkey always shows popup — bypasses auto guards
+        JsToRust::CopyResult => {
+            if let PopupState::Result { output, .. } = &state.popup_state {
+                let _ = arboard::Clipboard::new().and_then(|mut cb| cb.set_text(output.clone()));
+                state.copy_feedback = true;
+                push_popup_state(state);
+            }
+        }
+
+        JsToRust::ReplaceResult => {
+            if let PopupState::Result { output, .. } = &state.popup_state {
+                let text = output.clone();
+                dismiss_popup(state);
+                let tx = internal_tx.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::editing::text_service::replace_selection(&text).await {
+                        error!("Replace failed: {}", e);
+                    }
+                    let _ = tx.send(InternalEvent::ReplaceDone);
+                });
+            }
+        }
+
+        JsToRust::Retry => {
+            if let PopupState::Error { context, .. } = &state.popup_state {
+                if let Some(tool) = state.last_tool.clone() {
+                    start_ai_request(state, context.clone(), tool, internal_tx);
+                }
+            }
+        }
+
+        JsToRust::OpenSettings => {
+            if state.settings_form.is_none() {
+                state.settings_form = Some(SettingsForm::from_settings(&state.settings));
+            }
+            if let Some(form) = &state.settings_form {
+                let _ = state.webview_settings_tx.send(SettingsCommand::Show);
+                let _ = state
+                    .webview_settings_tx
+                    .send(SettingsCommand::SetSettings {
+                        json: webview_bridge::settings_to_json(form),
+                    });
+                let _ = state
+                    .webview_settings_tx
+                    .send(SettingsCommand::SetTestResult {
+                        json: json!({"status": "idle", "message": ""}).to_string(),
+                    });
+            }
+        }
+
+        JsToRust::SettingsChanged { field, value } => {
+            let form = state
+                .settings_form
+                .get_or_insert_with(|| SettingsForm::from_settings(&state.settings));
+            let val_str = match &value {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                other => other.to_string(),
+            };
+            match field.as_str() {
+                "base_url" => form.base_url = val_str,
+                "model" => form.model = val_str,
+                "api_key" => form.api_key = val_str,
+                "auto_popup" => {
+                    form.auto_popup = value.as_bool().unwrap_or(false);
+                }
+                "auto_start" => {
+                    form.auto_start = value.as_bool().unwrap_or(false);
+                }
+                _ => {}
+            }
+        }
+
+        JsToRust::TestConnection(payload) => {
+            let form = state
+                .settings_form
+                .get_or_insert_with(|| SettingsForm::from_settings(&state.settings));
+            // Sync form from payload (authoritative snapshot from JS)
+            form.base_url = payload.base_url;
+            form.model = payload.model;
+            if !payload.api_key.starts_with("****") {
+                form.api_key = payload.api_key;
+            }
+            form.auto_popup = payload.auto_popup;
+            form.auto_start = payload.auto_start;
+            form.test_state = ConnectionTestState::Testing;
+
+            let _ = state
+                .webview_settings_tx
+                .send(SettingsCommand::SetTestResult {
+                    json: json!({"status": "testing", "message": ""}).to_string(),
+                });
+
+            let base_url = form.base_url.clone();
+            let model = form.model.clone();
+            let api_key = form.api_key.clone();
+            let tx = internal_tx.clone();
+            tokio::spawn(async move {
+                let result = if api_key.is_empty() {
+                    Err("No API key configured".to_string())
+                } else {
+                    match crate::ui::popup_ai::create_ai_client(api_key, &base_url, &model) {
+                        Ok(client) => client.test_connection().await.map_err(|e| e.to_string()),
+                        Err(e) => Err(e),
+                    }
+                };
+                let _ = tx.send(InternalEvent::TestConnectionResult(result));
+            });
+        }
+
+        JsToRust::SaveSettings(payload) => {
+            let form = state
+                .settings_form
+                .get_or_insert_with(|| SettingsForm::from_settings(&state.settings));
+            // Sync form from payload
+            form.base_url = payload.base_url;
+            form.model = payload.model;
+            if !payload.api_key.starts_with("****") {
+                form.api_key = payload.api_key;
+            }
+            form.auto_popup = payload.auto_popup;
+            form.auto_start = payload.auto_start;
+
+            match form.apply_to_settings(&mut state.settings) {
+                Ok(()) => {
+                    form.save_feedback = Some("Saved OK".to_string());
+                    let _ = state
+                        .webview_settings_tx
+                        .send(SettingsCommand::SetSaveFeedback {
+                            json: json!({"message": "Saved OK", "isOk": true}).to_string(),
+                        });
+                }
+                Err(msg) => {
+                    form.save_feedback = Some(format!("Error: {}", msg));
+                    let _ = state
+                        .webview_settings_tx
+                        .send(SettingsCommand::SetSaveFeedback {
+                            json: json!({"message": format!("Error: {}", msg), "isOk": false})
+                                .to_string(),
+                        });
+                }
+            }
+        }
+
+        JsToRust::CloseSettings => {
+            let _ = state.webview_settings_tx.send(SettingsCommand::Hide);
+        }
+
+        JsToRust::ResizePopup { height } => {
+            let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
+                width: 340.0,
+                height,
+            });
+        }
+    }
+}
+
+fn handle_internal_event(state: &mut AppState, event: InternalEvent) {
+    match event {
+        InternalEvent::AiResponse(result) => match result {
+            Ok(output) => {
+                let ctx = popup_ai_context(&state.popup_state);
+                let tool = popup_ai_tool(&state.popup_state);
+                if let (Some(ctx), Some(tool)) = (ctx, tool) {
+                    if matches!(tool, WritingToolKind::Translate { .. }) {
+                        state.translate_original_content = ctx.text.clone();
+                        state.translate_output_text = output;
+                        state.popup_state = PopupState::TranslateResult { context: ctx };
+                    } else {
+                        state.popup_state = PopupState::Result {
+                            context: ctx,
+                            tool,
+                            output,
+                        };
+                    }
+                    push_popup_state(state);
+                }
+            }
+            Err(msg) => {
+                if let Some(ctx) = popup_ai_context(&state.popup_state) {
+                    state.popup_state = PopupState::Error {
+                        context: ctx,
+                        message: msg,
+                    };
+                    push_popup_state(state);
+                }
+            }
+        },
+
+        InternalEvent::ManualCaptureResult(ctx) => {
             state.current_selection = Some(ctx.clone());
             state.popup_state = PopupState::Options(ctx.clone());
             state.popup_visible = true;
             state.ignore_auto_until = None;
-            if let Some(id) = state.popup_window_id {
-                return popup_window::show_popup(id, &ctx);
-            }
+            show_popup(state, &ctx);
+            push_popup_state(state);
         }
 
-        Message::AiResponse(result) => {
-            let ctx = popup_ai::extract_context(&state.popup_state);
-            let tool = popup_ai::extract_tool(&state.popup_state);
-            match result {
-                Ok(output) => {
-                    if let (Some(ctx), Some(tool)) = (ctx, tool) {
-                        if matches!(tool, WritingToolKind::Translate { .. }) {
-                            let original = ctx.text.clone();
-                            state.translate_original_content =
-                                text_editor::Content::with_text(&original);
-                            state.translate_output_text = output.clone();
-                            state.popup_state = PopupState::TranslateResult {
-                                context: ctx,
-                            };
-                        } else {
-                            state.popup_state = PopupState::Result {
-                                context: ctx,
-                                tool,
-                                output,
-                            };
-                        }
-                        return popup_window::resize_for_state(
-                            state.popup_window_id,
-                            &state.popup_state,
-                        );
-                    }
-                }
-                Err(msg) => {
-                    if let Some(ctx) = ctx {
-                        state.popup_state = PopupState::Error {
-                            context: ctx,
-                            message: msg,
-                        };
-                        return popup_window::resize_for_state(
-                            state.popup_window_id,
-                            &state.popup_state,
-                        );
-                    }
-                }
-            }
-        }
-
-        Message::CopyResult => {
-            if let PopupState::Result { output, .. } = &state.popup_state {
-                let _ = arboard::Clipboard::new().and_then(|mut cb| cb.set_text(output.clone()));
-                state.copy_feedback = true;
-            }
-        }
-
-        Message::ReplaceResult => {
-            if let PopupState::Result { output, .. } = &state.popup_state {
-                let text = output.clone();
-                state.popup_visible = false;
-                state.ignore_auto_until = Some(Instant::now() + std::time::Duration::from_secs(2));
-                let hide_task =
-                    popup_window::hide_popup(&mut state.popup_state, state.popup_window_id);
-                let replace_task = Task::perform(
-                    async move {
-                        if let Err(e) = crate::editing::text_service::replace_selection(&text).await
-                        {
-                            tracing::error!("Replace failed: {}", e);
-                        }
-                    },
-                    |_| Message::ReplaceDone,
-                );
-                return Task::batch([hide_task, replace_task]);
-            }
-        }
-
-        Message::ReplaceDone => {
-            debug!("Text replacement completed");
-        }
-
-        Message::Retry => {
-            if let PopupState::Error { context, .. } = &state.popup_state {
-                if let Some(tool) = state.last_tool.clone() {
-                    let ctx = context.clone();
-                    state.popup_state = PopupState::Processing {
-                        context: ctx.clone(),
-                        tool: tool.clone(),
-                    };
-                    let resize =
-                        popup_window::resize_for_state(state.popup_window_id, &state.popup_state);
-                    let ai_req = popup_ai::start_request(&state.settings, &ctx.text, &tool);
-                    return Task::batch([resize, ai_req]);
-                }
-            }
-        }
-
-        Message::Cancel | Message::Dismiss => {
-            state.popup_visible = false;
-            state.ignore_auto_until = Some(Instant::now() + std::time::Duration::from_secs(1));
-            return popup_window::hide_popup(&mut state.popup_state, state.popup_window_id);
-        }
-
-        Message::PollEscKey => {
-            if state.popup_visible && is_esc_pressed() {
-                state.popup_visible = false;
-                state.ignore_auto_until = Some(Instant::now() + std::time::Duration::from_secs(1));
-                return popup_window::hide_popup(&mut state.popup_state, state.popup_window_id);
-            }
-        }
-
-        // -- Settings --
-        Message::SettingsRequested => {
-            return popup_window::open_settings(
-                &state.settings_window_id,
-                &mut state.settings_form,
-                &state.settings,
-            );
-        }
-        Message::SettingsClosed => {
-            return popup_window::close_settings(
-                &mut state.settings_form,
-                &mut state.settings_window_id,
-            );
-        }
-        Message::SettingsBaseUrlChanged(url) => {
-            if let Some(form) = &mut state.settings_form {
-                form.base_url = url;
-            }
-        }
-        Message::SettingsModelChanged(model) => {
-            if let Some(form) = &mut state.settings_form {
-                form.model = model;
-            }
-        }
-        Message::SettingsApiKeyChanged(key) => {
-            if let Some(form) = &mut state.settings_form {
-                form.api_key = key;
-            }
-        }
-        Message::SettingsAutoPopupToggled(enabled) => {
-            if let Some(form) = &mut state.settings_form {
-                form.auto_popup = enabled;
-            }
-        }
-        Message::SettingsAutoStartToggled(enabled) => {
-            if let Some(form) = &mut state.settings_form {
-                form.auto_start = enabled;
-            }
-        }
-        Message::SettingsSave => {
-            if let Some(form) = &mut state.settings_form {
-                match form.apply_to_settings(&mut state.settings) {
-                    Ok(()) => {
-                        form.save_feedback = Some("Saved OK".to_string());
-                        info!("Settings saved");
-                    }
-                    Err(msg) => {
-                        form.save_feedback = Some(format!("Error: {}", msg));
-                        tracing::error!("Settings save failed: {}", msg);
-                    }
-                }
-            }
-        }
-        Message::TestConnection => {
-            if let Some(form) = &mut state.settings_form {
-                form.test_state = settings_views::ConnectionTestState::Testing;
-                let base_url = form.base_url.clone();
-                let model = form.model.clone();
-                let api_key = form.api_key.clone();
-                return Task::perform(
-                    async move {
-                        if api_key.is_empty() {
-                            return Err("No API key configured".to_string());
-                        }
-
-                        let client = popup_ai::create_ai_client(api_key, &base_url, &model)?;
-
-                        client.test_connection().await.map_err(|e| e.to_string())
-                    },
-                    Message::TestConnectionResult,
-                );
-            }
-        }
-        Message::TestConnectionResult(result) => {
+        InternalEvent::TestConnectionResult(result) => {
             if let Some(form) = &mut state.settings_form {
                 match result {
                     Ok(msg) => {
-                        form.test_state = settings_views::ConnectionTestState::Success(msg);
+                        form.test_state = ConnectionTestState::Success(msg.clone());
+                        let _ = state
+                            .webview_settings_tx
+                            .send(SettingsCommand::SetTestResult {
+                                json: json!({"status": "success", "message": msg}).to_string(),
+                            });
                     }
                     Err(msg) => {
-                        form.test_state = settings_views::ConnectionTestState::Failure(msg);
+                        form.test_state = ConnectionTestState::Failure(msg.clone());
+                        let _ = state
+                            .webview_settings_tx
+                            .send(SettingsCommand::SetTestResult {
+                                json: json!({"status": "failure", "message": msg}).to_string(),
+                            });
                     }
                 }
             }
         }
 
-        // -- Window lifecycle --
-        Message::PopupOpened(id) => {
-            debug!("Popup window ready: {:?}", id);
-            state.popup_window_id = Some(id);
+        InternalEvent::ReplaceDone => {
+            debug!("Text replacement completed");
         }
-        Message::SettingsWindowOpened(id) => {
-            debug!("Settings window opened: {:?}", id);
-            state.settings_window_id = Some(id);
-        }
-        Message::PopupClosed(id) => {
-            debug!("Window closed externally: {:?}", id);
-            if state.popup_window_id == Some(id) {
-                // Window destroyed by OS — need to recreate on next show
-                state.popup_window_id = None;
-                state.popup_state = PopupState::Hidden;
-                state.popup_visible = false;
-                state.ignore_auto_until = Some(Instant::now() + std::time::Duration::from_secs(1));
-            }
-            if state.settings_window_id == Some(id) {
-                state.settings_window_id = None;
-                state.settings_form = None;
-            }
-        }
+    }
+}
 
-        Message::QuitRequested => return iced::exit(),
-        Message::SpinnerTick => {
-            state.spinner_tick = state.spinner_tick.wrapping_add(1);
-        }
-        Message::Tick => {
-            if state.copy_feedback {
-                state.copy_feedback = false;
+fn start_ai_request(
+    state: &mut AppState,
+    ctx: SelectionContext,
+    tool: WritingToolKind,
+    internal_tx: mpsc::UnboundedSender<InternalEvent>,
+) {
+    let input = ctx.text.clone();
+    state.last_tool = Some(tool.clone());
+    state.popup_state = PopupState::Processing {
+        context: ctx,
+        tool: tool.clone(),
+    };
+    push_popup_state(state);
+
+    let settings = state.settings.clone();
+    tokio::spawn(async move {
+        let api_key = crate::persistence::KeyStore::load("api")
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+        let result = if api_key.is_empty() {
+            Err("No API key configured. Open Settings to add one.".to_string())
+        } else {
+            match crate::ui::popup_ai::create_ai_client(
+                api_key,
+                &settings.base_url,
+                &settings.model,
+            ) {
+                Ok(client) => {
+                    let instruction = tool_instruction(&tool);
+                    match client.process(&input, &instruction).await {
+                        Ok(raw) => Ok(crate::ai::prompt::PromptBuilder::clean_output(&raw)),
+                        Err(e) => Err(e.to_string()),
+                    }
+                }
+                Err(e) => Err(e),
+            }
+        };
+
+        let _ = internal_tx.send(InternalEvent::AiResponse(result));
+    });
+}
+
+fn popup_ai_context(state: &PopupState) -> Option<SelectionContext> {
+    match state {
+        PopupState::Processing { context, .. } => Some(context.clone()),
+        PopupState::Result { context, .. } => Some(context.clone()),
+        PopupState::TranslateResult { context, .. } => Some(context.clone()),
+        PopupState::Error { context, .. } => Some(context.clone()),
+        PopupState::Options(ctx)
+        | PopupState::ToneSelection(ctx)
+        | PopupState::TranslateSelection(ctx) => Some(ctx.clone()),
+        PopupState::Hidden => None,
+    }
+}
+
+fn popup_ai_tool(state: &PopupState) -> Option<WritingToolKind> {
+    match state {
+        PopupState::Processing { tool, .. } => Some(tool.clone()),
+        PopupState::Result { tool, .. } => Some(tool.clone()),
+        _ => None,
+    }
+}
+
+fn tool_instruction(tool: &WritingToolKind) -> String {
+    match tool {
+        WritingToolKind::EnhanceWriting => crate::app::DEFAULT_TOOLS
+            .iter()
+            .find(|t| t.id == "enhance-writing")
+            .map(|t| t.prompt_instruction)
+            .unwrap_or("Improve the writing.")
+            .to_string(),
+        WritingToolKind::FixGrammar => crate::app::DEFAULT_TOOLS
+            .iter()
+            .find(|t| t.id == "fix-grammar")
+            .map(|t| t.prompt_instruction)
+            .unwrap_or("Fix grammar.")
+            .to_string(),
+        WritingToolKind::ChangeTone(tone) => tone.prompt_instruction.to_string(),
+        WritingToolKind::Translate { from, to } => {
+            if from.id == "auto" {
+                format!(
+                    "Detect the language of the following text and translate it to {}. Return only the translated text.",
+                    to.name
+                )
+            } else {
+                format!(
+                    "Translate the following text from {} to {}. Return only the translated text.",
+                    from.name, to.name
+                )
             }
         }
     }
-
-    Task::none()
 }
 
-fn view(state: &AppState, window_id: window::Id) -> Element<'_, Message> {
-    if state.settings_window_id == Some(window_id) {
-        if let Some(form) = &state.settings_form {
-            return settings_views::settings_content(form);
-        }
-    }
-    popup_views::popup_content(
-        &state.popup_state,
-        state.copy_feedback,
-        state.spinner_tick,
-        &state.translate_from,
-        &state.translate_to,
-        &state.translate_original_content,
-        &state.translate_output_text,
-    )
+fn dismiss_popup(state: &mut AppState) {
+    state.popup_visible = false;
+    state.ignore_auto_until = Some(Instant::now() + Duration::from_secs(1));
+    state.popup_state = PopupState::Hidden;
+    let _ = state.webview_popup_tx.send(WebViewPopupCommand::Hide);
 }
 
-fn subscription(state: &AppState) -> Subscription<Message> {
-    let mut subs = vec![];
+fn show_popup(state: &AppState, ctx: &SelectionContext) {
+    let (sw, sh) = crate::ui::popup_position::get_screen_size();
+    let (x, y, w, h) =
+        crate::ui::popup_position::calculate_position_f64(ctx.bounds.as_ref(), sw, sh);
+    let _ = state.webview_popup_tx.send(WebViewPopupCommand::Show {
+        x,
+        y,
+        width: w,
+        height: h,
+    });
+}
 
-    let rx = Arc::clone(&state.event_rx);
-    subs.push(Subscription::run_with_id(
-        "app-events",
-        popup_window::channel_stream(rx),
-    ));
+fn push_popup_state(state: &AppState) {
+    let bridge_ctx = BridgeContext {
+        translate_from: state.translate_from.clone(),
+        translate_to: state.translate_to.clone(),
+        translate_original_content: state.translate_original_content.clone(),
+        translate_output_text: state.translate_output_text.clone(),
+        copy_feedback: state.copy_feedback,
+    };
+    let json = webview_bridge::popup_state_to_json(&state.popup_state, &bridge_ctx);
+    let _ = state
+        .webview_popup_tx
+        .send(WebViewPopupCommand::SetState { json });
 
-    subs.push(window::close_events().map(Message::PopupClosed));
-
-    // Poll ESC key globally when popup is visible (works even without window focus)
     if state.popup_visible {
-        subs.push(
-            iced::time::every(std::time::Duration::from_millis(100)).map(|_| Message::PollEscKey),
-        );
+        let h = webview_bridge::height_for_state(&state.popup_state);
+        let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
+            width: 380.0,
+            height: h,
+        });
     }
-
-    if state.copy_feedback {
-        subs.push(iced::time::every(std::time::Duration::from_millis(1500)).map(|_| Message::Tick));
-    }
-
-    if matches!(state.popup_state, PopupState::Processing { .. }) {
-        subs.push(
-            iced::time::every(std::time::Duration::from_millis(120)).map(|_| Message::SpinnerTick),
-        );
-    }
-
-    Subscription::batch(subs)
 }
 
-/// Normalize text for dedup comparison: trim whitespace and normalize line endings.
 fn normalize_text(text: &str) -> String {
     text.replace("\r\n", "\n").trim().to_string()
 }
 
-/// Check if ESC key is currently pressed (global, works without focus).
+fn find_translate_language(lang_id: &str) -> Option<TranslateLanguage> {
+    TRANSLATE_LANGS
+        .iter()
+        .find(|lang| lang.id == lang_id)
+        .cloned()
+}
+
+fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
+    match kind {
+        "enhance-writing" | "enhance_writing" => Some(WritingToolKind::EnhanceWriting),
+        "fix-grammar" | "fix_grammar" => Some(WritingToolKind::FixGrammar),
+        "change-tone" | "change_tone" => Some(WritingToolKind::ChangeTone(TONES[0].clone())),
+        "translate" => Some(WritingToolKind::Translate {
+            from: TRANSLATE_LANGS[0].clone(),
+            to: TRANSLATE_LANGS[1].clone(),
+        }),
+        _ => None,
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn is_esc_pressed() -> bool {
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_ESCAPE};

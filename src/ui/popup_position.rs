@@ -1,17 +1,17 @@
 use crate::selection::Rect;
 
-/// Popup dimensions.
-pub const POPUP_WIDTH: f32 = 340.0;
+/// Popup dimensions — sized for the 2×2 icon-card grid layout.
+pub const POPUP_WIDTH: f32 = 380.0;
 pub const POPUP_INITIAL_HEIGHT: f32 = OPTIONS_HEIGHT;
 
 /// Height per popup state.
-pub const OPTIONS_HEIGHT: f32 = 340.0;
+pub const OPTIONS_HEIGHT: f32 = 310.0;
 pub const TONE_HEIGHT: f32 = 400.0;
-pub const TRANSLATE_HEIGHT: f32 = 200.0;
-pub const TRANSLATE_RESULT_HEIGHT: f32 = 460.0;
-pub const PROCESSING_HEIGHT: f32 = 60.0;
-pub const RESULT_HEIGHT: f32 = 320.0;
-pub const ERROR_HEIGHT: f32 = 160.0;
+pub const TRANSLATE_HEIGHT: f32 = 220.0;
+pub const TRANSLATE_RESULT_HEIGHT: f32 = 480.0;
+pub const PROCESSING_HEIGHT: f32 = 150.0;
+pub const RESULT_HEIGHT: f32 = 360.0;
+pub const ERROR_HEIGHT: f32 = 180.0;
 const MARGIN: f32 = 8.0;
 const ANCHOR_SPACING: f32 = 8.0;
 
@@ -78,6 +78,18 @@ pub fn calculate_position(
         width: POPUP_WIDTH,
         height,
     }
+}
+
+/// Calculate popup placement as f64 values for WebView (tao uses f64 for LogicalPosition/LogicalSize).
+///
+/// Returns `(x, y, width, height)` — all logical pixels as f64.
+pub fn calculate_position_f64(
+    selection_bounds: Option<&Rect>,
+    screen_width: f32,
+    screen_height: f32,
+) -> (f64, f64, f64, f64) {
+    let p = calculate_position(selection_bounds, screen_width, screen_height);
+    (p.x as f64, p.y as f64, p.width as f64, p.height as f64)
 }
 
 /// Pick the best anchor point (all values in logical pixels).

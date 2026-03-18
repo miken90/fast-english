@@ -65,8 +65,7 @@ fn main() -> Result<()> {
 
     info!("Fast English ready");
 
-    // Run the iced daemon (blocks until exit).
-    // The daemon manages the popup window lifecycle and bridges external events.
+    // Run WebView-based popup runtime (blocks until exit).
     ui::popup::run(event_rx, event_tx, settings, runtime)?;
 
     // Cleanup COM

@@ -25,6 +25,10 @@ uiautomation = { version = "0.24", features = ["all"] }
 # UI
 iced = { version = "0.13", features = ["tokio"] }
 
+# WebView
+wry = "0.54"
+tao = "0.34"
+
 # System integration
 tray-icon = "0.19"
 global-hotkey = "0.6"
@@ -46,6 +50,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
 anyhow = "1"
 dirs = "5"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 # Windows registry (for auto-start)
 winreg = "0.55"

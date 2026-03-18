@@ -1,0 +1,466 @@
+/**
+ * Fast English — Popup State Machine + IPC Bridge
+ *
+ * IPC Protocol:
+ *   JS → Rust:  window.ipc.postMessage(JSON.stringify({type, payload}))
+ *   Rust → JS:  evaluate_script calls window.setState(data)
+ */
+
+'use strict';
+
+// ─── IPC Bridge ────────────────────────────────────────────────────────────
+
+/**
+ * Send a message to the Rust host.
+ * @param {string} type  - IPC message type (matches Rust enum variant)
+ * @param {object} [payload] - Optional payload object
+ */
+function sendToRust(type, payload) {
+  if (window.ipc) {
+    window.ipc.postMessage(JSON.stringify({ type, payload: payload || null }));
+  } else {
+    // Dev mode: log to console
+    console.log('[IPC]', type, payload);
+  }
+}
+
+// ─── View Management ───────────────────────────────────────────────────────
+
+const VIEWS = ['options', 'tone', 'translate-select', 'translate-result', 'processing', 'result', 'error'];
+
+/**
+ * Show one view, hide all others.
+ * @param {string} viewName
+ */
+function showView(viewName) {
+  VIEWS.forEach(function(v) {
+    const el = document.getElementById('view-' + v);
+    if (!el) return;
+    if (v === viewName) {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  });
+}
+
+// ─── Icon Map ──────────────────────────────────────────────────────────────
+
+const TOOL_ICONS = {
+  'enhance_writing': {
+    colorClass: 'tool-icon--blue',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+  },
+  'fix_grammar': {
+    colorClass: 'tool-icon--green',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+  },
+  'change_tone': {
+    colorClass: 'tool-icon--purple',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>'
+  },
+  'translate': {
+    colorClass: 'tool-icon--amber',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>'
+  }
+};
+
+const TONE_EMOJIS = ['✨', '💬', '🎩', '😊', '⚡', '💪'];
+
+/** Get icon config, with fallback for unknown tool ids */
+function getToolIcon(id) {
+  // Support both snake_case and kebab-case tool ids
+  const normalized = id.replace(/-/g, '_');
+  return TOOL_ICONS[normalized] || {
+    colorClass: 'tool-icon--blue',
+    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>'
+  };
+}
+
+// ─── setState — Main Entry Point ───────────────────────────────────────────
+
+/**
+ * Called by Rust via evaluate_script("window.setState({...})")
+ * @param {object} data
+ */
+window.setState = function(data) {
+  if (!data || !data.view) return;
+
+  switch (data.view) {
+
+    case 'hidden':
+      VIEWS.forEach(function(v) {
+        const el = document.getElementById('view-' + v);
+        if (el) el.classList.remove('active');
+      });
+      break;
+
+    case 'options':
+      renderOptions(data);
+      showView('options');
+      break;
+
+    case 'tone':
+      renderTone(data);
+      showView('tone');
+      break;
+
+    case 'translate-select':
+      renderTranslateSelect(data);
+      showView('translate-select');
+      break;
+
+    case 'translate-result':
+      renderTranslateResult(data);
+      showView('translate-result');
+      break;
+
+    case 'processing':
+      renderProcessing(data);
+      showView('processing');
+      break;
+
+    case 'result':
+      renderResult(data);
+      showView('result');
+      break;
+
+    case 'error':
+      renderError(data);
+      showView('error');
+      break;
+
+    default:
+      console.warn('[setState] Unknown view:', data.view);
+  }
+
+  // Auto-resize the window to fit content (skip for hidden)
+  if (data.view !== 'hidden') {
+    autoResizePopup();
+  }
+};
+
+/**
+ * Measure the popup container's content height and ask Rust to resize the
+ * window so it fits snugly. Runs after a rAF to wait for layout.
+ */
+function autoResizePopup() {
+  requestAnimationFrame(function() {
+    var container = document.querySelector('.popup-container');
+    if (!container) return;
+    var height = container.scrollHeight;
+    if (height > 0) {
+      sendToRust('ResizePopup', { height: height });
+    }
+  });
+}
+
+// ─── View Renderers ────────────────────────────────────────────────────────
+
+function renderOptions(data) {
+  // Preview text
+  const previewEl = document.getElementById('options-preview');
+  if (previewEl) {
+    const preview = data.preview || '';
+    previewEl.textContent = preview.length > 70
+      ? '"' + preview.slice(0, 67) + '…"'
+      : (preview ? '"' + preview + '"' : '');
+  }
+
+  // Tool list
+  const listEl = document.getElementById('tool-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  const tools = data.tools || [];
+  tools.forEach(function(tool) {
+    const icon = getToolIcon(tool.id);
+    const hasArrow = tool.id === 'change_tone' || tool.id === 'change-tone' ||
+                     tool.id === 'translate';
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.dataset.toolId = tool.id;
+    btn.innerHTML =
+      '<div class="tool-icon ' + icon.colorClass + '">' + icon.svg + '</div>' +
+      '<div class="tool-text">' +
+        '<div class="tool-title">' + escHtml(tool.title) + '</div>' +
+        '<div class="tool-desc">' + escHtml(tool.description || '') + '</div>' +
+      '</div>' +
+      (hasArrow
+        ? '<svg class="tool-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>'
+        : '');
+
+    btn.addEventListener('click', function() {
+      sendToRust('ToolSelected', { kind: tool.id });
+    });
+
+    li.appendChild(btn);
+    listEl.appendChild(li);
+  });
+}
+
+function renderTone(data) {
+  const listEl = document.getElementById('tone-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  const tones = data.tones || [];
+  tones.forEach(function(tone, idx) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.className = 'tone-btn';
+    btn.dataset.toneId = tone.id;
+    btn.innerHTML =
+      '<div class="tone-btn-icon">' + (TONE_EMOJIS[idx] || '✨') + '</div>' +
+      '<span>' + escHtml(tone.name) + '</span>';
+
+    btn.addEventListener('click', function() {
+      sendToRust('ToneSelected', { tone_id: tone.id });
+    });
+
+    li.appendChild(btn);
+    listEl.appendChild(li);
+  });
+}
+
+/** Stored languages for translate-select so we can rebuild on swap */
+let _translateLanguages = [];
+let _translateFromId = '';
+let _translateToId = '';
+
+function renderTranslateSelect(data) {
+  _translateLanguages = data.languages || [];
+  _translateFromId = data.from ? data.from.id : (_translateLanguages[0] ? _translateLanguages[0].id : '');
+  _translateToId = data.to ? data.to.id : (_translateLanguages[1] ? _translateLanguages[1].id : '');
+
+  populateLangDropdowns();
+}
+
+function populateLangDropdowns() {
+  const fromSel = document.getElementById('translate-from-select');
+  const toSel   = document.getElementById('translate-to-select');
+  if (!fromSel || !toSel) return;
+
+  fromSel.innerHTML = '';
+  toSel.innerHTML = '';
+
+  _translateLanguages.forEach(function(lang) {
+    const optFrom = document.createElement('option');
+    optFrom.value = lang.id;
+    optFrom.textContent = lang.name;
+    if (lang.id === _translateFromId) optFrom.selected = true;
+    fromSel.appendChild(optFrom);
+
+    const optTo = document.createElement('option');
+    optTo.value = lang.id;
+    optTo.textContent = lang.name;
+    if (lang.id === _translateToId) optTo.selected = true;
+    toSel.appendChild(optTo);
+  });
+}
+
+function renderTranslateResult(data) {
+  // Store languages in case re-translate is needed
+  if (data.languages) _translateLanguages = data.languages;
+  if (data.from) _translateFromId = data.from.id;
+  if (data.to)   _translateToId   = data.to.id;
+
+  const fromLabel = document.getElementById('tr-from-label');
+  const toLabel   = document.getElementById('tr-to-label');
+  if (fromLabel) fromLabel.textContent = data.from ? data.from.name : 'Original';
+  if (toLabel)   toLabel.textContent   = data.to   ? data.to.name   : 'Translated';
+
+  const origEl  = document.getElementById('tr-original-text');
+  const transEl = document.getElementById('tr-translated-text');
+  if (origEl)  origEl.textContent  = data.original   || '';
+  if (transEl) transEl.textContent = data.translated || '';
+
+  const feedback = document.getElementById('translate-copy-feedback');
+  if (feedback) {
+    feedback.textContent = '';
+    feedback.classList.remove('visible');
+  }
+
+  if (data.copyFeedback) {
+    showCopyFeedback('translate-copy-feedback', 'Copied!');
+  }
+}
+
+function renderProcessing(data) {
+  const label = document.getElementById('processing-label');
+  if (label) {
+    label.textContent = data.tool
+      ? 'Running ' + data.tool + '…'
+      : 'Processing…';
+  }
+}
+
+function renderResult(data) {
+  const outputEl = document.getElementById('result-output');
+  if (outputEl) outputEl.textContent = data.output || '';
+
+  const feedback = document.getElementById('result-copy-feedback');
+  if (feedback) {
+    feedback.textContent = '';
+    feedback.classList.remove('visible');
+  }
+
+  if (data.copyFeedback) {
+    showCopyFeedback('result-copy-feedback', 'Copied!');
+  }
+}
+
+function renderError(data) {
+  const msgEl = document.getElementById('error-message');
+  if (msgEl) msgEl.textContent = data.message || 'An unexpected error occurred.';
+}
+
+// ─── Copy Feedback ─────────────────────────────────────────────────────────
+
+function showCopyFeedback(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = text || 'Copied!';
+  el.classList.add('visible');
+  setTimeout(function() {
+    el.classList.remove('visible');
+  }, 1500);
+}
+
+function copyToClipboard(text, feedbackId) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showCopyFeedback(feedbackId, 'Copied!');
+    }).catch(function() {
+      fallbackCopy(text, feedbackId);
+    });
+  } else {
+    fallbackCopy(text, feedbackId);
+  }
+}
+
+function fallbackCopy(text, feedbackId) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showCopyFeedback(feedbackId, 'Copied!');
+  } catch(e) {
+    showCopyFeedback(feedbackId, 'Failed');
+  }
+}
+
+// ─── HTML Escaping ─────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ─── Event Binding ─────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function() {
+
+  // ── Options View ──
+  bindClick('options-close', function() { sendToRust('Dismiss'); });
+  bindClick('options-settings-btn', function() { sendToRust('OpenSettings'); });
+
+  // ── Tone View ──
+  bindClick('tone-back',  function() { sendToRust('BackToOptions'); });
+  bindClick('tone-close', function() { sendToRust('Dismiss'); });
+
+  // ── Translate Select ──
+  bindClick('translate-select-back',  function() { sendToRust('BackToOptions'); });
+  bindClick('translate-select-close', function() { sendToRust('Dismiss'); });
+
+  bindChange('translate-from-select', function(val) {
+    _translateFromId = val;
+    sendToRust('TranslateFromChanged', { lang_id: val });
+  });
+
+  bindChange('translate-to-select', function(val) {
+    _translateToId = val;
+    sendToRust('TranslateToChanged', { lang_id: val });
+  });
+
+  bindClick('translate-swap-btn', function() {
+    var tmp = _translateFromId;
+    _translateFromId = _translateToId;
+    _translateToId = tmp;
+    populateLangDropdowns();
+    sendToRust('TranslateSwapLangs');
+  });
+
+  bindClick('translate-confirm-btn', function() {
+    sendToRust('TranslateConfirm', {
+      from: _translateFromId,
+      to:   _translateToId
+    });
+  });
+
+  // ── Translate Result ──
+  bindClick('translate-result-back',  function() { sendToRust('BackToOptions'); });
+  bindClick('translate-result-close', function() { sendToRust('Dismiss'); });
+
+  bindClick('translate-copy-btn', function() {
+    var text = getTextContent('tr-translated-text');
+    copyToClipboard(text, 'translate-copy-feedback');
+    sendToRust('TranslateCopyResult');
+  });
+
+  bindClick('translate-replace-btn', function() {
+    sendToRust('TranslateReplaceResult');
+  });
+
+  // ── Result View ──
+  bindClick('result-close', function() { sendToRust('Dismiss'); });
+
+  bindClick('result-copy-btn', function() {
+    var text = getTextContent('result-output');
+    copyToClipboard(text, 'result-copy-feedback');
+    sendToRust('CopyResult');
+  });
+
+  bindClick('result-replace-btn', function() {
+    sendToRust('ReplaceResult');
+  });
+
+  // ── Error View ──
+  bindClick('error-close',   function() { sendToRust('Dismiss'); });
+  bindClick('error-dismiss-btn', function() { sendToRust('Dismiss'); });
+  bindClick('error-retry-btn',   function() { sendToRust('Retry'); });
+
+  // ── ESC key global ──
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      sendToRust('Dismiss');
+    }
+  });
+});
+
+// ─── DOM Helpers ───────────────────────────────────────────────────────────
+
+function bindClick(id, fn) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', fn);
+}
+
+function bindChange(id, fn) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('change', function() { fn(el.value); });
+}
+
+function getTextContent(id) {
+  var el = document.getElementById(id);
+  return el ? el.textContent : '';
+}

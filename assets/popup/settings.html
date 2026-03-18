@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast English — Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+
+<div id="settings-root">
+  <div class="settings-container">
+
+    <!-- Header -->
+    <div class="settings-header">
+      <span class="settings-title">Settings</span>
+      <button class="btn-close" id="settings-close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Scrollable Body -->
+    <div class="settings-body">
+
+      <!-- AI Connection -->
+      <div class="settings-section">
+        <div class="section-title">AI Connection</div>
+
+        <div class="field">
+          <label class="field-label" for="input-base-url">Base URL</label>
+          <input
+            class="field-input"
+            id="input-base-url"
+            type="url"
+            placeholder="https://api.openai.com/v1"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="input-model">Model</label>
+          <input
+            class="field-input"
+            id="input-model"
+            type="text"
+            placeholder="gpt-4o-mini"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="input-api-key">API Key</label>
+          <input
+            class="field-input"
+            id="input-api-key"
+            type="password"
+            placeholder="sk-••••••••••••••••••••••••"
+            autocomplete="new-password"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="test-row">
+          <button class="btn-test" id="btn-test-connection">Test Connection</button>
+          <div class="status-badge status-badge--idle" id="test-status-badge">
+            <div class="badge-dot"></div>
+            <span id="test-status-text">Not tested</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferences -->
+      <div class="settings-section">
+        <div class="section-title">Preferences</div>
+
+        <div class="preference-row">
+          <div class="preference-label">
+            <span class="preference-name">Auto-popup</span>
+            <span class="preference-hint">Show popup on text selection</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-auto-popup">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="preference-row">
+          <div class="preference-label">
+            <span class="preference-name">Start with Windows</span>
+            <span class="preference-hint">Launch app on system startup</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-auto-start">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Hotkey -->
+      <div class="settings-section">
+        <div class="section-title">Keyboard Shortcut</div>
+        <div class="hotkey-row">
+          <span class="hotkey-label">Open popup manually</span>
+          <div class="hotkey-keys">
+            <span class="kbd">Ctrl</span>
+            <span class="hotkey-plus">+</span>
+            <span class="kbd">Alt</span>
+            <span class="hotkey-plus">+</span>
+            <span class="kbd">T</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.settings-body -->
+
+    <!-- Footer: Save + Version -->
+    <div class="settings-footer">
+      <div class="save-row">
+        <button class="btn-save" id="btn-save">Save Settings</button>
+        <span class="save-feedback" id="save-feedback"></span>
+      </div>
+      <div class="version-label">Fast English v0.1.0</div>
+    </div>
+
+  </div><!-- /.settings-container -->
+</div><!-- /#settings-root -->
+
+<script src="settings.js"></script>
+</body>
+</html>

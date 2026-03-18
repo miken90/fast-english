@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast English</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+<div id="popup-root">
+  <div class="popup-container">
+
+    <!-- ================================================
+         VIEW: options
+    ================================================ -->
+    <section id="view-options" class="view">
+      <div class="popup-header">
+        <div class="context-indicator">
+          <div class="context-dot"></div>
+          <span class="context-label">Context Active</span>
+        </div>
+        <button class="btn-close" id="options-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="popup-title">How can I help?</div>
+      <div class="popup-preview" id="options-preview"></div>
+
+      <ul class="tool-list" id="tool-list">
+        <!-- Populated by setState -->
+      </ul>
+
+      <div class="popup-footer">
+        <span class="footer-label" id="options-model-label">Powered by AI</span>
+        <button class="footer-settings-btn" id="options-settings-btn">Settings</button>
+      </div>
+    </section>
+
+    <!-- ================================================
+         VIEW: tone
+    ================================================ -->
+    <section id="view-tone" class="view">
+      <div class="popup-header popup-header--tight">
+        <button class="btn-back" id="tone-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M15 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn-close" id="tone-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="section-heading">Change Tone</div>
+
+      <ul class="tone-list" id="tone-list">
+        <!-- Populated by setState -->
+      </ul>
+
+      <div style="padding-bottom: 16px;"></div>
+    </section>
+
+    <!-- ================================================
+         VIEW: translate-select
+    ================================================ -->
+    <section id="view-translate-select" class="view">
+      <div class="popup-header popup-header--tight">
+        <button class="btn-back" id="translate-select-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M15 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn-close" id="translate-select-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="section-heading">Translate</div>
+
+      <div class="translate-lang-row">
+        <div class="lang-select-wrapper">
+          <select class="lang-select" id="translate-from-select">
+            <!-- Populated by setState -->
+          </select>
+          <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+
+        <button class="btn-swap" id="translate-swap-btn" aria-label="Swap languages">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4"/>
+            <path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+        </button>
+
+        <div class="lang-select-wrapper">
+          <select class="lang-select" id="translate-to-select">
+            <!-- Populated by setState -->
+          </select>
+          <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="action-row" style="padding-top: 4px;">
+        <button class="btn-primary" id="translate-confirm-btn">
+          Translate
+        </button>
+      </div>
+
+      <div style="padding-bottom: 10px;"></div>
+    </section>
+
+    <!-- ================================================
+         VIEW: translate-result
+    ================================================ -->
+    <section id="view-translate-result" class="view">
+      <div class="popup-header popup-header--tight">
+        <button class="btn-back" id="translate-result-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M15 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <button class="btn-close" id="translate-result-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="translate-panels">
+        <div>
+          <div class="translate-panel-label" id="tr-from-label">Original</div>
+          <div class="translate-text-box" id="tr-original-text"></div>
+        </div>
+
+        <div class="translate-divider" style="padding: 6px 0;">
+          <div class="translate-divider-line"></div>
+          <svg class="translate-divider-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="padding: 0 8px; color: var(--text-muted);">
+            <path d="M12 5v14M5 12l7 7 7-7"/>
+          </svg>
+          <div class="translate-divider-line"></div>
+        </div>
+
+        <div>
+          <div class="translate-panel-label" id="tr-to-label">Translated</div>
+          <div class="translate-text-box translate-text-box--result" id="tr-translated-text"></div>
+        </div>
+      </div>
+
+      <div id="translate-copy-feedback" class="copy-feedback"></div>
+
+      <div class="action-row">
+        <button class="btn-primary" id="translate-replace-btn">Replace</button>
+        <button class="btn-secondary" id="translate-copy-btn">Copy</button>
+      </div>
+
+      <div style="padding-bottom: 4px;"></div>
+    </section>
+
+    <!-- ================================================
+         VIEW: processing
+    ================================================ -->
+    <section id="view-processing" class="view">
+      <div class="processing-view">
+        <div class="spinner"></div>
+        <div class="processing-label" id="processing-label">Processing…</div>
+      </div>
+    </section>
+
+    <!-- ================================================
+         VIEW: result
+    ================================================ -->
+    <section id="view-result" class="view">
+      <div class="result-header">
+        <div class="result-status">
+          <div class="result-dot"></div>
+          <span class="result-title">Refined Result</span>
+        </div>
+        <button class="btn-close" id="result-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="result-text-wrapper">
+        <div class="result-text-glow"></div>
+        <div class="result-text" id="result-output"></div>
+      </div>
+
+      <div id="result-copy-feedback" class="copy-feedback"></div>
+
+      <div class="action-row">
+        <button class="btn-primary" id="result-replace-btn">Replace Selection</button>
+        <button class="btn-secondary" id="result-copy-btn">Copy</button>
+      </div>
+    </section>
+
+    <!-- ================================================
+         VIEW: error
+    ================================================ -->
+    <section id="view-error" class="view">
+      <div class="popup-header popup-header--tight">
+        <div class="context-indicator">
+          <div class="context-dot" style="background: var(--error); animation: none;"></div>
+          <span class="context-label" style="color: var(--error);">Error</span>
+        </div>
+        <button class="btn-close" id="error-close" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="error-view-inner">
+        <div class="error-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4M12 16h.01"/>
+          </svg>
+        </div>
+        <div class="error-title">Something went wrong</div>
+        <div class="error-message" id="error-message"></div>
+      </div>
+
+      <div class="action-row" style="padding-top: 4px;">
+        <button class="btn-primary" id="error-retry-btn">Try Again</button>
+        <button class="btn-secondary" id="error-dismiss-btn">Dismiss</button>
+      </div>
+
+      <div style="padding-bottom: 10px;"></div>
+    </section>
+
+  </div><!-- /.popup-container -->
+</div><!-- /#popup-root -->
+
+<script src="popup.js"></script>
+</body>
+</html>
