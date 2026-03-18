@@ -27,7 +27,7 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
     let _ = menu.append(&PredefinedMenuItem::separator());
     let _ = menu.append(&quit_item);
 
-    let icon_rgba = generate_tray_icon();
+    let icon_rgba = build_tray_icon();
     let icon = match Icon::from_rgba(icon_rgba, 16, 16) {
         Ok(i) => i,
         Err(e) => {
@@ -91,51 +91,55 @@ pub fn create_tray(event_tx: mpsc::Sender<AppEvent>) -> Option<tray_icon::TrayIc
     Some(tray)
 }
 
-/// Generate a 16x16 RGBA tray icon — Electric Blue rounded square with white "F" lettermark.
+/// Detect whether Windows is currently in dark mode.
+///
+/// Reads `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`
+/// -> `SystemUsesLightTheme`. Returns `true` if dark mode is active (value = 0),
+/// `false` if light mode (value = 1). Defaults to dark on any read error.
 #[cfg(target_os = "windows")]
-fn generate_tray_icon() -> Vec<u8> {
-    const W: usize = 16;
-    // Electric Blue background
-    const BG: [u8; 4] = [0x3B, 0x82, 0xF6, 0xFF];
-    // White "F" pixels
-    const FG: [u8; 4] = [0xFF, 0xFF, 0xFF, 0xFF];
-    // Transparent (outside rounded corners)
-    const TR: [u8; 4] = [0x00, 0x00, 0x00, 0x00];
+fn detect_system_dark_mode() -> bool {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
 
-    // 16x16 grid: 1 = white (F stroke), 0 = blue bg, 9 = transparent (corners)
-    #[rustfmt::skip]
-    let grid: [[u8; W]; W] = [
-        [9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9],
-        [9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9],
-        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 9],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9],
-        [9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9],
-        [9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9],
-    ];
-
-    let mut rgba = Vec::with_capacity(W * W * 4);
-    for row in &grid {
-        for &cell in row {
-            let pixel = match cell {
-                1 => FG,
-                9 => TR,
-                _ => BG,
-            };
-            rgba.extend_from_slice(&pixel);
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let path = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+    match hkcu.open_subkey(path) {
+        Ok(key) => {
+            let value: u32 = key.get_value("SystemUsesLightTheme").unwrap_or(0);
+            // 0 = dark mode, 1 = light mode
+            value == 0
+        }
+        Err(_) => {
+            tracing::warn!("Could not read Windows theme registry key; defaulting to dark mode");
+            true
         }
     }
-    rgba
 }
+
+/// Select and decode the appropriate tray icon based on system theme.
+///
+/// Embeds 32×32 PNGs at compile time and decodes + resizes to 16×16 RGBA at startup.
+/// - Dark mode  → blue bg + white F⚡ mark
+/// - Light mode → white bg + blue F⚡ mark
+#[cfg(target_os = "windows")]
+fn build_tray_icon() -> Vec<u8> {
+    const TRAY_DARK: &[u8] = include_bytes!("../../resources/tray_dark.png");
+    const TRAY_LIGHT: &[u8] = include_bytes!("../../resources/tray_light.png");
+
+    let png_data = if detect_system_dark_mode() {
+        TRAY_DARK
+    } else {
+        TRAY_LIGHT
+    };
+
+    let img = image::load_from_memory(png_data)
+        .expect("Failed to decode tray icon PNG")
+        .resize_exact(16, 16, image::imageops::FilterType::Lanczos3)
+        .into_rgba8();
+    img.into_raw()
+}
+
+
 
 #[cfg(not(target_os = "windows"))]
 pub fn create_tray(_event_tx: mpsc::Sender<AppEvent>) -> Option<()> {
