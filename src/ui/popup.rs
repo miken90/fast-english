@@ -33,6 +33,8 @@ struct AppState {
     translate_original_content: String,
     translate_output_text: String,
     popup_visible: bool,
+    popup_x: f64,
+    popup_y: f64,
     copy_feedback: bool,
     last_auto_shown: Option<String>,
     ignore_auto_until: Option<Instant>,
@@ -81,6 +83,8 @@ pub fn run(
         translate_original_content: String::new(),
         translate_output_text: String::new(),
         popup_visible: false,
+        popup_x: 0.0,
+        popup_y: 0.0,
         copy_feedback: false,
         last_auto_shown: None,
         ignore_auto_until: None,
@@ -616,6 +620,15 @@ fn handle_webview_ipc(
                 height,
             });
         }
+
+        JsToRust::MovePopup { dx, dy } => {
+            state.popup_x += dx;
+            state.popup_y += dy;
+            let _ = state.webview_popup_tx.send(WebViewPopupCommand::Move {
+                x: state.popup_x,
+                y: state.popup_y,
+            });
+        }
     }
 }
 
@@ -831,7 +844,7 @@ fn dismiss_popup(state: &mut AppState) {
     let _ = state.webview_popup_tx.send(WebViewPopupCommand::Hide);
 }
 
-fn show_popup(state: &AppState, ctx: &SelectionContext) {
+fn show_popup(state: &mut AppState, ctx: &SelectionContext) {
     let (sw, sh) = crate::ui::popup_position::get_screen_size();
 
     // No text selected → always center on screen.
@@ -843,6 +856,9 @@ fn show_popup(state: &AppState, ctx: &SelectionContext) {
     } else {
         crate::ui::popup_position::center_on_screen_f64(sw, sh)
     };
+
+    state.popup_x = x;
+    state.popup_y = y;
 
     let _ = state.webview_popup_tx.send(WebViewPopupCommand::Show {
         x,

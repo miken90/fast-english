@@ -32,6 +32,7 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
 
         PopupState::Options(sel_ctx) => {
             let preview = sel_ctx.text.chars().take(70).collect::<String>();
+            let has_text = !sel_ctx.text.trim().is_empty();
             let tools: Vec<_> = DEFAULT_TOOLS
                 .iter()
                 .map(|t| {
@@ -45,6 +46,7 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
             json!({
                 "view": "options",
                 "preview": escape_html(&preview),
+                "hasText": has_text,
                 "tools": tools
             })
             .to_string()

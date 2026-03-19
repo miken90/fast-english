@@ -131,11 +131,15 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px 14px;
+  cursor: grab;
 }
+.popup-header:active { cursor: grabbing; }
 
 .popup-header--tight {
   padding: 14px 20px 10px;
+  cursor: grab;
 }
+.popup-header--tight:active { cursor: grabbing; }
 
 /* Context indicator */
 .context-indicator {
@@ -254,6 +258,18 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .tool-btn:active { transform: translateY(0) scale(0.98); }
+
+.tool-btn--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.tool-btn--disabled:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: transparent;
+  transform: none;
+  box-shadow: none;
+}
 
 .tool-icon {
   width: 40px;
@@ -465,7 +481,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px 14px;
+  cursor: grab;
 }
+.result-header:active { cursor: grabbing; }
 
 .result-status {
   display: flex;

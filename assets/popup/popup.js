@@ -155,7 +155,12 @@ function autoResizePopup() {
 
 // ─── View Renderers ────────────────────────────────────────────────────────
 
+/** Tool IDs that remain enabled even when there is no selected/copied text. */
+var ALWAYS_ENABLED_TOOLS = ['convert-prompt', 'translate'];
+
 function renderOptions(data) {
+  var hasText = !!data.hasText;
+
   // Preview text
   const previewEl = document.getElementById('options-preview');
   if (previewEl) {
@@ -176,26 +181,29 @@ function renderOptions(data) {
   if (!listEl) return;
   listEl.innerHTML = '';
 
+  var arrowSvg = '<svg class="tool-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>';
+
   const tools = data.tools || [];
   tools.forEach(function(tool) {
     const icon = getToolIcon(tool.id);
-    const hasArrow = tool.id === 'translate';
+    var hasArrow = (tool.id === 'translate' || tool.id === 'convert-prompt');
+    var enabled = hasText || ALWAYS_ENABLED_TOOLS.indexOf(tool.id) !== -1;
 
     const li = document.createElement('li');
     const btn = document.createElement('button');
-    btn.className = 'tool-btn';
+    btn.className = 'tool-btn' + (enabled ? '' : ' tool-btn--disabled');
     btn.dataset.toolId = tool.id;
+    if (!enabled) btn.disabled = true;
     btn.innerHTML =
       '<div class="tool-icon ' + icon.colorClass + '">' + icon.svg + '</div>' +
       '<div class="tool-text">' +
         '<div class="tool-title">' + escHtml(tool.title) + '</div>' +
         '<div class="tool-desc">' + escHtml(tool.description || '') + '</div>' +
       '</div>' +
-      (hasArrow
-        ? '<svg class="tool-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>'
-        : '');
+      (hasArrow ? arrowSvg : '');
 
     btn.addEventListener('click', function() {
+      if (!enabled) return;
       sendToRust('ToolSelected', { kind: tool.id });
     });
 
@@ -450,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // ── Result View ──
+  bindClick('result-back', function() { sendToRust('BackToOptions'); });
   bindClick('result-close', function() { sendToRust('Dismiss'); });
 
   bindClick('result-copy-btn', function() {
@@ -481,7 +490,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // ── Error View ──
-  bindClick('error-close',   function() { sendToRust('Dismiss'); });
+  bindClick('error-back',        function() { sendToRust('BackToOptions'); });
+  bindClick('error-close',       function() { sendToRust('Dismiss'); });
   bindClick('error-dismiss-btn', function() { sendToRust('Dismiss'); });
   bindClick('error-retry-btn',   function() { sendToRust('Retry'); });
 
@@ -491,7 +501,55 @@ document.addEventListener('DOMContentLoaded', function() {
       sendToRust('Dismiss');
     }
   });
+
+  // ── Draggable popup ──
+  initPopupDrag();
 });
+
+// ─── Popup Drag ───────────────────────────────────────────────────────────
+
+function initPopupDrag() {
+  var dragging = false;
+  var startX = 0;
+  var startY = 0;
+
+  function isDragHandle(el) {
+    while (el && el !== document.body) {
+      if (el.classList && (
+        el.classList.contains('popup-header') ||
+        el.classList.contains('popup-header--tight') ||
+        el.classList.contains('result-header')
+      )) return true;
+      if (el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') return false;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  document.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    if (!isDragHandle(e.target)) return;
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
+    dragging = true;
+    startX = e.screenX;
+    startY = e.screenY;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var dx = e.screenX - startX;
+    var dy = e.screenY - startY;
+    if (dx === 0 && dy === 0) return;
+    startX = e.screenX;
+    startY = e.screenY;
+    sendToRust('MovePopup', { dx: dx, dy: dy });
+  });
+
+  document.addEventListener('mouseup', function() {
+    dragging = false;
+  });
+}
 
 // ─── DOM Helpers ───────────────────────────────────────────────────────────
 
