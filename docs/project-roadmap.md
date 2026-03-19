@@ -1,6 +1,6 @@
 # Fast English — Project Roadmap
 
-## Phase 1: v1.0 — Core MVP (Current)
+## Phase 1: v1.0 — Core MVP
 
 **Status**: Complete
 
@@ -29,11 +29,31 @@
 - No unit or integration tests
 - No streaming AI responses
 - Popup positioning can be imprecise in some apps
-- `src/ui/popup.rs` at 427 lines — exceeds 200-line target, modularization candidate
 
 ---
 
-## Phase 2: Quality & Reliability
+## Phase 2: Core UX & Component System
+
+**Status**: Complete (2026-03-19)
+
+### Delivered Features
+- [x] Shared CSS component library (`components.css`) — reusable buttons, textareas, status indicators
+- [x] Design token centralization (`tokens.css`) — unified color, spacing, shadow definitions
+- [x] Three-layer CSS architecture (tokens → base → components → app-specific)
+- [x] Keyboard navigation — roving tabindex pattern for tool list
+- [x] Accessibility enhancements — aria-live for feedback toasts, processing label, status badges
+- [x] Cancel processing flow — `CancelProcessing` IPC message + UI feedback
+- [x] Version injection via `CARGO_PKG_VERSION` environment variable
+- [x] Resolved CSS token duplication and established single-source-of-truth design system
+
+### Known Limitations
+- No unit or integration tests (defer to Phase 3)
+- Light theme support planned for v1.1+
+- Fluent Midnight brand refresh proposal pending approval
+
+---
+
+## Phase 3: Quality & Reliability
 
 **Status**: Planned
 
@@ -47,21 +67,21 @@
 
 ---
 
-## Phase 3: Enhanced UX
+## Phase 4: Enhanced UX
 
 **Status**: Planned
 
 ### Goals
 - [ ] Streaming AI responses (show text as it arrives)
-- [ ] Keyboard shortcuts within the popup
 - [ ] History of recent rewrites (local storage)
 - [ ] Undo support — revert to original text
 - [ ] Multiple result variants
-- [ ] Dark mode support
+- [ ] Dark/light mode theme switching
+- [ ] Custom keyboard shortcuts per tool
 
 ---
 
-## Phase 4: More AI Providers & Tools
+## Phase 5: More AI Providers & Tools
 
 **Status**: Planned
 
@@ -74,7 +94,7 @@
 
 ---
 
-## Phase 5: Distribution & Polish
+## Phase 6: Distribution & Polish
 
 **Status**: Planned
 

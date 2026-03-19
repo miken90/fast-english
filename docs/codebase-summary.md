@@ -51,10 +51,13 @@ fast-english/
 ├── assets/
 │   └── popup/
 │       ├── index.html                     # Popup UI markup
-│       ├── popup.css                      # Popup styling
-│       ├── popup.js                       # Popup client logic + IPC + inline MD parser
+│       ├── tokens.css                     # Design tokens (colors, spacing, shadows)
+│       ├── base.css                       # Global reset + font faces
+│       ├── components.css                 # Shared component library (buttons, textareas, status)
+│       ├── popup.css                      # Popup-specific styling
+│       ├── popup.js                       # Popup client logic + IPC + roving tabindex
 │       ├── settings.html                  # Settings UI markup
-│       ├── settings.css                   # Settings styling
+│       ├── settings.css                   # Settings-specific styling
 │       └── settings.js                    # Settings client logic + IPC posts
 ├── resources/
 ├── scripts/
@@ -85,9 +88,21 @@ fast-english/
 - **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
 - **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
 
+## CSS Architecture (Phase 2)
+
+Three-layer CSS organization for maintainability and reusability:
+
+1. **tokens.css** — Design tokens (colors, spacing, shadows, typography scale)
+2. **base.css** — Global reset, font faces, root variables
+3. **components.css** — Reusable component library (buttons, textareas, status dots, badges)
+4. **popup.css** / **settings.css** — App-specific styles (views, layout, animations)
+
+All HTML files load tokens → base → components, then app-specific CSS for overrides.
+
 ## Current Notes
 
 - `src/ui/popup.rs` is large (~860 lines) and a future modularization candidate.
 - Build/lint complete with warnings (dead code and minor clippy suggestions) but no hard failures.
 - Dead files (popup_ai, popup_views, popup_window, theme) and iced dependency removed in cleanup.
 - Shared `reqwest::Client` via `Arc` used across AI providers.
+- Phase 2: Keyboard navigation (roving tabindex), aria-live attributes, cancel processing flow implemented.

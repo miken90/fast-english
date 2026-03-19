@@ -44,6 +44,33 @@
 - Convert operational failures into user-visible state (`PopupState::Error`) where relevant.
 - Log errors with `tracing` and enough context for debugging.
 
+## CSS Standards
+
+### Organization
+- **Layer 1 (tokens.css)**: Design tokens — colors, spacing scale, shadows, typography
+- **Layer 2 (base.css)**: Global reset, font-face declarations, HTML/body reset
+- **Layer 3 (components.css)**: Reusable component library (buttons, textareas, status badges, status dots)
+- **Layer 4 (popup.css / settings.css)**: App-specific layouts, view styles, animations
+
+Each file documents its requirements and dependencies via CSS comments.
+
+### Naming Conventions
+- **CSS classes**: `kebab-case` (e.g., `.status-badge`, `.feedback-toast`)
+- **BEM pattern** for component variants: `.button--primary`, `.button--ghost`
+- **State prefixes**: `is-`, `has-`, `--active`, `--disabled`, `--loading`
+- **Design tokens**: `--{property}-{modifier}` (e.g., `--primary`, `--primary-light`, `--text-muted`)
+
+### CSS Reset & Defaults
+- Global box-sizing reset via `*` selector.
+- Font stack defined on `html` with fallbacks.
+- All color tokens inherit from root `:root`.
+
+### Accessibility in CSS
+- Focus-visible outlines: `outline: 2px solid var(--primary); outline-offset: 2px`
+- Min touch target: 44×44px for interactive elements
+- `prefers-reduced-motion` media query respected
+- Contrast ratios: WCAG AA minimum (4.5:1 for text)
+
 ## WebView and IPC Standards
 
 ### WebView Module Conventions
