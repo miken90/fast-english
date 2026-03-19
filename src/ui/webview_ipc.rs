@@ -43,6 +43,7 @@ pub enum JsToRust {
     ReplaceResult,
     Retry,
     OpenSettings,
+    CancelProcessing,
     // Translate actions
     TranslateFromChanged {
         lang_id: String,

@@ -42,6 +42,15 @@ function showView(viewName) {
       el.classList.remove('active');
     }
   });
+
+  // Focus management: move focus to first focusable element in new view
+  var activeView = document.getElementById('view-' + viewName);
+  if (activeView) {
+    var focusable = activeView.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable) {
+      setTimeout(function() { focusable.focus(); }, 50);
+    }
+  }
 }
 
 // ─── Icon Map ──────────────────────────────────────────────────────────────
@@ -141,9 +150,15 @@ window.setState = function(data) {
 /**
  * Measure the popup container's content height and ask Rust to resize the
  * window so it fits snugly. Runs after a rAF to wait for layout.
+ * Debounced to prevent excessive IPC messages (max 1 per frame).
  */
+var _resizeRafId = null;
 function autoResizePopup() {
-  requestAnimationFrame(function() {
+  if (_resizeRafId) {
+    cancelAnimationFrame(_resizeRafId);
+  }
+  _resizeRafId = requestAnimationFrame(function() {
+    _resizeRafId = null;
     var container = document.querySelector('.popup-container');
     if (!container) return;
     var height = container.scrollHeight + 12;
@@ -184,7 +199,7 @@ function renderOptions(data) {
   var arrowSvg = '<svg class="tool-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>';
 
   const tools = data.tools || [];
-  tools.forEach(function(tool) {
+  tools.forEach(function(tool, index) {
     const icon = getToolIcon(tool.id);
     var hasArrow = (tool.id === 'translate' || tool.id === 'convert-prompt');
     var enabled = hasText || ALWAYS_ENABLED_TOOLS.indexOf(tool.id) !== -1;
@@ -194,6 +209,12 @@ function renderOptions(data) {
     btn.className = 'tool-btn' + (enabled ? '' : ' tool-btn--disabled');
     btn.dataset.toolId = tool.id;
     if (!enabled) btn.disabled = true;
+    
+    // Roving tabindex: first enabled tool gets tabindex="0", rest get "-1"
+    if (enabled) {
+      btn.setAttribute('tabindex', index === 0 ? '0' : '-1');
+    }
+    
     btn.innerHTML =
       '<div class="tool-icon ' + icon.colorClass + '">' + icon.svg + '</div>' +
       '<div class="tool-text">' +
@@ -201,6 +222,9 @@ function renderOptions(data) {
         '<div class="tool-desc">' + escHtml(tool.description || '') + '</div>' +
       '</div>' +
       (hasArrow ? arrowSvg : '');
+
+    btn.setAttribute('role', 'menuitem');
+    btn.setAttribute('aria-label', tool.title + (tool.description ? ': ' + tool.description : ''));
 
     btn.addEventListener('click', function() {
       if (!enabled) return;
@@ -210,6 +234,9 @@ function renderOptions(data) {
     li.appendChild(btn);
     listEl.appendChild(li);
   });
+  
+  // Enable keyboard navigation for tool list
+  setupToolListKeyboardNav();
 }
 
 /** Stored languages for translate-select so we can rebuild on swap */
@@ -495,6 +522,9 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('error-dismiss-btn', function() { sendToRust('Dismiss'); });
   bindClick('error-retry-btn',   function() { sendToRust('Retry'); });
 
+  // ── Processing View ──
+  bindClick('processing-cancel-btn', function() { sendToRust('CancelProcessing'); });
+
   // ── ESC key global ──
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
@@ -504,6 +534,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ── Draggable popup ──
   initPopupDrag();
+
+  // Set aria-live on feedback elements (backup for HTML attrs)
+  ['result-copy-feedback', 'translate-copy-feedback', 'processing-label'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && !el.hasAttribute('aria-live')) {
+      el.setAttribute('aria-live', 'polite');
+    }
+  });
 });
 
 // ─── Popup Drag ───────────────────────────────────────────────────────────
@@ -552,6 +590,63 @@ function initPopupDrag() {
 }
 
 // ─── DOM Helpers ───────────────────────────────────────────────────────────
+
+function setupToolListKeyboardNav() {
+  const listEl = document.getElementById('tool-list');
+  if (!listEl) return;
+  
+  // Remove old listener if exists
+  listEl.removeEventListener('keydown', handleToolListKeydown);
+  listEl.addEventListener('keydown', handleToolListKeydown);
+}
+
+function handleToolListKeydown(e) {
+  const toolButtons = Array.from(document.querySelectorAll('.tool-btn:not(.tool-btn--disabled)'));
+  if (toolButtons.length === 0) return;
+  
+  const currentIndex = toolButtons.findIndex(function(btn) {
+    return btn.getAttribute('tabindex') === '0';
+  });
+  
+  var nextIndex = currentIndex;
+  
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      nextIndex = (currentIndex + 1) % toolButtons.length;
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      nextIndex = (currentIndex - 1 + toolButtons.length) % toolButtons.length;
+      break;
+    case 'Home':
+      e.preventDefault();
+      nextIndex = 0;
+      break;
+    case 'End':
+      e.preventDefault();
+      nextIndex = toolButtons.length - 1;
+      break;
+    case 'Enter':
+    case ' ':
+      e.preventDefault();
+      if (currentIndex >= 0 && toolButtons[currentIndex]) {
+        toolButtons[currentIndex].click();
+      }
+      return;
+    default:
+      return;
+  }
+  
+  // Move focus
+  if (nextIndex !== currentIndex && nextIndex >= 0) {
+    toolButtons.forEach(function(btn) {
+      btn.setAttribute('tabindex', '-1');
+    });
+    toolButtons[nextIndex].setAttribute('tabindex', '0');
+    toolButtons[nextIndex].focus();
+  }
+}
 
 function bindClick(id, fn) {
   var el = document.getElementById(id);

@@ -496,6 +496,16 @@ fn handle_webview_ipc(
             }
         }
 
+        JsToRust::CancelProcessing => {
+            // Abort current AI request by transitioning back to Options.
+            // The tokio task will complete but its result will be ignored
+            // since the state no longer matches Processing.
+            if let PopupState::Processing { context, .. } = &state.popup_state {
+                state.popup_state = PopupState::Options(context.clone());
+                push_popup_state(state);
+            }
+        }
+
         JsToRust::OpenSettings => {
             if state.settings_form.is_none() {
                 state.settings_form = Some(SettingsForm::from_settings(&state.settings));
@@ -615,9 +625,12 @@ fn handle_webview_ipc(
         }
 
         JsToRust::ResizePopup { height } => {
+            // JS autoResizePopup is sole resize authority. Accept any height ≥ min_height.
+            let min_h = webview_bridge::min_height_for_state(&state.popup_state);
+            let final_height = if height >= min_h { height } else { min_h };
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
                 width: 380.0,
-                height,
+                height: final_height,
             });
         }
 

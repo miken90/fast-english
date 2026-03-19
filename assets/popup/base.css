@@ -1,0 +1,60 @@
+/* ===================================================
+   Fast English — Base Stylesheet
+   Shared reset, fonts, scrollbar, and accessibility.
+   Load order: tokens.css -> base.css -> popup/settings.css
+   =================================================== */
+
+/* ---------- Font ---------- */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  src: local('Plus Jakarta Sans'), local('PlusJakartaSans');
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Base Layout ---------- */
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mica-bg);
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: var(--line-height-base);
+}
+
+/* ---------- Scrollbars ---------- */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 2px; }
+
+/* ---------- Accessibility: Focus ---------- */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---------- Accessibility: Reduced Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

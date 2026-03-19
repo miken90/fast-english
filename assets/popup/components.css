@@ -1,0 +1,241 @@
+/* ===================================================
+   Fast English — Shared Component Stylesheet
+   Requires: tokens.css, base.css
+   Used by: popup.css, settings.css
+   =================================================== */
+
+/* ---------- Button Base ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  outline: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+/* ---------- Button Variants ---------- */
+.btn--primary {
+  background: var(--primary-gradient);
+  box-shadow: 0 4px 15px var(--primary-glow);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 14px;
+}
+
+.btn--primary:hover {
+  box-shadow: 0 6px 20px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+.btn--primary:active {
+  transform: scale(0.97);
+}
+
+.btn--secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+}
+
+.btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.btn--ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 10px 16px;
+}
+
+.btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+/* ---------- Icon Buttons ---------- */
+.btn--icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.btn--icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.btn--icon:active {
+  transform: scale(0.92);
+}
+
+/* Icon button with text (back button pattern) */
+.btn--icon-text {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.btn--icon-text:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+}
+
+.btn--icon-text:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Textarea Base ---------- */
+.textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.textarea--readonly {
+  color: var(--text-primary);
+  resize: none;
+  cursor: default;
+}
+
+.textarea--highlighted {
+  border-color: rgba(59, 130, 246, 0.2);
+  color: var(--text-primary);
+}
+
+/* ---------- Status Dot ---------- */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.status-dot--sm {
+  width: 6px;
+  height: 6px;
+}
+
+.status-dot--pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.85); }
+}
+
+.status-dot--success {
+  background: var(--success);
+}
+
+.status-dot--error {
+  background: var(--error);
+}
+
+.status-dot--warning {
+  background: var(--warning);
+}
+
+/* ---------- Label Uppercase ---------- */
+.label-upper {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---------- Feedback Toast ---------- */
+.feedback-toast {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  text-align: center;
+  padding: 4px 16px 10px;
+  pointer-events: none;
+}
+
+.feedback-toast.visible {
+  opacity: 1;
+}
+
+.feedback-toast--success {
+  color: var(--success);
+}
+
+.feedback-toast--error {
+  color: var(--error);
+}
+
+/* ---------- Header (Draggable) ---------- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  cursor: grab;
+}
+
+.header:active {
+  cursor: grabbing;
+}
+
+.header--tight {
+  padding: 14px 20px 10px;
+}

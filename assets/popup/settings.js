@@ -30,6 +30,7 @@ function sendToRust(type, payload) {
  * @param {string} [data.api_key]  - May be empty/masked
  * @param {boolean} data.auto_popup
  * @param {boolean} data.auto_start
+ * @param {string} [data.version]  - App version from Cargo.toml
  */
 window.setSettings = function(data) {
   if (!data) return;
@@ -40,6 +41,14 @@ window.setSettings = function(data) {
 
   setCheckbox('toggle-auto-popup',  !!data.auto_popup);
   setCheckbox('toggle-auto-start',  !!data.auto_start);
+  
+  // Update version label if provided
+  if (data.version) {
+    var versionEl = document.getElementById('version-label');
+    if (versionEl) {
+      versionEl.textContent = 'Fast English v' + data.version;
+    }
+  }
 };
 
 /**

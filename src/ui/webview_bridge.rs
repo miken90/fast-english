@@ -1,7 +1,7 @@
 use crate::app::{PopupState, DEFAULT_TOOLS, TRANSLATE_LANGS};
 use crate::ui::popup_position::{
-    ERROR_HEIGHT, OPTIONS_HEIGHT, PROCESSING_HEIGHT, PROMPT_EDITOR_HEIGHT, RESULT_HEIGHT,
-    TRANSLATE_HEIGHT, TRANSLATE_RESULT_HEIGHT,
+    ERROR_MIN_HEIGHT, OPTIONS_MIN_HEIGHT, PROCESSING_MIN_HEIGHT, PROMPT_EDITOR_MIN_HEIGHT,
+    RESULT_MIN_HEIGHT, TRANSLATE_MIN_HEIGHT, TRANSLATE_RESULT_MIN_HEIGHT,
 };
 use crate::ui::settings_views::SettingsForm;
 use serde_json::json;
@@ -105,27 +105,30 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
 /// Serialize SettingsForm to JSON for settings WebView.
 pub fn settings_to_json(form: &SettingsForm) -> String {
     let masked_key = mask_api_key(&form.api_key);
+    let version = env!("CARGO_PKG_VERSION");
     json!({
         "base_url": form.base_url,
         "model": form.model,
         "api_key": masked_key,
         "auto_popup": form.auto_popup,
-        "auto_start": form.auto_start
+        "auto_start": form.auto_start,
+        "version": version
     })
     .to_string()
 }
 
-/// Get popup height for a given state (same constants as popup_position.rs, as f64).
-pub fn height_for_state(state: &PopupState) -> f64 {
+/// Get minimum popup height for a given state (initial hint, not authoritative).
+/// JS `autoResizePopup()` is the sole resize authority after initial render.
+pub fn min_height_for_state(state: &PopupState) -> f64 {
     match state {
         PopupState::Hidden => 0.0,
-        PopupState::Options(_) => OPTIONS_HEIGHT as f64,
-        PopupState::TranslateSelection(_) => TRANSLATE_HEIGHT as f64,
-        PopupState::PromptEditor(_) => PROMPT_EDITOR_HEIGHT as f64,
-        PopupState::TranslateResult { .. } => TRANSLATE_RESULT_HEIGHT as f64,
-        PopupState::Processing { .. } => PROCESSING_HEIGHT as f64,
-        PopupState::Result { .. } => RESULT_HEIGHT as f64,
-        PopupState::Error { .. } => ERROR_HEIGHT as f64,
+        PopupState::Options(_) => OPTIONS_MIN_HEIGHT as f64,
+        PopupState::TranslateSelection(_) => TRANSLATE_MIN_HEIGHT as f64,
+        PopupState::PromptEditor(_) => PROMPT_EDITOR_MIN_HEIGHT as f64,
+        PopupState::TranslateResult { .. } => TRANSLATE_RESULT_MIN_HEIGHT as f64,
+        PopupState::Processing { .. } => PROCESSING_MIN_HEIGHT as f64,
+        PopupState::Result { .. } => RESULT_MIN_HEIGHT as f64,
+        PopupState::Error { .. } => ERROR_MIN_HEIGHT as f64,
     }
 }
 

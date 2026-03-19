@@ -79,18 +79,35 @@ fn run_event_loop(
 
     // --- Assets ---
     let popup_html = include_str!("../../assets/popup/index.html");
+    let tokens_css = include_str!("../../assets/popup/tokens.css");
+    let base_css = include_str!("../../assets/popup/base.css");
+    let components_css = include_str!("../../assets/popup/components.css");
     let popup_css = include_str!("../../assets/popup/popup.css");
     let popup_js = include_str!("../../assets/popup/popup.js");
-    let full_popup_html = inline_assets(popup_html, popup_css, popup_js, "popup.css", "popup.js");
+    let full_popup_html = inline_assets(
+        popup_html,
+        &[
+            (tokens_css, "tokens.css"),
+            (base_css, "base.css"),
+            (components_css, "components.css"),
+            (popup_css, "popup.css"),
+        ],
+        popup_js,
+        "popup.js",
+    );
 
     let settings_html = include_str!("../../assets/popup/settings.html");
     let settings_css = include_str!("../../assets/popup/settings.css");
     let settings_js = include_str!("../../assets/popup/settings.js");
     let full_settings_html = inline_assets(
         settings_html,
-        settings_css,
+        &[
+            (tokens_css, "tokens.css"),
+            (base_css, "base.css"),
+            (components_css, "components.css"),
+            (settings_css, "settings.css"),
+        ],
         settings_js,
-        "settings.css",
         "settings.js",
     );
 
@@ -273,11 +290,18 @@ fn run_event_loop(
 }
 
 /// Inline CSS and JS assets into the HTML so `with_html()` works without relative paths.
-fn inline_assets(html: &str, css: &str, js: &str, css_filename: &str, js_filename: &str) -> String {
-    let css_link = format!(r#"<link rel="stylesheet" href="{}">"#, css_filename);
+///
+/// `css_files` is a slice of `(css_content, css_filename)` pairs — each matching
+/// `<link rel="stylesheet" href="{css_filename}">` is replaced with an inline `<style>` block.
+fn inline_assets(html: &str, css_files: &[(&str, &str)], js: &str, js_filename: &str) -> String {
+    let mut result = html.to_string();
+    for &(css_content, css_filename) in css_files {
+        let css_link = format!(r#"<link rel="stylesheet" href="{}">"#, css_filename);
+        result = result.replace(&css_link, &format!("<style>{}</style>", css_content));
+    }
     let js_tag = format!(r#"<script src="{}"></script>"#, js_filename);
-    let html = html.replace(&css_link, &format!("<style>{}</style>", css));
-    html.replace(&js_tag, &format!("<script>{}</script>", js))
+    result = result.replace(&js_tag, &format!("<script>{}</script>", js));
+    result
 }
 
 /// Non-Windows stub — WebView is Windows-only.

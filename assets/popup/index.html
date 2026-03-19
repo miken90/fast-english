@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fast English</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -14,13 +17,13 @@
     <!-- ================================================
          VIEW: options
     ================================================ -->
-    <section id="view-options" class="view">
+    <section id="view-options" class="view" tabindex="-1">
       <div class="popup-header">
         <div class="context-indicator">
-          <div class="context-dot"></div>
-          <span class="context-label">Context Active</span>
+          <div class="status-dot status-dot--pulse"></div>
+          <span class="label-upper">Context Active</span>
         </div>
-        <button class="btn-close" id="options-close" aria-label="Close">
+        <button class="btn btn--icon" id="options-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -30,7 +33,7 @@
       <div class="popup-title">How can I help?</div>
       <div class="popup-preview" id="options-preview"></div>
 
-      <ul class="tool-list" id="tool-list">
+      <ul class="tool-list" id="tool-list" role="menu">
         <!-- Populated by setState -->
       </ul>
 
@@ -43,15 +46,15 @@
     <!-- ================================================
          VIEW: translate-select
     ================================================ -->
-    <section id="view-translate-select" class="view">
+    <section id="view-translate-select" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
-        <button class="btn-back" id="translate-select-back">
+        <button class="btn btn--icon-text" id="translate-select-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M15 19l-7-7 7-7"/>
           </svg>
           Back
         </button>
-        <button class="btn-close" id="translate-select-close" aria-label="Close">
+        <button class="btn btn--icon" id="translate-select-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -62,7 +65,7 @@
 
       <div class="translate-lang-row">
         <div class="lang-select-wrapper">
-          <select class="lang-select" id="translate-from-select">
+          <select class="lang-select" id="translate-from-select" aria-label="From language">
             <!-- Populated by setState -->
           </select>
           <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -78,7 +81,7 @@
         </button>
 
         <div class="lang-select-wrapper">
-          <select class="lang-select" id="translate-to-select">
+          <select class="lang-select" id="translate-to-select" aria-label="To language">
             <!-- Populated by setState -->
           </select>
           <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -92,27 +95,27 @@
         <textarea class="translate-text-box translate-text-box--textarea" id="translate-input-text" placeholder="Enter or edit text to translate..."></textarea>
       </div>
 
-      <div class="action-row" style="padding-top: 4px;">
-        <button class="btn-primary" id="translate-confirm-btn">
+      <div class="action-row pt-1">
+        <button class="btn btn--primary" id="translate-confirm-btn">
           Translate
         </button>
       </div>
 
-      <div style="padding-bottom: 10px;"></div>
+      <div class="pb-2"></div>
     </section>
 
     <!-- ================================================
          VIEW: translate-result
     ================================================ -->
-    <section id="view-translate-result" class="view">
+    <section id="view-translate-result" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
-        <button class="btn-back" id="translate-result-back">
+        <button class="btn btn--icon-text" id="translate-result-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M15 19l-7-7 7-7"/>
           </svg>
           Back
         </button>
-        <button class="btn-close" id="translate-result-close" aria-label="Close">
+        <button class="btn btn--icon" id="translate-result-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -125,9 +128,9 @@
           <textarea class="translate-text-box translate-text-box--textarea" id="tr-original-text"></textarea>
         </div>
 
-        <div class="translate-divider" style="padding: 6px 0;">
+        <div class="translate-divider translate-divider--padded">
           <div class="translate-divider-line"></div>
-          <svg class="translate-divider-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="padding: 0 8px; color: var(--text-muted);">
+          <svg class="translate-divider-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12l7 7 7-7"/>
           </svg>
           <div class="translate-divider-line"></div>
@@ -139,29 +142,29 @@
         </div>
       </div>
 
-      <div id="translate-copy-feedback" class="copy-feedback"></div>
+      <div class="feedback-toast feedback-toast--success" id="translate-copy-feedback" aria-live="polite"></div>
 
       <div class="action-row">
-        <button class="btn-primary" id="translate-retranslate-btn">Re-translate</button>
-        <button class="btn-primary" id="translate-replace-btn">Replace</button>
-        <button class="btn-secondary" id="translate-copy-btn">Copy</button>
+        <button class="btn btn--primary" id="translate-retranslate-btn">Re-translate</button>
+        <button class="btn btn--primary" id="translate-replace-btn">Replace</button>
+        <button class="btn btn--secondary" id="translate-copy-btn">Copy</button>
       </div>
 
-      <div style="padding-bottom: 4px;"></div>
+      <div class="pb-1"></div>
     </section>
 
     <!-- ================================================
          VIEW: prompt-editor
     ================================================ -->
-    <section id="view-prompt-editor" class="view">
+    <section id="view-prompt-editor" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
-        <button class="btn-back" id="prompt-editor-back">
+        <button class="btn btn--icon-text" id="prompt-editor-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M15 19l-7-7 7-7"/>
           </svg>
           Back
         </button>
-        <button class="btn-close" id="prompt-editor-close" aria-label="Close">
+        <button class="btn btn--icon" id="prompt-editor-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -175,39 +178,40 @@
         <textarea class="translate-text-box translate-text-box--textarea" id="prompt-editor-input" placeholder="Edit text before converting to prompt..."></textarea>
       </div>
 
-      <div class="action-row" style="padding-top: 4px;">
-        <button class="btn-primary" id="prompt-editor-confirm-btn">Convert Prompt</button>
+      <div class="action-row pt-1">
+        <button class="btn btn--primary" id="prompt-editor-confirm-btn">Convert Prompt</button>
       </div>
 
-      <div style="padding-bottom: 10px;"></div>
+      <div class="pb-2"></div>
     </section>
 
     <!-- ================================================
          VIEW: processing
     ================================================ -->
-    <section id="view-processing" class="view">
+    <section id="view-processing" class="view" tabindex="-1">
       <div class="processing-view">
         <div class="spinner"></div>
-        <div class="processing-label" id="processing-label">Processing…</div>
+        <div class="processing-label" id="processing-label" aria-live="polite">Processing&#x2026;</div>
+        <button class="btn btn--ghost" id="processing-cancel-btn">Cancel</button>
       </div>
     </section>
 
     <!-- ================================================
          VIEW: result
     ================================================ -->
-    <section id="view-result" class="view">
+    <section id="view-result" class="view" tabindex="-1">
       <div class="result-header">
-        <button class="btn-back" id="result-back">
+        <button class="btn btn--icon-text" id="result-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M15 19l-7-7 7-7"/>
           </svg>
           Back
         </button>
-        <div class="result-status">
-          <div class="result-dot"></div>
+        <div class="result-status" role="status">
+          <div class="status-dot status-dot--sm status-dot--success"></div>
           <span class="result-title">Refined Result</span>
         </div>
-        <button class="btn-close" id="result-close" aria-label="Close">
+        <button class="btn btn--icon" id="result-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -220,31 +224,31 @@
         <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
       </div>
 
-      <div id="result-copy-feedback" class="copy-feedback"></div>
+      <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
 
       <div class="action-row">
         <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
-        <button class="btn-primary" id="result-replace-btn">Replace Selection</button>
-        <button class="btn-secondary" id="result-copy-btn">Copy</button>
+        <button class="btn btn--primary" id="result-replace-btn">Replace Selection</button>
+        <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
       </div>
     </section>
 
     <!-- ================================================
          VIEW: error
     ================================================ -->
-    <section id="view-error" class="view">
+    <section id="view-error" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
-        <button class="btn-back" id="error-back">
+        <button class="btn btn--icon-text" id="error-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M15 19l-7-7 7-7"/>
           </svg>
           Back
         </button>
         <div class="context-indicator">
-          <div class="context-dot" style="background: var(--error); animation: none;"></div>
-          <span class="context-label" style="color: var(--error);">Error</span>
+          <div class="status-dot status-dot--error"></div>
+          <span class="label-upper context-label--error">Error</span>
         </div>
-        <button class="btn-close" id="error-close" aria-label="Close">
+        <button class="btn btn--icon" id="error-close" aria-label="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -262,12 +266,12 @@
         <div class="error-message" id="error-message"></div>
       </div>
 
-      <div class="action-row" style="padding-top: 4px;">
-        <button class="btn-primary" id="error-retry-btn">Try Again</button>
-        <button class="btn-secondary" id="error-dismiss-btn">Dismiss</button>
+      <div class="action-row pt-1">
+        <button class="btn btn--primary" id="error-retry-btn">Try Again</button>
+        <button class="btn btn--secondary" id="error-dismiss-btn">Dismiss</button>
       </div>
 
-      <div style="padding-bottom: 10px;"></div>
+      <div class="pb-2"></div>
     </section>
 
   </div><!-- /.popup-container -->
