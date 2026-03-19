@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,9 +18,7 @@
     <div class="settings-header">
       <span class="settings-title">Settings</span>
       <button class="btn btn--icon" id="settings-close" aria-label="Close">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>
+        <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
       </button>
     </div>
 
@@ -80,6 +78,15 @@
       <div class="settings-section">
         <div class="section-title">Preferences</div>
 
+        <div class="field">
+          <label class="field-label" for="input-theme">Theme</label>
+          <select class="field-input" id="input-theme" aria-label="Theme preference">
+            <option value="auto">Auto (System)</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+
         <div class="preference-row">
           <div class="preference-label">
             <span class="preference-name">Auto-popup</span>
@@ -124,6 +131,8 @@
     <div class="settings-footer">
       <div class="save-row">
         <button class="btn-save" id="btn-save">Save Settings</button>
+        <button class="btn-test" id="btn-cancel-settings">Cancel</button>
+        <button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>
         <span class="save-feedback" id="save-feedback" aria-live="polite"></span>
       </div>
       <div class="label-upper" id="version-label">Fast English v0.1.0</div>

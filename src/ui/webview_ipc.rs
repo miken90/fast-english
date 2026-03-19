@@ -18,6 +18,8 @@ pub struct SettingsFormPayload {
     pub api_key: String,
     pub auto_popup: bool,
     pub auto_start: bool,
+    #[serde(default)]
+    pub theme: String,
 }
 
 /// Payload for translate confirmation. `text` is optional for backward compatibility.

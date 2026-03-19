@@ -544,6 +544,14 @@ fn handle_webview_ipc(
                 "auto_start" => {
                     form.auto_start = value.as_bool().unwrap_or(false);
                 }
+                "theme" => {
+                    let normalized = match val_str.as_str() {
+                        "light" | "dark" | "auto" => val_str,
+                        _ => "auto".to_string(),
+                    };
+                    form.theme = normalized;
+                    push_popup_state(state);
+                }
                 _ => {}
             }
         }
@@ -560,6 +568,12 @@ fn handle_webview_ipc(
             }
             form.auto_popup = payload.auto_popup;
             form.auto_start = payload.auto_start;
+            if !payload.theme.is_empty() {
+                form.theme = match payload.theme.as_str() {
+                    "light" | "dark" | "auto" => payload.theme,
+                    _ => "auto".to_string(),
+                };
+            }
             form.test_state = ConnectionTestState::Testing;
 
             let _ = state
@@ -598,6 +612,12 @@ fn handle_webview_ipc(
             }
             form.auto_popup = payload.auto_popup;
             form.auto_start = payload.auto_start;
+            if !payload.theme.is_empty() {
+                form.theme = match payload.theme.as_str() {
+                    "light" | "dark" | "auto" => payload.theme,
+                    _ => "auto".to_string(),
+                };
+            }
 
             match form.apply_to_settings(&mut state.settings) {
                 Ok(()) => {
@@ -621,6 +641,9 @@ fn handle_webview_ipc(
         }
 
         JsToRust::CloseSettings => {
+            // Discard unsaved draft changes on close/cancel.
+            state.settings_form = None;
+            push_popup_state(state);
             let _ = state.webview_settings_tx.send(SettingsCommand::Hide);
         }
 
@@ -882,12 +905,19 @@ fn show_popup(state: &mut AppState, ctx: &SelectionContext) {
 }
 
 fn push_popup_state(state: &AppState) {
+    let theme_preference = state
+        .settings_form
+        .as_ref()
+        .map(|f| f.theme.clone())
+        .unwrap_or_else(|| state.settings.theme.clone());
+
     let bridge_ctx = BridgeContext {
         translate_from: state.translate_from.clone(),
         translate_to: state.translate_to.clone(),
         translate_original_content: state.translate_original_content.clone(),
         translate_output_text: state.translate_output_text.clone(),
         copy_feedback: state.copy_feedback,
+        theme_preference,
     };
     let json = webview_bridge::popup_state_to_json(&state.popup_state, &bridge_ctx);
     let _ = state

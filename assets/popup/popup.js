@@ -28,11 +28,43 @@ function sendToRust(type, payload) {
 
 const VIEWS = ['options', 'translate-select', 'prompt-editor', 'translate-result', 'processing', 'result', 'error'];
 
+const appState = {
+  translateLanguages: [],
+  translateFromId: '',
+  translateToId: '',
+  resizeRafId: null,
+  replaceConfirmVisible: false
+};
+
+function resolveTheme(preference) {
+  if (preference === 'light') return 'light';
+  if (preference === 'dark') return 'dark';
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'light'
+    : 'dark';
+}
+
+function applyTheme(preference) {
+  var html = document.documentElement;
+  if (!html) return;
+  var pref = preference || 'auto';
+  html.setAttribute('data-theme', pref);
+  html.style.colorScheme = resolveTheme(pref);
+}
+
+window.setThemePreference = function(theme) {
+  applyTheme(theme || 'auto');
+};
+
 /**
  * Show one view, hide all others.
  * @param {string} viewName
  */
 function showView(viewName) {
+  if (viewName !== 'result') {
+    hideReplaceConfirmBar();
+  }
+
   VIEWS.forEach(function(v) {
     const el = document.getElementById('view-' + v);
     if (!el) return;
@@ -58,29 +90,28 @@ function showView(viewName) {
 const TOOL_ICONS = {
   'enhance_writing': {
     colorClass: 'tool-icon--blue',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+    iconName: 'enhance_writing'
   },
   'fix_grammar': {
     colorClass: 'tool-icon--green',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+    iconName: 'fix_grammar'
   },
   'convert_prompt': {
     colorClass: 'tool-icon--blue',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5V4a2 2 0 012-2h8l6 6v11.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 19.5z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
+    iconName: 'convert_prompt'
   },
   'translate': {
     colorClass: 'tool-icon--amber',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>'
+    iconName: 'translate'
   }
 };
 
 /** Get icon config, with fallback for unknown tool ids */
 function getToolIcon(id) {
-  // Support both snake_case and kebab-case tool ids
   const normalized = id.replace(/-/g, '_');
   return TOOL_ICONS[normalized] || {
     colorClass: 'tool-icon--blue',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>'
+    iconName: 'info'
   };
 }
 
@@ -92,6 +123,10 @@ function getToolIcon(id) {
  */
 window.setState = function(data) {
   if (!data || !data.view) return;
+
+  if (data.theme) {
+    applyTheme(data.theme);
+  }
 
   switch (data.view) {
 
@@ -152,13 +187,12 @@ window.setState = function(data) {
  * window so it fits snugly. Runs after a rAF to wait for layout.
  * Debounced to prevent excessive IPC messages (max 1 per frame).
  */
-var _resizeRafId = null;
 function autoResizePopup() {
-  if (_resizeRafId) {
-    cancelAnimationFrame(_resizeRafId);
+  if (appState.resizeRafId) {
+    cancelAnimationFrame(appState.resizeRafId);
   }
-  _resizeRafId = requestAnimationFrame(function() {
-    _resizeRafId = null;
+  appState.resizeRafId = requestAnimationFrame(function() {
+    appState.resizeRafId = null;
     var container = document.querySelector('.popup-container');
     if (!container) return;
     var height = container.scrollHeight + 12;
@@ -196,10 +230,11 @@ function renderOptions(data) {
   if (!listEl) return;
   listEl.innerHTML = '';
 
-  var arrowSvg = '<svg class="tool-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>';
+  var arrowSvg = '<span class="tool-arrow">' + renderIcon('arrow_right', 12, 2.5) + '</span>';
 
   const tools = data.tools || [];
-  tools.forEach(function(tool, index) {
+  var firstEnabledAssigned = false;
+  tools.forEach(function(tool) {
     const icon = getToolIcon(tool.id);
     var hasArrow = (tool.id === 'translate' || tool.id === 'convert-prompt');
     var enabled = hasText || ALWAYS_ENABLED_TOOLS.indexOf(tool.id) !== -1;
@@ -212,11 +247,12 @@ function renderOptions(data) {
     
     // Roving tabindex: first enabled tool gets tabindex="0", rest get "-1"
     if (enabled) {
-      btn.setAttribute('tabindex', index === 0 ? '0' : '-1');
+      btn.setAttribute('tabindex', firstEnabledAssigned ? '-1' : '0');
+      firstEnabledAssigned = true;
     }
     
     btn.innerHTML =
-      '<div class="tool-icon ' + icon.colorClass + '">' + icon.svg + '</div>' +
+      '<div class="tool-icon ' + icon.colorClass + '">' + renderIcon(icon.iconName, 20, 2) + '</div>' +
       '<div class="tool-text">' +
         '<div class="tool-title">' + escHtml(tool.title) + '</div>' +
         '<div class="tool-desc">' + escHtml(tool.description || '') + '</div>' +
@@ -239,15 +275,12 @@ function renderOptions(data) {
   setupToolListKeyboardNav();
 }
 
-/** Stored languages for translate-select so we can rebuild on swap */
-let _translateLanguages = [];
-let _translateFromId = '';
-let _translateToId = '';
+/** Stored translate state for dropdown rebuilding and re-translate */
 
 function renderTranslateSelect(data) {
-  _translateLanguages = data.languages || [];
-  _translateFromId = data.from ? data.from.id : (_translateLanguages[0] ? _translateLanguages[0].id : '');
-  _translateToId = data.to ? data.to.id : (_translateLanguages[1] ? _translateLanguages[1].id : '');
+  appState.translateLanguages = data.languages || [];
+  appState.translateFromId = data.from ? data.from.id : (appState.translateLanguages[0] ? appState.translateLanguages[0].id : '');
+  appState.translateToId = data.to ? data.to.id : (appState.translateLanguages[1] ? appState.translateLanguages[1].id : '');
 
   populateLangDropdowns();
 
@@ -266,17 +299,17 @@ function populateLangDropdowns() {
   fromSel.innerHTML = '';
   toSel.innerHTML = '';
 
-  _translateLanguages.forEach(function(lang) {
+  appState.translateLanguages.forEach(function(lang) {
     const optFrom = document.createElement('option');
     optFrom.value = lang.id;
     optFrom.textContent = lang.name;
-    if (lang.id === _translateFromId) optFrom.selected = true;
+    if (lang.id === appState.translateFromId) optFrom.selected = true;
     fromSel.appendChild(optFrom);
 
     const optTo = document.createElement('option');
     optTo.value = lang.id;
     optTo.textContent = lang.name;
-    if (lang.id === _translateToId) optTo.selected = true;
+    if (lang.id === appState.translateToId) optTo.selected = true;
     toSel.appendChild(optTo);
   });
 }
@@ -290,9 +323,9 @@ function renderPromptEditor(data) {
 
 function renderTranslateResult(data) {
   // Store languages in case re-translate is needed
-  if (data.languages) _translateLanguages = data.languages;
-  if (data.from) _translateFromId = data.from.id;
-  if (data.to)   _translateToId   = data.to.id;
+  if (data.languages) appState.translateLanguages = data.languages;
+  if (data.from) appState.translateFromId = data.from.id;
+  if (data.to)   appState.translateToId   = data.to.id;
 
   const fromLabel = document.getElementById('tr-from-label');
   const toLabel   = document.getElementById('tr-to-label');
@@ -368,6 +401,78 @@ function showCopyFeedback(elementId, text) {
   }, 1500);
 }
 
+function showReplaceConfirmBar() {
+  if (appState.replaceConfirmVisible) return;
+  var actionRow = document.querySelector('#view-result .action-row');
+  if (!actionRow) {
+    sendToRust('ReplaceResult');
+    return;
+  }
+
+  var existing = document.getElementById('replace-confirm-bar');
+  if (existing) existing.remove();
+
+  var bar = document.createElement('div');
+  bar.id = 'replace-confirm-bar';
+  bar.className = 'confirm-bar';
+  bar.setAttribute('aria-live', 'assertive');
+  bar.innerHTML =
+    '<span class="confirm-bar__text">Replace selection?</span>' +
+    '<div class="confirm-bar__actions">' +
+      '<button class="btn btn--primary btn--confirm" id="replace-confirm-yes">Yes</button>' +
+      '<button class="btn btn--secondary btn--confirm" id="replace-confirm-no">No</button>' +
+    '</div>';
+
+  actionRow.parentNode.insertBefore(bar, actionRow);
+  appState.replaceConfirmVisible = true;
+
+  bindClick('replace-confirm-yes', function() {
+    hideReplaceConfirmBar();
+    sendToRust('ReplaceResult');
+  });
+  bindClick('replace-confirm-no', function() {
+    hideReplaceConfirmBar();
+  });
+
+  var yesBtn = document.getElementById('replace-confirm-yes');
+  if (yesBtn) {
+    yesBtn.focus();
+  }
+
+  bar.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      hideReplaceConfirmBar();
+      sendToRust('ReplaceResult');
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hideReplaceConfirmBar();
+    }
+  });
+
+  autoResizePopup();
+}
+
+function hideReplaceConfirmBar() {
+  var bar = document.getElementById('replace-confirm-bar');
+  if (bar) bar.remove();
+  appState.replaceConfirmVisible = false;
+  autoResizePopup();
+}
+
+function animateCopyButton(buttonId, defaultLabel) {
+  var btn = document.getElementById(buttonId);
+  if (!btn) return;
+  var original = btn.innerHTML;
+  btn.innerHTML = '<span class="copy-check">' + renderIcon('fix_grammar', 14, 2) + '</span>';
+  btn.classList.add('copy-animated');
+  setTimeout(function() {
+    btn.classList.remove('copy-animated');
+    btn.innerHTML = defaultLabel || original;
+  }, 900);
+}
+
 function copyToClipboard(text, feedbackId) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(function() {
@@ -428,19 +533,19 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('translate-select-close', function() { sendToRust('Dismiss'); });
 
   bindChange('translate-from-select', function(val) {
-    _translateFromId = val;
+    appState.translateFromId = val;
     sendToRust('TranslateFromChanged', { lang_id: val });
   });
 
   bindChange('translate-to-select', function(val) {
-    _translateToId = val;
+    appState.translateToId = val;
     sendToRust('TranslateToChanged', { lang_id: val });
   });
 
   bindClick('translate-swap-btn', function() {
-    var tmp = _translateFromId;
-    _translateFromId = _translateToId;
-    _translateToId = tmp;
+    var tmp = appState.translateFromId;
+    appState.translateFromId = appState.translateToId;
+    appState.translateToId = tmp;
     populateLangDropdowns();
     sendToRust('TranslateSwapLangs');
   });
@@ -448,8 +553,8 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('translate-confirm-btn', function() {
     var inputText = getInputValue('translate-input-text');
     sendToRust('TranslateConfirm', {
-      from: _translateFromId,
-      to:   _translateToId,
+      from: appState.translateFromId,
+      to:   appState.translateToId,
       text: inputText || null
     });
   });
@@ -469,13 +574,14 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('translate-copy-btn', function() {
     var text = getTextContent('tr-translated-text');
     copyToClipboard(text, 'translate-copy-feedback');
+    animateCopyButton('translate-copy-btn', 'Copy');
     sendToRust('TranslateCopyResult');
   });
 
   bindClick('translate-retranslate-btn', function() {
     sendToRust('TranslateConfirm', {
-      from: _translateFromId,
-      to:   _translateToId,
+      from: appState.translateFromId,
+      to:   appState.translateToId,
       text: getInputValue('tr-original-text')
     });
   });
@@ -491,11 +597,12 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('result-copy-btn', function() {
     var text = getInputValue('result-output');
     copyToClipboard(text, 'result-copy-feedback');
+    animateCopyButton('result-copy-btn', 'Copy');
     sendToRust('CopyResult');
   });
 
   bindClick('result-replace-btn', function() {
-    sendToRust('ReplaceResult');
+    showReplaceConfirmBar();
   });
 
   bindClick('result-toggle-md', function() {
@@ -528,12 +635,39 @@ document.addEventListener('DOMContentLoaded', function() {
   // ── ESC key global ──
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+      if (appState.replaceConfirmVisible) {
+        e.preventDefault();
+        hideReplaceConfirmBar();
+        return;
+      }
       sendToRust('Dismiss');
     }
   });
 
   // ── Draggable popup ──
   initPopupDrag();
+
+  // Initialize theme from system preference
+  applyTheme('auto');
+
+  if (window.matchMedia) {
+    var media = window.matchMedia('(prefers-color-scheme: light)');
+    var onThemeMediaChange = function() {
+      var current = document.documentElement.getAttribute('data-theme') || 'auto';
+      if (current === 'auto') {
+        applyTheme('auto');
+      }
+    };
+    if (media.addEventListener) {
+      media.addEventListener('change', onThemeMediaChange);
+    } else if (media.addListener) {
+      media.addListener(onThemeMediaChange);
+    }
+  }
+
+  if (window.hydrateStaticIcons) {
+    window.hydrateStaticIcons();
+  }
 
   // Set aria-live on feedback elements (backup for HTML attrs)
   ['result-copy-feedback', 'translate-copy-feedback', 'processing-label'].forEach(function(id) {

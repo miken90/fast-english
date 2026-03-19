@@ -8,6 +8,7 @@ pub struct SettingsForm {
     pub api_key: String,
     pub auto_popup: bool,
     pub auto_start: bool,
+    pub theme: String,
     pub save_feedback: Option<String>,
     pub test_state: ConnectionTestState,
 }
@@ -35,6 +36,7 @@ impl SettingsForm {
             api_key,
             auto_popup: settings.auto_popup_enabled,
             auto_start: settings.auto_start,
+            theme: settings.theme.clone(),
             save_feedback: None,
             test_state: ConnectionTestState::Idle,
         }
@@ -50,6 +52,7 @@ impl SettingsForm {
         settings.model = self.model.clone();
         settings.auto_popup_enabled = self.auto_popup;
         settings.auto_start = self.auto_start;
+        settings.theme = self.theme.clone();
 
         crate::persistence::KeyStore::save("api", &self.api_key)
             .map_err(|e| format!("Failed to save API key: {}", e))?;

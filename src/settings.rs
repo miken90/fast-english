@@ -4,11 +4,13 @@ use std::path::PathBuf;
 
 /// Application settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppSettings {
     pub base_url: String,
     pub model: String,
     pub auto_popup_enabled: bool,
     pub auto_start: bool,
+    pub theme: String,
 }
 
 impl Default for AppSettings {
@@ -18,6 +20,7 @@ impl Default for AppSettings {
             model: "gpt-4.1-mini".to_string(),
             auto_popup_enabled: true,
             auto_start: false,
+            theme: "auto".to_string(),
         }
     }
 }

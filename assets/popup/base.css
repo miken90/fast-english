@@ -47,6 +47,25 @@ body {
   outline-offset: 2px;
 }
 
+/* ---------- Theme Fallback ---------- */
+html {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="auto"],
+  html:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="auto"],
+  html:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
 /* ---------- Accessibility: Reduced Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -41,7 +41,9 @@ window.setSettings = function(data) {
 
   setCheckbox('toggle-auto-popup',  !!data.auto_popup);
   setCheckbox('toggle-auto-start',  !!data.auto_start);
-  
+  setInputValue('input-theme', data.theme || 'auto');
+  applyTheme(data.theme || 'auto');
+
   // Update version label if provided
   if (data.version) {
     var versionEl = document.getElementById('version-label');
@@ -49,6 +51,8 @@ window.setSettings = function(data) {
       versionEl.textContent = 'Fast English v' + data.version;
     }
   }
+
+  snapshotFormData();
 };
 
 /**
@@ -121,6 +125,7 @@ function getFormData() {
     api_key:    getInputValue('input-api-key'),
     auto_popup: getCheckboxValue('toggle-auto-popup'),
     auto_start: getCheckboxValue('toggle-auto-start'),
+    theme:      getInputValue('input-theme') || 'auto',
   };
 }
 
@@ -146,14 +151,65 @@ function getCheckboxValue(id) {
   return el ? el.checked : false;
 }
 
+function resolveTheme(preference) {
+  if (preference === 'light') return 'light';
+  if (preference === 'dark') return 'dark';
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'light'
+    : 'dark';
+}
+
+function applyTheme(preference) {
+  var html = document.documentElement;
+  if (!html) return;
+  html.setAttribute('data-theme', preference || 'auto');
+  var resolved = resolveTheme(preference || 'auto');
+  html.style.colorScheme = resolved;
+}
+
+window.setThemePreference = function(theme) {
+  applyTheme(theme || 'auto');
+};
+
 // ─── Event Binding ─────────────────────────────────────────────────────────
 
+var initialFormData = null;
+
+function snapshotFormData() {
+  initialFormData = getFormData();
+}
+
+function resetFormToDefaults() {
+  setInputValue('input-base-url', 'https://api.openai.com/v1');
+  setInputValue('input-model', 'gpt-4.1-mini');
+  setInputValue('input-api-key', '');
+  setCheckbox('toggle-auto-popup', true);
+  setCheckbox('toggle-auto-start', false);
+  setInputValue('input-theme', 'auto');
+  applyTheme('auto');
+}
+
+function restoreInitialFormData() {
+  if (!initialFormData) return;
+  setInputValue('input-base-url', initialFormData.base_url || '');
+  setInputValue('input-model', initialFormData.model || '');
+  setInputValue('input-api-key', initialFormData.api_key || '');
+  setCheckbox('toggle-auto-popup', !!initialFormData.auto_popup);
+  setCheckbox('toggle-auto-start', !!initialFormData.auto_start);
+  setInputValue('input-theme', initialFormData.theme || 'auto');
+  applyTheme(initialFormData.theme || 'auto');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  if (window.hydrateStaticIcons) {
+    window.hydrateStaticIcons();
+  }
 
   // Close
   var closeBtn = document.getElementById('settings-close');
   if (closeBtn) {
     closeBtn.addEventListener('click', function() {
+      restoreInitialFormData();
       sendToRust('CloseSettings');
     });
   }
@@ -172,6 +228,22 @@ document.addEventListener('DOMContentLoaded', function() {
   if (saveBtn) {
     saveBtn.addEventListener('click', function() {
       sendToRust('SaveSettings', getFormData());
+      snapshotFormData();
+    });
+  }
+
+  var cancelBtn = document.getElementById('btn-cancel-settings');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function() {
+      restoreInitialFormData();
+      sendToRust('CloseSettings');
+    });
+  }
+
+  var resetBtn = document.getElementById('btn-reset-settings');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function() {
+      resetFormToDefaults();
     });
   }
 
@@ -180,12 +252,17 @@ document.addEventListener('DOMContentLoaded', function() {
     { id: 'input-base-url', field: 'base_url' },
     { id: 'input-model',    field: 'model'    },
     { id: 'input-api-key',  field: 'api_key'  },
+    { id: 'input-theme',    field: 'theme'    },
   ];
 
   fields.forEach(function(f) {
     var el = document.getElementById(f.id);
     if (!el) return;
-    el.addEventListener('input', function() {
+    var eventType = f.field === 'theme' ? 'change' : 'input';
+    el.addEventListener(eventType, function() {
+      if (f.field === 'theme') {
+        applyTheme(el.value || 'auto');
+      }
       sendToRust('SettingsChanged', { field: f.field, value: el.value });
     });
   });
@@ -204,9 +281,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // ESC → close
+  // ESC → close (discard unsaved changes)
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+      restoreInitialFormData();
       sendToRust('CloseSettings');
     }
   });

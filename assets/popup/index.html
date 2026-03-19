@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,9 +24,7 @@
           <span class="label-upper">Context Active</span>
         </div>
         <button class="btn btn--icon" id="options-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
@@ -49,15 +47,11 @@
     <section id="view-translate-select" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="translate-select-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 19l-7-7 7-7"/>
-          </svg>
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
         <button class="btn btn--icon" id="translate-select-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
@@ -68,25 +62,18 @@
           <select class="lang-select" id="translate-from-select" aria-label="From language">
             <!-- Populated by setState -->
           </select>
-          <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
+          <span class="lang-select-arrow" data-icon-name="chevron_down" data-icon-size="12" data-icon-stroke="2.5"></span>
         </div>
 
         <button class="btn-swap" id="translate-swap-btn" aria-label="Swap languages">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M7 16V4m0 0L3 8m4-4l4 4"/>
-            <path d="M17 8v12m0 0l4-4m-4 4l-4-4"/>
-          </svg>
+          <span data-icon-name="swap" data-icon-size="14" data-icon-stroke="2"></span>
         </button>
 
         <div class="lang-select-wrapper">
           <select class="lang-select" id="translate-to-select" aria-label="To language">
             <!-- Populated by setState -->
           </select>
-          <svg class="lang-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
+          <span class="lang-select-arrow" data-icon-name="chevron_down" data-icon-size="12" data-icon-stroke="2.5"></span>
         </div>
       </div>
 
@@ -110,15 +97,11 @@
     <section id="view-translate-result" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="translate-result-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 19l-7-7 7-7"/>
-          </svg>
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
         <button class="btn btn--icon" id="translate-result-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
@@ -130,9 +113,7 @@
 
         <div class="translate-divider translate-divider--padded">
           <div class="translate-divider-line"></div>
-          <svg class="translate-divider-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12l7 7 7-7"/>
-          </svg>
+          <span class="translate-divider-icon" data-icon-name="divider_down" data-icon-size="16" data-icon-stroke="2"></span>
           <div class="translate-divider-line"></div>
         </div>
 
@@ -159,15 +140,11 @@
     <section id="view-prompt-editor" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="prompt-editor-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 19l-7-7 7-7"/>
-          </svg>
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
         <button class="btn btn--icon" id="prompt-editor-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
@@ -202,9 +179,7 @@
     <section id="view-result" class="view" tabindex="-1">
       <div class="result-header">
         <button class="btn btn--icon-text" id="result-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 19l-7-7 7-7"/>
-          </svg>
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
         <div class="result-status" role="status">
@@ -212,9 +187,7 @@
           <span class="result-title">Refined Result</span>
         </div>
         <button class="btn btn--icon" id="result-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
@@ -239,9 +212,7 @@
     <section id="view-error" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="error-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 19l-7-7 7-7"/>
-          </svg>
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
         <div class="context-indicator">
@@ -249,18 +220,13 @@
           <span class="label-upper context-label--error">Error</span>
         </div>
         <button class="btn btn--icon" id="error-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
       <div class="error-view-inner">
         <div class="error-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 8v4M12 16h.01"/>
-          </svg>
+          <span data-icon-name="info" data-icon-size="22" data-icon-stroke="2"></span>
         </div>
         <div class="error-title">Something went wrong</div>
         <div class="error-message" id="error-message"></div>

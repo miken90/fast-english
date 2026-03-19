@@ -15,7 +15,7 @@
   background: var(--mica-bg);
   border: none;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: var(--shadow-popup);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -70,7 +70,7 @@
 
 /* ---------- Section Card ---------- */
 .settings-section {
-  background: rgba(255,255,255,0.025);
+  background: var(--color-surface-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   padding: 16px;

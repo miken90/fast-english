@@ -14,6 +14,7 @@ pub struct BridgeContext {
     pub translate_original_content: String,
     pub translate_output_text: String,
     pub copy_feedback: bool,
+    pub theme_preference: String,
 }
 
 /// Escape HTML special chars to prevent XSS when AI output gets injected into JS.
@@ -25,10 +26,19 @@ pub fn escape_html(s: &str) -> String {
         .replace('\'', "&#039;")
 }
 
+fn with_theme(mut value: serde_json::Value, theme: &str) -> serde_json::Value {
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert("theme".to_string(), json!(theme));
+    }
+    value
+}
+
 /// Convert PopupState to JSON string for JS setState().
 pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
     match state {
-        PopupState::Hidden => json!({"view": "hidden"}).to_string(),
+        PopupState::Hidden => {
+            with_theme(json!({"view": "hidden"}), &ctx.theme_preference).to_string()
+        }
 
         PopupState::Options(sel_ctx) => {
             let preview = sel_ctx.text.chars().take(70).collect::<String>();
@@ -43,62 +53,81 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
                     })
                 })
                 .collect();
-            json!({
-                "view": "options",
-                "preview": escape_html(&preview),
-                "hasText": has_text,
-                "tools": tools
-            })
+            with_theme(
+                json!({
+                    "view": "options",
+                    "preview": escape_html(&preview),
+                    "hasText": has_text,
+                    "tools": tools
+                }),
+                &ctx.theme_preference,
+            )
             .to_string()
         }
 
         PopupState::TranslateSelection(sel_ctx) => {
             let languages = lang_list();
-            json!({
-                "view": "translate-select",
-                "from": lang_obj(&ctx.translate_from),
-                "to": lang_obj(&ctx.translate_to),
-                "languages": languages,
-                "original": escape_html(&sel_ctx.text)
-            })
+            with_theme(
+                json!({
+                    "view": "translate-select",
+                    "from": lang_obj(&ctx.translate_from),
+                    "to": lang_obj(&ctx.translate_to),
+                    "languages": languages,
+                    "original": escape_html(&sel_ctx.text)
+                }),
+                &ctx.theme_preference,
+            )
             .to_string()
         }
 
-        PopupState::PromptEditor(sel_ctx) => json!({
-            "view": "prompt-editor",
-            "original": escape_html(&sel_ctx.text)
-        })
+        PopupState::PromptEditor(sel_ctx) => with_theme(
+            json!({
+                "view": "prompt-editor",
+                "original": escape_html(&sel_ctx.text)
+            }),
+            &ctx.theme_preference,
+        )
         .to_string(),
 
         PopupState::TranslateResult { .. } => {
             let languages = lang_list();
-            json!({
-                "view": "translate-result",
-                "original": escape_html(&ctx.translate_original_content),
-                "translated": escape_html(&ctx.translate_output_text),
-                "from": lang_obj(&ctx.translate_from),
-                "to": lang_obj(&ctx.translate_to),
-                "languages": languages,
-                "copyFeedback": ctx.copy_feedback
-            })
+            with_theme(
+                json!({
+                    "view": "translate-result",
+                    "original": escape_html(&ctx.translate_original_content),
+                    "translated": escape_html(&ctx.translate_output_text),
+                    "from": lang_obj(&ctx.translate_from),
+                    "to": lang_obj(&ctx.translate_to),
+                    "languages": languages,
+                    "copyFeedback": ctx.copy_feedback
+                }),
+                &ctx.theme_preference,
+            )
             .to_string()
         }
 
-        PopupState::Processing { tool, .. } => {
-            json!({"view": "processing", "tool": escape_html(&tool.to_string())}).to_string()
-        }
-
-        PopupState::Result { output, tool, .. } => json!({
-            "view": "result",
-            "output": escape_html(output),
-            "tool": escape_html(&tool.to_string()),
-            "copyFeedback": ctx.copy_feedback
-        })
+        PopupState::Processing { tool, .. } => with_theme(
+            json!({"view": "processing", "tool": escape_html(&tool.to_string())}),
+            &ctx.theme_preference,
+        )
         .to_string(),
 
-        PopupState::Error { message, .. } => {
-            json!({"view": "error", "message": escape_html(message)}).to_string()
-        }
+        PopupState::Result { output, tool, .. } => with_theme(
+            json!({
+                "view": "result",
+                "output": escape_html(output),
+                "tool": escape_html(&tool.to_string()),
+                "copyFeedback": ctx.copy_feedback
+            }),
+            &ctx.theme_preference,
+        )
+        .to_string(),
+
+        PopupState::Error { message, .. } => with_theme(
+            json!({"view": "error", "message": escape_html(message)}),
+            &ctx.theme_preference,
+        )
+        .to_string(),
     }
 }
 
@@ -112,6 +141,7 @@ pub fn settings_to_json(form: &SettingsForm) -> String {
         "api_key": masked_key,
         "auto_popup": form.auto_popup,
         "auto_start": form.auto_start,
+        "theme": form.theme,
         "version": version
     })
     .to_string()

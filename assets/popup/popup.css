@@ -15,7 +15,9 @@
   background: var(--mica-bg);
   border: none;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: var(--shadow-popup);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
@@ -259,7 +261,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
+  transition: transform 200ms ease, background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 .btn-swap:hover { background: rgba(255,255,255,0.1); color: var(--primary-light); border-color: var(--primary-light); }
 .btn-swap:active { transform: rotate(180deg); }
@@ -560,3 +562,42 @@
 /* ---------- Translate divider variant ---------- */
 .translate-divider--padded { padding: 6px 0; }
 .translate-divider-icon { padding: 0 8px; color: var(--text-muted); }
+
+/* ---------- Replace Confirmation ---------- */
+.confirm-bar {
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--color-primary-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.confirm-bar__text {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.confirm-bar__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn--confirm {
+  min-width: 68px;
+}
+
+.copy-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-animated {
+  transition: transform 180ms ease, opacity 180ms ease;
+  transform: scale(1.05);
+}

@@ -83,6 +83,7 @@ fn run_event_loop(
     let base_css = include_str!("../../assets/popup/base.css");
     let components_css = include_str!("../../assets/popup/components.css");
     let popup_css = include_str!("../../assets/popup/popup.css");
+    let popup_icons_js = include_str!("../../assets/popup/icons.js");
     let popup_js = include_str!("../../assets/popup/popup.js");
     let full_popup_html = inline_assets(
         popup_html,
@@ -92,12 +93,13 @@ fn run_event_loop(
             (components_css, "components.css"),
             (popup_css, "popup.css"),
         ],
-        popup_js,
+        &format!("{}\n{}", popup_icons_js, popup_js),
         "popup.js",
     );
 
     let settings_html = include_str!("../../assets/popup/settings.html");
     let settings_css = include_str!("../../assets/popup/settings.css");
+    let settings_icons_js = include_str!("../../assets/popup/icons.js");
     let settings_js = include_str!("../../assets/popup/settings.js");
     let full_settings_html = inline_assets(
         settings_html,
@@ -107,7 +109,7 @@ fn run_event_loop(
             (components_css, "components.css"),
             (settings_css, "settings.css"),
         ],
-        settings_js,
+        &format!("{}\n{}", settings_icons_js, settings_js),
         "settings.js",
     );
 
