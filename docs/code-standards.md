@@ -47,10 +47,10 @@
 ## CSS Standards
 
 ### Organization
-- **Layer 1 (tokens.css)**: Design tokens — colors, spacing scale, shadows, typography
-- **Layer 2 (base.css)**: Global reset, font-face declarations, HTML/body reset
+- **Layer 1 (tokens.css)**: Design tokens — colors (with light/dark variants), spacing scale, shadows, typography
+- **Layer 2 (base.css)**: Global reset, font-face declarations, HTML/body reset, theme detection
 - **Layer 3 (components.css)**: Reusable component library (buttons, textareas, status badges, status dots)
-- **Layer 4 (popup.css / settings.css)**: App-specific layouts, view styles, animations
+- **Layer 4 (popup.css / settings.css)**: App-specific layouts, view styles, animations, Fluent Midnight refresh
 
 Each file documents its requirements and dependencies via CSS comments.
 
@@ -59,6 +59,13 @@ Each file documents its requirements and dependencies via CSS comments.
 - **BEM pattern** for component variants: `.button--primary`, `.button--ghost`
 - **State prefixes**: `is-`, `has-`, `--active`, `--disabled`, `--loading`
 - **Design tokens**: `--{property}-{modifier}` (e.g., `--primary`, `--primary-light`, `--text-muted`)
+- **Theme variants**: Use `:root[data-theme="light"]` for light mode overrides (no separate classes)
+
+### Theme System
+- All color tokens defined once in `tokens.css` with dark mode as default
+- Light theme overrides via CSS selector `:root[data-theme="light"] { --token: value; }`
+- JS sets `document.documentElement.dataset.theme` on init (from saved preference or system detect)
+- No light/dark class variants on elements — theme is global via `:root` selector
 
 ### CSS Reset & Defaults
 - Global box-sizing reset via `*` selector.
@@ -69,7 +76,7 @@ Each file documents its requirements and dependencies via CSS comments.
 - Focus-visible outlines: `outline: 2px solid var(--primary); outline-offset: 2px`
 - Min touch target: 44×44px for interactive elements
 - `prefers-reduced-motion` media query respected
-- Contrast ratios: WCAG AA minimum (4.5:1 for text)
+- Contrast ratios: WCAG AA minimum (4.5:1 for text) — verified for both light and dark themes
 
 ## WebView and IPC Standards
 
@@ -78,6 +85,22 @@ Each file documents its requirements and dependencies via CSS comments.
 - Validate WebView2 runtime before starting window loop.
 - Keep non-Windows stubs behind `#[cfg(not(target_os = "windows"))]`.
 - Store local HTML/CSS/JS assets in `assets/popup/` and inline them via `include_str!` for offline/runtime-stable loading.
+- Include `icons.js` in both popup and settings WebView initialization via `include_str!`.
+
+### Icon System (Phase 3)
+- All SVG icons managed through `assets/popup/icons.js` module
+- Icons accessed via `renderIcon(name, size)` factory function (e.g., `renderIcon('close', 24)`)
+- Icon name map centralized in `icons.js` — updates in one place for all references
+- Used in `popup.js` and `settings.js` for dynamic icon rendering
+- Eliminates inline SVG strings throughout application code
+
+### Frontend State Management (Phase 3)
+- `popup.js`: All mutable state encapsulated in `const appState = {}` object
+  - Includes: `selectedToolIndex`, `_translateLanguages`, `_translateFromId`, `_translateToId`, etc.
+  - No global mutable variables outside `appState`
+  - Accessed throughout as `appState.propertyName`
+- `settings.js`: Form state managed similarly with minimal globals
+- Benefits: Easier debugging, clearer variable scope, fewer side effects
 
 ### IPC Message Format
 - Use serde-tagged envelope format:
@@ -97,6 +120,13 @@ Each file documents its requirements and dependencies via CSS comments.
 - Validate/parse all inbound IPC with typed deserialization and explicit error logging.
 - Never pass raw API keys/secrets into JS payloads.
 - Escape user/AI text before embedding in HTML-rendered UI state (`escape_html`).
+- Pass theme preference as plain string in state; no security implications.
+
+### Confirmation Dialogs & Safety Features (Phase 3)
+- Replace Selection confirmation: inline bar with "Replace? [Yes] [No]" before replacement
+- Keyboard support: Enter = Yes, Escape = No, with `aria-live="assertive"`
+- Settings cancel: close window without saving (no IPC needed)
+- Settings reset: JS-only restore of form to defaults (no persistence until Save)
 
 ## Settings and Persistence Pattern
 

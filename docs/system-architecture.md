@@ -58,13 +58,20 @@
 | Component | Role |
 |---|---|
 | `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. Hotkey toggles popup + supports empty selection. |
-| `ui/webview_popup.rs` | Popup window thread (`tao` EventLoop + `wry` WebView), receives show/hide/resize/state commands, forwards JS events to Rust. |
-| `ui/webview_settings.rs` | Settings window thread (`tao` EventLoop + `wry` WebView), handles settings rendering and JS actions. |
-| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output. |
+| `ui/webview_popup.rs` | Popup window thread (`tao` EventLoop + `wry` WebView), receives show/hide/resize/state commands, forwards JS events to Rust. Includes `icons.js` for SVG icon rendering. |
+| `ui/webview_settings.rs` | Settings window thread (`tao` EventLoop + `wry` WebView), handles settings rendering and JS actions. Includes `icons.js`. Passes theme preference from settings state. |
+| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output. Includes theme preference in state. |
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. |
-| `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. |
+| `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. Includes theme preference field. |
 | `ui/popup_position.rs` | Popup placement + state-dependent window heights. |
-| `assets/popup/*` | Offline popup/settings frontend assets (HTML/CSS/JS) inlined into WebView at runtime. Includes inline MD parser for Convert Prompt rich preview. |
+| `assets/popup/icons.js` | Centralized SVG icon module with `renderIcon(name, size)` factory. Manages all tool, action, and status icons. |
+| `assets/popup/tokens.css` | Design tokens (colors, spacing, shadows, typography). Includes light/dark theme overrides via `:root[data-theme="light"]`. |
+| `assets/popup/components.css` | Reusable component library (buttons, textareas, status indicators, labels, feedback toasts). |
+| `assets/popup/popup.css` | Popup-specific layouts, animations, Fluent Midnight visual refresh (backdrop blur, shadows). |
+| `assets/popup/settings.css` | Settings window layouts and styling. |
+| `assets/popup/*.html` | HTML markup with theme toggle (settings), confirmation dialog (popup), version display. |
+| `assets/popup/popup.js` | UI orchestration, state management via `appState` object, IPC communication, keyboard nav, resize debouncing, replace confirmation, micro-interactions. |
+| `assets/popup/settings.js` | Settings form handling, theme toggle, cancel/reset buttons, icon rendering. |
 
 ### AI, Selection, Editing
 
@@ -139,4 +146,13 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 - User-facing text injected into HTML contexts is escaped in `webview_bridge::escape_html`.
 - IPC payloads are structured typed messages with serde deserialization boundaries.
 - HTTPS enforcement: provider base URLs must use `https://`; validated before settings are persisted.
+- Theme preference (auto/dark/light) stored as plain text in JSON settings; no security impact.
 - No telemetry/analytics pipeline is introduced by WebView cutover.
+
+## Theme System (Phase 3)
+
+- **Settings field**: `theme: String` ("auto", "dark", "light") persisted in JSON config
+- **JS-side**: `document.documentElement.dataset.theme` set on init from system preference or saved setting
+- **CSS**: `:root[data-theme="light"]` overrides all color tokens for light theme support
+- **Updates**: Theme preference IPC sent from settings window to popup window on change
+- **Tokens**: Two-variant system in `tokens.css` — dark defaults, light overrides via selector

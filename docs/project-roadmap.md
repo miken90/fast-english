@@ -53,7 +53,28 @@
 
 ---
 
-## Phase 3: Quality & Reliability
+## Phase 3: Theme & Polish
+
+**Status**: Complete (2026-03-19)
+
+### Delivered Features
+- [x] Light/dark theme system with Auto/Dark/Light toggle (persisted in settings)
+- [x] Fluent Midnight visual refresh — backdrop blur, new shadows, accent colors
+- [x] Centralized SVG icon module (`icons.js`) — all icons managed via `renderIcon(name, size)`
+- [x] Lightning Pen brand icon (tray, taskbar, window)
+- [x] Replace Selection confirmation dialog — shows inline bar before replacement
+- [x] Settings cancel/reset — Cancel dismisses without saving, Reset restores defaults
+- [x] JS state encapsulation — removed global mutable variables, all state in `appState` object
+- [x] Micro-interactions — button scale on active, smooth swap rotation, copy feedback animation
+- [x] Light theme WCAG AA contrast compliance verified
+
+### Known Limitations
+- No unit or integration tests (defer to Phase 4)
+- backdrop-filter may impact perf on very low-end hardware (acceptable trade-off)
+
+---
+
+## Phase 4: Quality & Reliability
 
 **Status**: Planned
 
@@ -67,7 +88,7 @@
 
 ---
 
-## Phase 4: Enhanced UX
+## Phase 5: Enhanced UX
 
 **Status**: Planned
 
@@ -81,7 +102,7 @@
 
 ---
 
-## Phase 5: More AI Providers & Tools
+## Phase 6: More AI Providers & Tools
 
 **Status**: Planned
 
@@ -94,7 +115,7 @@
 
 ---
 
-## Phase 6: Distribution & Polish
+## Phase 7: Distribution & Polish
 
 **Status**: Planned
 

@@ -1,13 +1,13 @@
 # Fast English — Design Guidelines
 
-> **Last Updated:** 2026-03-19 (Phase 2: Core UX & Component System)  
-> **Status:** Active (brand refresh pending v1.1+)
+> **Last Updated:** 2026-03-19 (Phase 3: Theme & Polish — Complete)  
+> **Status:** Active
 
 ---
 
 ## Design Direction
 
-**"Fluent Midnight"** — Dark-mode-first, Windows 11 Fluent-inspired, layered surfaces with acrylic aesthetics.
+**"Fluent Midnight"** — Dark-mode-first, Windows 11 Fluent-inspired, layered surfaces with acrylic aesthetics. Includes light theme support with WCAG AA contrast compliance.
 
 See full proposal: `plans/260319-ui-ux-brand-refresh-proposal/reports/design-260319-ui-ux-brand-refresh.md`
 
@@ -69,11 +69,19 @@ See full proposal: `plans/260319-ui-ux-brand-refresh-proposal/reports/design-260
 - `prefers-reduced-motion` respected
 - ARIA roles on interactive lists
 
-## Known Issues (Phase 2 Resolution)
+## Implementation Status
 
-1. ✅ **RESOLVED** — Tokens duplicated across popup.css and settings.css → Centralized in tokens.css + components.css layer
-2. ✅ **RESOLVED** — No shared CSS file → Created components.css with reusable patterns
-3. ⏳ No light theme support (planned v1.1+)
-4. ⏳ Brand refresh (Fluent Midnight proposal pending approval)
-5. **Keyboard Navigation**: Roving tabindex pattern implemented in tool list (Phase 2)
-6. **Accessibility**: aria-live regions added to feedback toasts and processing label (Phase 2)
+| Feature | Status | Phase |
+|---------|--------|-------|
+| Tokens & reset | ✅ Complete | Phase 1 |
+| Components library | ✅ Complete | Phase 2 |
+| Keyboard navigation (roving tabindex) | ✅ Complete | Phase 2 |
+| aria-live feedback regions | ✅ Complete | Phase 2 |
+| Fluent Midnight dark theme | ✅ Complete | Phase 3 |
+| Light theme with WCAG AA contrast | ✅ Complete | Phase 3 |
+| Icons.js centralized icon system | ✅ Complete | Phase 3 |
+| Theme toggle (Auto/Dark/Light) | ✅ Complete | Phase 3 |
+| Replace confirmation dialog | ✅ Complete | Phase 3 |
+| Settings cancel/reset buttons | ✅ Complete | Phase 3 |
+| Micro-interactions & animations | ✅ Complete | Phase 3 |
+| Lightning Pen brand assets | ✅ Complete | Phase 3 |
