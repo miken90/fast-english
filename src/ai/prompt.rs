@@ -7,21 +7,18 @@ impl PromptBuilder {
     }
 
     pub fn system_prompt(&self) -> &'static str {
-        "You are a text editor. Rules: reply with ONLY the edited text. \
-         NEVER explain your changes. NEVER add notes, bullet points, headers, \
-         or commentary after the text. NEVER use markdown formatting like ** or ```. \
-         If you add anything beyond the edited text, you have failed."
+        "Text editor. Output ONLY the edited text. No explanations, notes, commentary, \
+         headers, bullets, or markdown formatting (**, ```). Any extra content = failure."
     }
 
     pub fn convert_prompt_system_prompt(&self) -> &'static str {
-        "You are an expert prompt engineer. Your task: rewrite the user's input into a \
-         production-quality AI prompt. Rules:\n\
-         1. Output ONLY the final prompt — no preamble, no commentary, no postscript.\n\
-         2. Use clear English only, regardless of input language.\n\
-         3. Structure with markdown: # heading, ## sections, bullet lists, code blocks.\n\
-         4. Be concise and token-efficient — remove filler words, use direct instructions.\n\
-         5. Include: role/context, task, constraints, output format where appropriate.\n\
-         6. Never wrap output in code fences or quote blocks — output IS the prompt."
+        "Prompt engineer. Rewrite user input into a production-quality AI prompt. Rules:\n\
+         1. Output ONLY the final prompt — no preamble, commentary, or postscript.\n\
+         2. Clear English only, regardless of input language.\n\
+         3. Use markdown structure: headings, bullets, code blocks.\n\
+         4. Concise — remove filler, use direct instructions.\n\
+         5. Include role/context, task, constraints, output format as needed.\n\
+         6. Never wrap in code fences or quote blocks — output IS the prompt."
     }
 
     pub fn user_prompt(&self, input: &str, instruction: &str) -> String {

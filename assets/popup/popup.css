@@ -307,53 +307,6 @@ body {
 }
 .footer-settings-btn:hover { opacity: 0.75; text-decoration: underline; }
 
-/* ---------- Tone List ---------- */
-.tone-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 16px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.tone-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid transparent;
-  cursor: pointer;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  transition: all var(--transition-base);
-}
-.tone-btn:hover {
-  background: rgba(255,255,255,0.07);
-  border-color: var(--border);
-  transform: translateX(2px);
-}
-.tone-btn:active { transform: scale(0.98); }
-
-.tone-btn-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--tool-purple-bg);
-  color: var(--tool-purple-fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
 /* ---------- Translate Select ---------- */
 .translate-lang-row {
   display: flex;

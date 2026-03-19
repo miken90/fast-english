@@ -6,7 +6,6 @@ pub const POPUP_INITIAL_HEIGHT: f32 = OPTIONS_HEIGHT;
 
 /// Height per popup state.
 pub const OPTIONS_HEIGHT: f32 = 310.0;
-pub const TONE_HEIGHT: f32 = 400.0;
 pub const TRANSLATE_HEIGHT: f32 = 380.0;
 pub const TRANSLATE_RESULT_HEIGHT: f32 = 560.0;
 pub const PROMPT_EDITOR_HEIGHT: f32 = 420.0;

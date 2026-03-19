@@ -1,7 +1,7 @@
-use crate::app::{PopupState, DEFAULT_TOOLS, TONES, TRANSLATE_LANGS};
+use crate::app::{PopupState, DEFAULT_TOOLS, TRANSLATE_LANGS};
 use crate::ui::popup_position::{
     ERROR_HEIGHT, OPTIONS_HEIGHT, PROCESSING_HEIGHT, PROMPT_EDITOR_HEIGHT, RESULT_HEIGHT,
-    TONE_HEIGHT, TRANSLATE_HEIGHT, TRANSLATE_RESULT_HEIGHT,
+    TRANSLATE_HEIGHT, TRANSLATE_RESULT_HEIGHT,
 };
 use crate::ui::settings_views::SettingsForm;
 use serde_json::json;
@@ -48,14 +48,6 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
                 "tools": tools
             })
             .to_string()
-        }
-
-        PopupState::ToneSelection(_) => {
-            let tones: Vec<_> = TONES
-                .iter()
-                .map(|t| json!({"id": t.id, "name": t.name}))
-                .collect();
-            json!({"view": "tone", "tones": tones}).to_string()
         }
 
         PopupState::TranslateSelection(sel_ctx) => {
@@ -126,7 +118,6 @@ pub fn height_for_state(state: &PopupState) -> f64 {
     match state {
         PopupState::Hidden => 0.0,
         PopupState::Options(_) => OPTIONS_HEIGHT as f64,
-        PopupState::ToneSelection(_) => TONE_HEIGHT as f64,
         PopupState::TranslateSelection(_) => TRANSLATE_HEIGHT as f64,
         PopupState::PromptEditor(_) => PROMPT_EDITOR_HEIGHT as f64,
         PopupState::TranslateResult { .. } => TRANSLATE_RESULT_HEIGHT as f64,

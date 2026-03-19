@@ -48,7 +48,7 @@
 | Component | Role |
 |---|---|
 | `main.rs` | Entry point. COM STA init, settings load, tokio runtime, monitor/tray/hotkey wiring, starts WebView popup runtime. |
-| `app.rs` | Shared domain types: `PopupState`, `AppEvent`, `WritingToolKind`, tone/translate constants. |
+| `app.rs` | Shared domain types: `PopupState`, `AppEvent`, `WritingToolKind`, translate constants. |
 | `settings.rs` | App settings model (`AppSettings`, provider fields, toggles). |
 | `persistence.rs` | Persist settings in `%APPDATA%/FastEnglish/`; API keys protected with DPAPI. |
 | `hotkey.rs` | Registers global `Ctrl+Alt+T`, emits `AppEvent::HotkeyPressed`. |
@@ -80,7 +80,6 @@
 
 - `Hidden`
 - `Options(context)`
-- `ToneSelection(context)`
 - `TranslateSelection(context)`
 - `Processing { context, tool }`
 - `Result { context, tool, output }`

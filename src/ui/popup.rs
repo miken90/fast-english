@@ -1,6 +1,4 @@
-use crate::app::{
-    AppEvent, PopupState, TranslateLanguage, WritingToolKind, TONES, TRANSLATE_LANGS,
-};
+use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANSLATE_LANGS};
 use crate::selection::{SelectionContext, Tier};
 use crate::settings::AppSettings;
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
@@ -249,7 +247,6 @@ fn handle_app_event(
                 PopupState::Processing { .. }
                     | PopupState::Result { .. }
                     | PopupState::Error { .. }
-                    | PopupState::ToneSelection(_)
                     | PopupState::TranslateSelection(_)
                     | PopupState::PromptEditor(_)
                     | PopupState::TranslateResult { .. }
@@ -334,9 +331,8 @@ fn handle_webview_ipc(
         JsToRust::Dismiss => dismiss_popup(state),
 
         JsToRust::BackToOptions => {
-            if let PopupState::ToneSelection(ctx)
-            | PopupState::TranslateSelection(ctx)
-            | PopupState::PromptEditor(ctx) = &state.popup_state
+            if let PopupState::TranslateSelection(ctx) | PopupState::PromptEditor(ctx) =
+                &state.popup_state
             {
                 state.popup_state = PopupState::Options(ctx.clone());
                 push_popup_state(state);
@@ -352,12 +348,6 @@ fn handle_webview_ipc(
         JsToRust::ToolSelected { kind } => {
             if let Some(tool) = map_tool_id_to_kind(&kind) {
                 if let PopupState::Options(ctx) = &state.popup_state {
-                    if matches!(tool, WritingToolKind::ChangeTone(_)) {
-                        state.popup_state = PopupState::ToneSelection(ctx.clone());
-                        push_popup_state(state);
-                        return;
-                    }
-
                     if matches!(tool, WritingToolKind::Translate { .. }) {
                         state.popup_state = PopupState::TranslateSelection(ctx.clone());
                         push_popup_state(state);
@@ -371,19 +361,6 @@ fn handle_webview_ipc(
                     }
 
                     start_ai_request(state, ctx.clone(), tool, internal_tx);
-                }
-            }
-        }
-
-        JsToRust::ToneSelected { tone_id } => {
-            if let Some(tone) = TONES.iter().find(|t| t.id == tone_id).cloned() {
-                if let PopupState::ToneSelection(ctx) = &state.popup_state {
-                    start_ai_request(
-                        state,
-                        ctx.clone(),
-                        WritingToolKind::ChangeTone(tone),
-                        internal_tx,
-                    );
                 }
             }
         }
@@ -747,7 +724,10 @@ fn start_ai_request(
                     let instruction = tool_instruction(&tool);
                     let system_override = system_override_for_tool(&tool);
                     let max_tokens = max_tokens_for_tool(&input, &tool);
-                    match client.process(&input, &instruction, system_override, max_tokens).await {
+                    match client
+                        .process(&input, &instruction, system_override, max_tokens)
+                        .await
+                    {
                         Ok(raw) => Ok(clean_output_for_tool(&raw, &tool)),
                         Err(e) => Err(e.to_string()),
                     }
@@ -767,7 +747,6 @@ fn popup_ai_context(state: &PopupState) -> Option<SelectionContext> {
         PopupState::TranslateResult { context, .. } => Some(context.clone()),
         PopupState::Error { context, .. } => Some(context.clone()),
         PopupState::Options(ctx)
-        | PopupState::ToneSelection(ctx)
         | PopupState::TranslateSelection(ctx)
         | PopupState::PromptEditor(ctx) => Some(ctx.clone()),
         PopupState::Hidden => None,
@@ -802,16 +781,15 @@ fn tool_instruction(tool: &WritingToolKind) -> String {
             .map(|t| t.prompt_instruction)
             .unwrap_or("Turn this text into a clear prompt.")
             .to_string(),
-        WritingToolKind::ChangeTone(tone) => tone.prompt_instruction.to_string(),
         WritingToolKind::Translate { from, to } => {
             if from.id == "auto" {
                 format!(
-                    "Detect the language of the following text and translate it to {}. Return only the translated text.",
+                    "Detect the language and translate to {}. Return only the translation.",
                     to.name
                 )
             } else {
                 format!(
-                    "Translate the following text from {} to {}. Return only the translated text.",
+                    "Translate from {} to {}. Return only the translation.",
                     from.name, to.name
                 )
             }
@@ -904,7 +882,6 @@ fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
         "enhance-writing" | "enhance_writing" => Some(WritingToolKind::EnhanceWriting),
         "fix-grammar" | "fix_grammar" => Some(WritingToolKind::FixGrammar),
         "convert-prompt" | "convert_prompt" => Some(WritingToolKind::ConvertPrompt),
-        "change-tone" | "change_tone" => Some(WritingToolKind::ChangeTone(TONES[0].clone())),
         "translate" => Some(WritingToolKind::Translate {
             from: TRANSLATE_LANGS[0].clone(),
             to: TRANSLATE_LANGS[1].clone(),

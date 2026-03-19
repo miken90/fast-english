@@ -26,7 +26,7 @@ function sendToRust(type, payload) {
 
 // ─── View Management ───────────────────────────────────────────────────────
 
-const VIEWS = ['options', 'tone', 'translate-select', 'prompt-editor', 'translate-result', 'processing', 'result', 'error'];
+const VIEWS = ['options', 'translate-select', 'prompt-editor', 'translate-result', 'processing', 'result', 'error'];
 
 /**
  * Show one view, hide all others.
@@ -59,17 +59,11 @@ const TOOL_ICONS = {
     colorClass: 'tool-icon--blue',
     svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5V4a2 2 0 012-2h8l6 6v11.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 19.5z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>'
   },
-  'change_tone': {
-    colorClass: 'tool-icon--purple',
-    svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>'
-  },
   'translate': {
     colorClass: 'tool-icon--amber',
     svg: '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>'
   }
 };
-
-const TONE_EMOJIS = ['✨', '💬', '🎩', '😊', '⚡', '💪'];
 
 /** Get icon config, with fallback for unknown tool ids */
 function getToolIcon(id) {
@@ -102,11 +96,6 @@ window.setState = function(data) {
     case 'options':
       renderOptions(data);
       showView('options');
-      break;
-
-    case 'tone':
-      renderTone(data);
-      showView('tone');
       break;
 
     case 'translate-select':
@@ -190,8 +179,7 @@ function renderOptions(data) {
   const tools = data.tools || [];
   tools.forEach(function(tool) {
     const icon = getToolIcon(tool.id);
-    const hasArrow = tool.id === 'change_tone' || tool.id === 'change-tone' ||
-                     tool.id === 'translate';
+    const hasArrow = tool.id === 'translate';
 
     const li = document.createElement('li');
     const btn = document.createElement('button');
@@ -209,30 +197,6 @@ function renderOptions(data) {
 
     btn.addEventListener('click', function() {
       sendToRust('ToolSelected', { kind: tool.id });
-    });
-
-    li.appendChild(btn);
-    listEl.appendChild(li);
-  });
-}
-
-function renderTone(data) {
-  const listEl = document.getElementById('tone-list');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-
-  const tones = data.tones || [];
-  tones.forEach(function(tone, idx) {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.className = 'tone-btn';
-    btn.dataset.toneId = tone.id;
-    btn.innerHTML =
-      '<div class="tone-btn-icon">' + (TONE_EMOJIS[idx] || '✨') + '</div>' +
-      '<span>' + escHtml(tone.name) + '</span>';
-
-    btn.addEventListener('click', function() {
-      sendToRust('ToneSelected', { tone_id: tone.id });
     });
 
     li.appendChild(btn);
@@ -423,10 +387,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // ── Options View ──
   bindClick('options-close', function() { sendToRust('Dismiss'); });
   bindClick('options-settings-btn', function() { sendToRust('OpenSettings'); });
-
-  // ── Tone View ──
-  bindClick('tone-back',  function() { sendToRust('BackToOptions'); });
-  bindClick('tone-close', function() { sendToRust('Dismiss'); });
 
   // ── Translate Select ──
   bindClick('translate-select-back',  function() { sendToRust('BackToOptions'); });

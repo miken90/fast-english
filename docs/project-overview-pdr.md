@@ -8,12 +8,11 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 
 ### Primary: Knowledge Workers
 - Writers, editors, marketers, and professionals who produce written content daily
-- Frequently need to adjust tone for different audiences (email to boss vs. message to teammate)
 - Value speed and staying in their current workflow context
+- Need quick writing improvements without leaving their app
 
 ### Secondary: Non-Native English Speakers
 - Need grammar and spelling corrections integrated into their workflow
-- Benefit from tone adjustment to match professional norms in English
 - Want quick polishing without leaving their writing app
 
 ### Tertiary: Developers and Technical Writers
@@ -30,17 +29,17 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 
 ### 2. Floating Popup Interface
 - Appears near selected text automatically or via `Ctrl+Alt+T` hotkey
-- Three-phase flow: tool selection → (optional tone selection) → result display
+- Two-phase flow: tool selection → result display
 - Provides Replace (in-place) and Copy actions on results
 - Dismisses on outside click or Escape key
 
 ### 3. Writing Tools
-| Tool | Description | Options |
-|------|-------------|---------|
-| Enhance Writing | Improve clarity, flow, and readability | — |
-| Change Tone | Rewrite in a specific tone | Professional, Casual, Formal, Friendly, Concise, Confident |
-| Fix Grammar | Correct grammar and spelling | — |
-| Translate | Translate text between languages | Source and target languages |
+| Tool | Description |
+|------|-------------|
+| Enhance Writing | Improve clarity, flow, and readability |
+| Fix Grammar | Correct grammar and spelling |
+| Convert Prompt | Transform text into different formats or styles |
+| Translate | Translate text between languages |
 
 ### 4. AI Provider Integration
 - Supports OpenAI and Anthropic APIs

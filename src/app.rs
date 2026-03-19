@@ -5,7 +5,6 @@ use crate::selection::SelectionContext;
 pub enum PopupState {
     Hidden,
     Options(SelectionContext),
-    ToneSelection(SelectionContext),
     TranslateSelection(SelectionContext),
     PromptEditor(SelectionContext),
     TranslateResult {
@@ -49,7 +48,6 @@ pub enum WritingToolKind {
     EnhanceWriting,
     FixGrammar,
     ConvertPrompt,
-    ChangeTone(ToneOption),
     Translate {
         from: TranslateLanguage,
         to: TranslateLanguage,
@@ -138,52 +136,11 @@ impl std::fmt::Display for WritingToolKind {
             Self::EnhanceWriting => write!(f, "Enhance Writing"),
             Self::FixGrammar => write!(f, "Fix Grammar"),
             Self::ConvertPrompt => write!(f, "Convert Prompt"),
-            Self::ChangeTone(tone) => write!(f, "Change Tone → {}", tone.name),
+
             Self::Translate { from, to } => write!(f, "Translate {} → {}", from.name, to.name),
         }
     }
 }
-
-/// Tone options.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToneOption {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub prompt_instruction: &'static str,
-}
-
-pub const TONES: &[ToneOption] = &[
-    ToneOption {
-        id: "professional",
-        name: "Professional",
-        prompt_instruction: "Rewrite in a professional and polished tone. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-    ToneOption {
-        id: "casual",
-        name: "Casual",
-        prompt_instruction: "Rewrite in a casual and conversational tone. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-    ToneOption {
-        id: "formal",
-        name: "Formal",
-        prompt_instruction: "Rewrite in a formal and official tone. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-    ToneOption {
-        id: "friendly",
-        name: "Friendly",
-        prompt_instruction: "Rewrite in a warm and friendly tone. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-    ToneOption {
-        id: "concise",
-        name: "Concise",
-        prompt_instruction: "Rewrite in a concise and brief style, removing unnecessary words. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-    ToneOption {
-        id: "confident",
-        name: "Confident",
-        prompt_instruction: "Rewrite in a confident and assertive tone. Preserve the original meaning and language. Return only the rewritten text.",
-    },
-];
 
 /// Default writing tools.
 pub struct WritingTool {
@@ -199,30 +156,24 @@ pub const DEFAULT_TOOLS: &[WritingTool] = &[
         id: "enhance-writing",
         title: "Enhance Writing",
         short_description: "Improve clarity and flow",
-        prompt_instruction: "Improve the writing quality, clarity, flow, and readability. Preserve the original meaning and language. Return only the improved text.",
-    },
-    WritingTool {
-        id: "change-tone",
-        title: "Change Tone",
-        short_description: "Make the writing more professional",
-        prompt_instruction: "Rewrite in a more professional and polished tone. Preserve the original meaning. Return only the rewritten text.",
+        prompt_instruction: "Improve clarity, flow, and readability. Preserve meaning and language. Return only the improved text.",
     },
     WritingTool {
         id: "fix-grammar",
         title: "Fix Grammar",
         short_description: "Correct grammar and spelling",
-        prompt_instruction: "Correct grammar, spelling, and punctuation. Do not explain changes. Return only the corrected text.",
+        prompt_instruction: "Fix grammar, spelling, and punctuation. Return only the corrected text.",
     },
     WritingTool {
         id: "convert-prompt",
         title: "Convert Prompt",
         short_description: "Convert text into an AI prompt",
-        prompt_instruction: "Turn this text into a clear, structured prompt that can be used with an AI assistant. Preserve intent, add useful context, constraints, and output format where appropriate. Return only the final prompt in clean markdown format.",
+        prompt_instruction: "Convert into a clear, structured AI prompt. Preserve intent, add context, constraints, and output format. Return only the final prompt in markdown.",
     },
     WritingTool {
         id: "translate",
         title: "Translate",
         short_description: "Translate text between languages",
-        prompt_instruction: "Translate the text. Return only the translated text.",
+        prompt_instruction: "Translate text. Return only the translation.",
     },
 ];

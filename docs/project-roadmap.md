@@ -11,9 +11,8 @@
 - [x] Selection debounce (700ms stable selection before trigger)
 - [x] Floating popup near selected text (WebView2 UI)
 - [x] Global hotkey `Ctrl+Alt+T` to trigger popup (fresh clipboard capture)
-- [x] Three writing tools: Enhance Writing, Change Tone, Fix Grammar
+- [x] Four writing tools: Enhance Writing, Fix Grammar, Convert Prompt, Translate
 - [x] Translate feature supporting multiple source and target languages
-- [x] Six tone options: Professional, Casual, Formal, Friendly, Concise, Confident
 - [x] OpenAI integration (gpt-4.1-mini)
 - [x] Anthropic integration (claude-3-5-sonnet-latest)
 - [x] In-place text replacement via UIA SetValue + clipboard fallback

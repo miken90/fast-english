@@ -37,9 +37,6 @@ pub enum JsToRust {
     ToolSelected {
         kind: String,
     },
-    ToneSelected {
-        tone_id: String,
-    },
     Dismiss,
     BackToOptions,
     CopyResult,
