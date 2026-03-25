@@ -69,11 +69,11 @@ fast-english/
 
 | File | Purpose |
 |---|---|
-| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), copy/replace flows, and pushes state to WebViews. Also handles hotkey toggle + empty selection fallback. |
+| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle + empty selection fallback. |
 | `webview_popup.rs` | Popup window lifecycle on dedicated thread; show/hide/resize/set-state command handling. |
 | `webview_settings.rs` | Settings window lifecycle on dedicated thread; settings/test/save feedback command handling. |
-| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers. |
-| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper. |
+| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state used for replace gating. |
+| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper and unified popup actions (`RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`). |
 | `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
 | `popup_position.rs` | Calculates popup position and state-dependent heights. |
 | `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
@@ -81,9 +81,11 @@ fast-english/
 ## Runtime Patterns
 
 - **Event-driven core**: `AppEvent` channel drives runtime transitions.
-- **Popup state authority**: `PopupState` remains single source of truth; JS mirrors Rust state.
+- **Universal editor state flow**: `PopupState` now centers on `Editor`, `Processing`, `Result`, and `Error`; JS strictly mirrors Rust state.
 - **Two-thread WebView UI model**: popup and settings each run on dedicated `tao` event-loop threads.
-- **Typed IPC contracts**: JSON messages use `{ type, payload }` and deserialize into `JsToRust`.
+- **Unified IPC/action model**: JSON messages use `{ type, payload }` and route actions like `RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, and `Retry` into `JsToRust`.
+- **Replace gating**: replace is only enabled in `Result` when `canReplace=true`; editor-level replace is disabled.
+- **Result action set**: Back to editor, Re-run, Use output as input, Replace, and Copy (with inline feedback).
 - **Safe output rendering**: bridge escapes AI output before injecting into JS state payloads.
 - **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
 - **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
@@ -105,4 +107,7 @@ All HTML files load tokens → base → components, then app-specific CSS for ov
 - Build/lint complete with warnings (dead code and minor clippy suggestions) but no hard failures.
 - Dead files (popup_ai, popup_views, popup_window, theme) and iced dependency removed in cleanup.
 - Shared `reqwest::Client` via `Arc` used across AI providers.
+- Universal editor popup refactor consolidated tool UX under one flow (`Editor`/`Processing`/`Result`/`Error`) with shared action handling.
+- Replace behavior is intentionally gated by `canReplace` in result state; copy/rerun paths remain available when replace is blocked.
+- Result view includes iterative workflow support via `UseOutputAsInput` and re-run actions.
 - Phase 2: Keyboard navigation (roving tabindex), aria-live attributes, cancel processing flow implemented.

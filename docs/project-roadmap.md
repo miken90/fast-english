@@ -65,6 +65,10 @@
 - [x] Replace Selection confirmation dialog — shows inline bar before replacement
 - [x] Settings cancel/reset — Cancel dismisses without saving, Reset restores defaults
 - [x] JS state encapsulation — removed global mutable variables, all state in `appState` object
+- [x] Universal editor popup refactor — unified four-state flow (`Editor` → `Processing` → `Result`/`Error`) for all tools
+- [x] Unified popup IPC/action model — consistent actions (`RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`, language changes)
+- [x] Replace gating update — `Replace` is enabled only in `Result` when `canReplace=true`; editor-level replace is intentionally disabled
+- [x] Result actions expansion — Back, Re-run, Use output as input, Replace, and Copy with inline feedback
 - [x] Micro-interactions — button scale on active, smooth swap rotation, copy feedback animation
 - [x] Light theme WCAG AA contrast compliance verified
 
