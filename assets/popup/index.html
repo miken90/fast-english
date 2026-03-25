@@ -14,54 +14,27 @@
 <div id="popup-root">
   <div class="popup-container">
 
-    <!-- ================================================
-         VIEW: options
-    ================================================ -->
-    <section id="view-options" class="view" tabindex="-1">
+    <section id="view-editor" class="view" tabindex="-1">
       <div class="popup-header">
         <div class="context-indicator">
           <div class="status-dot status-dot--pulse"></div>
-          <span class="label-upper">Context Active</span>
+          <span class="label-upper">Editor</span>
         </div>
-        <button class="btn btn--icon" id="options-close" aria-label="Close">
-          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-        </button>
+        <div class="header-actions">
+          <button class="btn btn--icon" id="editor-settings-btn" aria-label="Open settings">
+            <span data-icon-name="info" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
+          <button class="btn btn--icon" id="editor-close" aria-label="Close">
+            <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
+        </div>
       </div>
 
-      <div class="popup-title">How can I help?</div>
-      <div class="popup-preview" id="options-preview"></div>
+      <div class="tool-switcher" id="tool-switcher" role="tablist" aria-label="Writing tools"></div>
 
-      <ul class="tool-list" id="tool-list" role="menu">
-        <!-- Populated by setState -->
-      </ul>
-
-      <div class="popup-footer">
-        <span class="footer-label" id="options-model-label">Powered by AI</span>
-        <button class="footer-settings-btn" id="options-settings-btn">Settings</button>
-      </div>
-    </section>
-
-    <!-- ================================================
-         VIEW: translate-select
-    ================================================ -->
-    <section id="view-translate-select" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="translate-select-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
-        </button>
-        <button class="btn btn--icon" id="translate-select-close" aria-label="Close">
-          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-        </button>
-      </div>
-
-      <div class="section-heading">Translate</div>
-
-      <div class="translate-lang-row">
+      <div id="translate-controls" class="translate-controls" style="display:none;">
         <div class="lang-select-wrapper">
-          <select class="lang-select" id="translate-from-select" aria-label="From language">
-            <!-- Populated by setState -->
-          </select>
+          <select class="lang-select" id="translate-from-select" aria-label="From language"></select>
           <span class="lang-select-arrow" data-icon-name="chevron_down" data-icon-size="12" data-icon-stroke="2.5"></span>
         </div>
 
@@ -70,145 +43,78 @@
         </button>
 
         <div class="lang-select-wrapper">
-          <select class="lang-select" id="translate-to-select" aria-label="To language">
-            <!-- Populated by setState -->
-          </select>
+          <select class="lang-select" id="translate-to-select" aria-label="To language"></select>
           <span class="lang-select-arrow" data-icon-name="chevron_down" data-icon-size="12" data-icon-stroke="2.5"></span>
         </div>
       </div>
 
-      <div class="translate-input-wrapper">
-        <div class="translate-panel-label">Text</div>
-        <textarea class="translate-text-box translate-text-box--textarea" id="translate-input-text" placeholder="Enter or edit text to translate..."></textarea>
+      <div class="editor-card">
+        <div class="editor-label" id="editor-source-label">Source</div>
+        <textarea id="editor-source-text" class="editor-textarea" placeholder="Enter text..."></textarea>
       </div>
 
-      <div class="action-row pt-1">
-        <button class="btn btn--primary" id="translate-confirm-btn">
-          Translate
-        </button>
+      <div class="action-row action-row--editor">
+        <button class="btn btn--primary" id="editor-run-btn">Run</button>
       </div>
 
-      <div class="pb-2"></div>
+      <div class="hint-row">Ctrl+Enter run · Esc close</div>
     </section>
 
-    <!-- ================================================
-         VIEW: translate-result
-    ================================================ -->
-    <section id="view-translate-result" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="translate-result-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
-        </button>
-        <button class="btn btn--icon" id="translate-result-close" aria-label="Close">
-          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-        </button>
-      </div>
-
-      <div class="translate-panels">
-        <div>
-          <div class="translate-panel-label" id="tr-from-label">Original</div>
-          <textarea class="translate-text-box translate-text-box--textarea" id="tr-original-text"></textarea>
-        </div>
-
-        <div class="translate-divider translate-divider--padded">
-          <div class="translate-divider-line"></div>
-          <span class="translate-divider-icon" data-icon-name="divider_down" data-icon-size="16" data-icon-stroke="2"></span>
-          <div class="translate-divider-line"></div>
-        </div>
-
-        <div>
-          <div class="translate-panel-label" id="tr-to-label">Translated</div>
-          <div class="translate-text-box translate-text-box--result" id="tr-translated-text"></div>
-        </div>
-      </div>
-
-      <div class="feedback-toast feedback-toast--success" id="translate-copy-feedback" aria-live="polite"></div>
-
-      <div class="action-row">
-        <button class="btn btn--primary" id="translate-retranslate-btn">Re-translate</button>
-        <button class="btn btn--primary" id="translate-replace-btn">Replace</button>
-        <button class="btn btn--secondary" id="translate-copy-btn">Copy</button>
-      </div>
-
-      <div class="pb-1"></div>
-    </section>
-
-    <!-- ================================================
-         VIEW: prompt-editor
-    ================================================ -->
-    <section id="view-prompt-editor" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="prompt-editor-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
-        </button>
-        <button class="btn btn--icon" id="prompt-editor-close" aria-label="Close">
-          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-        </button>
-      </div>
-
-      <div class="section-heading">Convert to Prompt</div>
-
-      <div class="translate-input-wrapper">
-        <div class="translate-panel-label">Source Text</div>
-        <textarea class="translate-text-box translate-text-box--textarea" id="prompt-editor-input" placeholder="Edit text before converting to prompt..."></textarea>
-      </div>
-
-      <div class="action-row pt-1">
-        <button class="btn btn--primary" id="prompt-editor-confirm-btn">Convert Prompt</button>
-      </div>
-
-      <div class="pb-2"></div>
-    </section>
-
-    <!-- ================================================
-         VIEW: processing
-    ================================================ -->
     <section id="view-processing" class="view" tabindex="-1">
+      <div class="popup-header popup-header--tight">
+        <div class="context-indicator">
+          <div class="status-dot status-dot--pulse"></div>
+          <span class="label-upper" id="processing-tool">Processing</span>
+        </div>
+        <button class="btn btn--icon" id="processing-close" aria-label="Close">
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+        </button>
+      </div>
+
       <div class="processing-view">
         <div class="spinner"></div>
-        <div class="processing-label" id="processing-label" aria-live="polite">Processing&#x2026;</div>
+        <div class="processing-label" id="processing-label" aria-live="polite">Processing…</div>
         <button class="btn btn--ghost" id="processing-cancel-btn">Cancel</button>
       </div>
     </section>
 
-    <!-- ================================================
-         VIEW: result
-    ================================================ -->
     <section id="view-result" class="view" tabindex="-1">
-      <div class="result-header">
+      <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="result-back">
           <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
           Back
         </button>
-        <div class="result-status" role="status">
-          <div class="status-dot status-dot--sm status-dot--success"></div>
-          <span class="result-title">Refined Result</span>
+        <div class="context-indicator">
+          <div class="status-dot status-dot--success"></div>
+          <span class="label-upper" id="result-tool-label">Result</span>
         </div>
         <button class="btn btn--icon" id="result-close" aria-label="Close">
           <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
-      <div class="result-text-wrapper">
-        <div class="result-text-glow"></div>
-        <textarea class="result-textarea" id="result-output" readonly></textarea>
+      <div class="editor-card">
+        <div class="editor-label">Output</div>
+        <textarea id="result-output" class="editor-textarea editor-textarea--readonly" readonly></textarea>
         <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
       </div>
 
       <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
 
-      <div class="action-row">
+      <div class="action-row action-row--result">
         <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
-        <button class="btn btn--primary" id="result-replace-btn">Replace Selection</button>
+        <button class="btn btn--primary" id="result-rerun-btn">Rerun</button>
+        <button class="btn btn--secondary" id="result-use-output-btn">Use output as input</button>
+      </div>
+
+      <div class="action-row action-row--result-2">
+        <button class="btn btn--secondary" id="result-replace-btn">Replace</button>
         <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
       </div>
+
+      <div class="hint-row">Ctrl+Enter rerun · Esc close</div>
     </section>
 
-    <!-- ================================================
-         VIEW: error
-    ================================================ -->
     <section id="view-error" class="view" tabindex="-1">
       <div class="popup-header popup-header--tight">
         <button class="btn btn--icon-text" id="error-back">
@@ -217,7 +123,7 @@
         </button>
         <div class="context-indicator">
           <div class="status-dot status-dot--error"></div>
-          <span class="label-upper context-label--error">Error</span>
+          <span class="label-upper">Error</span>
         </div>
         <button class="btn btn--icon" id="error-close" aria-label="Close">
           <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
@@ -232,16 +138,14 @@
         <div class="error-message" id="error-message"></div>
       </div>
 
-      <div class="action-row pt-1">
-        <button class="btn btn--primary" id="error-retry-btn">Try Again</button>
+      <div class="action-row action-row--error">
+        <button class="btn btn--primary" id="error-retry-btn">Try again</button>
         <button class="btn btn--secondary" id="error-dismiss-btn">Dismiss</button>
       </div>
-
-      <div class="pb-2"></div>
     </section>
 
-  </div><!-- /.popup-container -->
-</div><!-- /#popup-root -->
+  </div>
+</div>
 
 <script src="popup.js"></script>
 </body>

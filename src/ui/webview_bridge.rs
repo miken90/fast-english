@@ -1,18 +1,12 @@
-use crate::app::{PopupState, DEFAULT_TOOLS, TRANSLATE_LANGS};
+use crate::app::{PopupState, WritingToolKind, DEFAULT_TOOLS, TRANSLATE_LANGS};
 use crate::ui::popup_position::{
-    ERROR_MIN_HEIGHT, OPTIONS_MIN_HEIGHT, PROCESSING_MIN_HEIGHT, PROMPT_EDITOR_MIN_HEIGHT,
-    RESULT_MIN_HEIGHT, TRANSLATE_MIN_HEIGHT, TRANSLATE_RESULT_MIN_HEIGHT,
+    EDITOR_MIN_HEIGHT, ERROR_MIN_HEIGHT, PROCESSING_MIN_HEIGHT, RESULT_MIN_HEIGHT,
 };
 use crate::ui::settings_views::SettingsForm;
 use serde_json::json;
 
 /// Extra context needed for rendering beyond what PopupState holds.
 pub struct BridgeContext {
-    pub translate_from: crate::app::TranslateLanguage,
-    pub translate_to: crate::app::TranslateLanguage,
-    /// Text from editor (possibly edited original).
-    pub translate_original_content: String,
-    pub translate_output_text: String,
     pub copy_feedback: bool,
     pub theme_preference: String,
 }
@@ -40,9 +34,11 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
             with_theme(json!({"view": "hidden"}), &ctx.theme_preference).to_string()
         }
 
-        PopupState::Options(sel_ctx) => {
-            let preview = sel_ctx.text.chars().take(70).collect::<String>();
-            let has_text = !sel_ctx.text.trim().is_empty();
+        PopupState::Editor {
+            context,
+            tool,
+            source_text,
+        } => {
             let tools: Vec<_> = DEFAULT_TOOLS
                 .iter()
                 .map(|t| {
@@ -53,78 +49,78 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
                     })
                 })
                 .collect();
-            with_theme(
-                json!({
-                    "view": "options",
-                    "preview": escape_html(&preview),
-                    "hasText": has_text,
-                    "tools": tools
-                }),
-                &ctx.theme_preference,
-            )
-            .to_string()
+
+            let mut payload = json!({
+                "view": "editor",
+                "tools": tools,
+                "tool": {
+                    "id": tool_id(tool),
+                    "title": tool.to_string()
+                },
+                "sourceText": escape_html(source_text),
+                "canReplace": context.is_editable
+            });
+
+            if let WritingToolKind::Translate { from, to } = tool {
+                if let Some(obj) = payload.as_object_mut() {
+                    obj.insert("translateFrom".to_string(), lang_obj(from));
+                    obj.insert("translateTo".to_string(), lang_obj(to));
+                    obj.insert("languages".to_string(), json!(lang_list()));
+                }
+            }
+
+            with_theme(payload, &ctx.theme_preference).to_string()
         }
 
-        PopupState::TranslateSelection(sel_ctx) => {
-            let languages = lang_list();
-            with_theme(
-                json!({
-                    "view": "translate-select",
-                    "from": lang_obj(&ctx.translate_from),
-                    "to": lang_obj(&ctx.translate_to),
-                    "languages": languages,
-                    "original": escape_html(&sel_ctx.text)
-                }),
-                &ctx.theme_preference,
-            )
-            .to_string()
-        }
-
-        PopupState::PromptEditor(sel_ctx) => with_theme(
+        PopupState::Processing { tool, .. } => with_theme(
             json!({
-                "view": "prompt-editor",
-                "original": escape_html(&sel_ctx.text)
+                "view": "processing",
+                "tool": {
+                    "id": tool_id(tool),
+                    "title": escape_html(&tool.to_string())
+                }
             }),
             &ctx.theme_preference,
         )
         .to_string(),
 
-        PopupState::TranslateResult { .. } => {
-            let languages = lang_list();
-            with_theme(
-                json!({
-                    "view": "translate-result",
-                    "original": escape_html(&ctx.translate_original_content),
-                    "translated": escape_html(&ctx.translate_output_text),
-                    "from": lang_obj(&ctx.translate_from),
-                    "to": lang_obj(&ctx.translate_to),
-                    "languages": languages,
-                    "copyFeedback": ctx.copy_feedback
-                }),
-                &ctx.theme_preference,
-            )
-            .to_string()
-        }
-
-        PopupState::Processing { tool, .. } => with_theme(
-            json!({"view": "processing", "tool": escape_html(&tool.to_string())}),
-            &ctx.theme_preference,
-        )
-        .to_string(),
-
-        PopupState::Result { output, tool, .. } => with_theme(
+        PopupState::Result {
+            tool,
+            source_text,
+            output,
+            can_replace,
+            ..
+        } => with_theme(
             json!({
                 "view": "result",
+                "tool": {
+                    "id": tool_id(tool),
+                    "title": escape_html(&tool.to_string())
+                },
+                "sourceText": escape_html(source_text),
                 "output": escape_html(output),
-                "tool": escape_html(&tool.to_string()),
+                "canReplace": *can_replace,
                 "copyFeedback": ctx.copy_feedback
             }),
             &ctx.theme_preference,
         )
         .to_string(),
 
-        PopupState::Error { message, .. } => with_theme(
-            json!({"view": "error", "message": escape_html(message)}),
+        PopupState::Error {
+            tool,
+            source_text,
+            message,
+            ..
+        } => with_theme(
+            json!({
+                "view": "error",
+                "tool": {
+                    "id": tool_id(tool),
+                    "title": escape_html(&tool.to_string())
+                },
+                "sourceText": escape_html(source_text),
+                "message": escape_html(message)
+            }),
             &ctx.theme_preference,
         )
         .to_string(),
@@ -152,10 +148,7 @@ pub fn settings_to_json(form: &SettingsForm) -> String {
 pub fn min_height_for_state(state: &PopupState) -> f64 {
     match state {
         PopupState::Hidden => 0.0,
-        PopupState::Options(_) => OPTIONS_MIN_HEIGHT as f64,
-        PopupState::TranslateSelection(_) => TRANSLATE_MIN_HEIGHT as f64,
-        PopupState::PromptEditor(_) => PROMPT_EDITOR_MIN_HEIGHT as f64,
-        PopupState::TranslateResult { .. } => TRANSLATE_RESULT_MIN_HEIGHT as f64,
+        PopupState::Editor { .. } => EDITOR_MIN_HEIGHT as f64,
         PopupState::Processing { .. } => PROCESSING_MIN_HEIGHT as f64,
         PopupState::Result { .. } => RESULT_MIN_HEIGHT as f64,
         PopupState::Error { .. } => ERROR_MIN_HEIGHT as f64,
@@ -163,6 +156,15 @@ pub fn min_height_for_state(state: &PopupState) -> f64 {
 }
 
 // --- helpers ---
+
+fn tool_id(tool: &WritingToolKind) -> &'static str {
+    match tool {
+        WritingToolKind::EnhanceWriting => "enhance-writing",
+        WritingToolKind::FixGrammar => "fix-grammar",
+        WritingToolKind::ConvertPrompt => "convert-prompt",
+        WritingToolKind::Translate { .. } => "translate",
+    }
+}
 
 fn lang_obj(lang: &crate::app::TranslateLanguage) -> serde_json::Value {
     json!({"id": lang.id, "name": lang.name})

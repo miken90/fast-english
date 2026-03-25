@@ -27,23 +27,23 @@ struct AppState {
     current_selection: Option<SelectionContext>,
     settings: AppSettings,
     http_client: reqwest::Client,
-    last_tool: Option<WritingToolKind>,
-    translate_from: TranslateLanguage,
-    translate_to: TranslateLanguage,
-    translate_original_content: String,
-    translate_output_text: String,
     popup_visible: bool,
     popup_x: f64,
     popup_y: f64,
     copy_feedback: bool,
     last_auto_shown: Option<String>,
     ignore_auto_until: Option<Instant>,
+    next_request_id: u64,
+    active_request_id: Option<u64>,
     webview_popup_tx: std_mpsc::Sender<WebViewPopupCommand>,
     webview_settings_tx: std_mpsc::Sender<SettingsCommand>,
 }
 
 enum InternalEvent {
-    AiResponse(std::result::Result<String, String>),
+    AiResponse {
+        request_id: u64,
+        result: std::result::Result<String, String>,
+    },
     ManualCaptureResult(SelectionContext),
     TestConnectionResult(std::result::Result<String, String>),
     ReplaceDone,
@@ -77,17 +77,14 @@ pub fn run(
         current_selection: None,
         settings,
         http_client,
-        last_tool: None,
-        translate_from: TRANSLATE_LANGS[0].clone(),
-        translate_to: TRANSLATE_LANGS[1].clone(),
-        translate_original_content: String::new(),
-        translate_output_text: String::new(),
         popup_visible: false,
         popup_x: 0.0,
         popup_y: 0.0,
         copy_feedback: false,
         last_auto_shown: None,
         ignore_auto_until: None,
+        next_request_id: 1,
+        active_request_id: None,
         webview_popup_tx,
         webview_settings_tx,
     };
@@ -251,15 +248,16 @@ fn handle_app_event(
                 PopupState::Processing { .. }
                     | PopupState::Result { .. }
                     | PopupState::Error { .. }
-                    | PopupState::TranslateSelection(_)
-                    | PopupState::PromptEditor(_)
-                    | PopupState::TranslateResult { .. }
             ) {
                 return true;
             }
 
             state.current_selection = Some(ctx.clone());
-            state.popup_state = PopupState::Options(ctx.clone());
+            state.popup_state = PopupState::Editor {
+                context: ctx.clone(),
+                tool: default_tool(),
+                source_text: ctx.text.clone(),
+            };
 
             if state.settings.auto_popup_enabled {
                 state.last_auto_shown = Some(norm);
@@ -274,7 +272,7 @@ fn handle_app_event(
                 return true;
             }
             state.last_auto_shown = None;
-            if matches!(state.popup_state, PopupState::Options(_)) {
+            if matches!(state.popup_state, PopupState::Editor { .. }) {
                 dismiss_popup(state);
             }
         }
@@ -334,136 +332,82 @@ fn handle_webview_ipc(
     match ipc {
         JsToRust::Dismiss => dismiss_popup(state),
 
-        JsToRust::BackToOptions => {
-            if let PopupState::TranslateSelection(ctx) | PopupState::PromptEditor(ctx) =
-                &state.popup_state
-            {
-                state.popup_state = PopupState::Options(ctx.clone());
-                push_popup_state(state);
-            } else if let PopupState::Result { context, .. }
-            | PopupState::Error { context, .. }
-            | PopupState::TranslateResult { context, .. } = &state.popup_state
-            {
-                state.popup_state = PopupState::Options(context.clone());
+        JsToRust::BackToEditor => {
+            if let Some((context, tool, source_text)) = popup_state_for_editor(&state.popup_state) {
+                state.popup_state = PopupState::Editor {
+                    context,
+                    tool,
+                    source_text,
+                };
                 push_popup_state(state);
             }
         }
 
         JsToRust::ToolSelected { kind } => {
-            if let Some(tool) = map_tool_id_to_kind(&kind) {
-                if let PopupState::Options(ctx) = &state.popup_state {
-                    if matches!(tool, WritingToolKind::Translate { .. }) {
-                        state.popup_state = PopupState::TranslateSelection(ctx.clone());
-                        push_popup_state(state);
-                        return;
-                    }
-
-                    if matches!(tool, WritingToolKind::ConvertPrompt) {
-                        state.popup_state = PopupState::PromptEditor(ctx.clone());
-                        push_popup_state(state);
-                        return;
-                    }
-
-                    start_ai_request(state, ctx.clone(), tool, internal_tx);
+            if let Some(tool) = map_tool_id_to_kind(&kind, popup_tool(&state.popup_state)) {
+                if let Some((context, source_text)) = popup_context_and_source(&state.popup_state) {
+                    state.popup_state = PopupState::Editor {
+                        context,
+                        tool,
+                        source_text,
+                    };
+                    push_popup_state(state);
                 }
+            }
+        }
+
+        JsToRust::UpdateSourceText { text } => {
+            if let PopupState::Editor { source_text, .. } = &mut state.popup_state {
+                *source_text = text;
+            }
+        }
+
+        JsToRust::RunTool { text } => {
+            if let PopupState::Editor { context, tool, .. }
+            | PopupState::Result { context, tool, .. }
+            | PopupState::Error { context, tool, .. } = &state.popup_state
+            {
+                start_ai_request(state, context.clone(), tool.clone(), text, internal_tx);
             }
         }
 
         JsToRust::TranslateFromChanged { lang_id } => {
-            if let Some(lang) = find_translate_language(&lang_id) {
-                state.translate_from = lang;
-                if matches!(
-                    state.popup_state,
-                    PopupState::TranslateSelection(_) | PopupState::TranslateResult { .. }
-                ) {
-                    push_popup_state(state);
-                }
+            if let Some(new_from) = find_translate_language(&lang_id) {
+                update_translate_tool(state, |_from, to| (new_from, to));
             }
         }
 
         JsToRust::TranslateToChanged { lang_id } => {
-            if let Some(lang) = find_translate_language(&lang_id) {
-                state.translate_to = lang;
-                if matches!(
-                    state.popup_state,
-                    PopupState::TranslateSelection(_) | PopupState::TranslateResult { .. }
-                ) {
-                    push_popup_state(state);
-                }
+            if let Some(new_to) = find_translate_language(&lang_id) {
+                update_translate_tool(state, |from, _to| (from, new_to));
             }
         }
 
         JsToRust::TranslateSwapLangs => {
-            if state.translate_from.id != "auto" && state.translate_to.id != "auto" {
-                std::mem::swap(&mut state.translate_from, &mut state.translate_to);
-                push_popup_state(state);
-            }
-        }
-
-        JsToRust::TranslateConfirm(payload) => {
-            if let Some(lang) = find_translate_language(&payload.from) {
-                state.translate_from = lang;
-            }
-            if let Some(lang) = find_translate_language(&payload.to) {
-                state.translate_to = lang;
-            }
-
-            let maybe_ctx = match &state.popup_state {
-                PopupState::TranslateSelection(ctx) => {
-                    let mut ctx = ctx.clone();
-                    if let Some(text) = payload.text.as_ref() {
-                        ctx.text = text.clone();
-                    }
-                    Some(ctx)
-                }
-                PopupState::TranslateResult { context, .. } => {
-                    let mut ctx = context.clone();
-                    if let Some(text) = payload.text.as_ref() {
-                        ctx.text = text.clone();
-                    } else if !state.translate_original_content.is_empty() {
-                        ctx.text = state.translate_original_content.clone();
-                    }
-                    Some(ctx)
-                }
-                _ => None,
-            };
-
-            if let Some(ctx) = maybe_ctx {
-                if let Some(text) = payload.text {
-                    state.translate_original_content = text;
-                }
-
-                let tool = WritingToolKind::Translate {
-                    from: state.translate_from.clone(),
-                    to: state.translate_to.clone(),
-                };
-                start_ai_request(state, ctx, tool, internal_tx);
-            }
-        }
-
-        JsToRust::PromptEditorConfirm { text } => {
-            if let PopupState::PromptEditor(ctx) = &state.popup_state {
-                let mut next_ctx = ctx.clone();
-                next_ctx.text = text;
-                start_ai_request(state, next_ctx, WritingToolKind::ConvertPrompt, internal_tx);
-            }
-        }
-
-        JsToRust::TranslateCopyResult => {
-            let _ = arboard::Clipboard::new()
-                .and_then(|mut cb| cb.set_text(state.translate_output_text.clone()));
-            state.copy_feedback = true;
-            push_popup_state(state);
-        }
-
-        JsToRust::TranslateReplaceResult => {
-            let text = state.translate_output_text.clone();
-            dismiss_popup(state);
-            tokio::spawn(async move {
-                if let Err(e) = crate::editing::text_service::replace_selection(&text).await {
-                    error!("Replace failed: {}", e);
+            update_translate_tool(state, |from, to| {
+                if from.id == "auto" || to.id == "auto" {
+                    (from, to)
+                } else {
+                    (to, from)
                 }
             });
+        }
+
+        JsToRust::UseOutputAsInput => {
+            if let PopupState::Result {
+                context,
+                tool,
+                output,
+                ..
+            } = &state.popup_state
+            {
+                state.popup_state = PopupState::Editor {
+                    context: context.clone(),
+                    tool: tool.clone(),
+                    source_text: output.clone(),
+                };
+                push_popup_state(state);
+            }
         }
 
         JsToRust::CopyResult => {
@@ -475,7 +419,12 @@ fn handle_webview_ipc(
         }
 
         JsToRust::ReplaceResult => {
-            if let PopupState::Result { output, .. } = &state.popup_state {
+            if let PopupState::Result {
+                output,
+                can_replace: true,
+                ..
+            } = &state.popup_state
+            {
                 let text = output.clone();
                 dismiss_popup(state);
                 let tx = internal_tx.clone();
@@ -489,19 +438,38 @@ fn handle_webview_ipc(
         }
 
         JsToRust::Retry => {
-            if let PopupState::Error { context, .. } = &state.popup_state {
-                if let Some(tool) = state.last_tool.clone() {
-                    start_ai_request(state, context.clone(), tool, internal_tx);
-                }
+            if let PopupState::Error {
+                context,
+                tool,
+                source_text,
+                ..
+            } = &state.popup_state
+            {
+                start_ai_request(
+                    state,
+                    context.clone(),
+                    tool.clone(),
+                    source_text.clone(),
+                    internal_tx,
+                );
             }
         }
 
         JsToRust::CancelProcessing => {
-            // Abort current AI request by transitioning back to Options.
-            // The tokio task will complete but its result will be ignored
-            // since the state no longer matches Processing.
-            if let PopupState::Processing { context, .. } = &state.popup_state {
-                state.popup_state = PopupState::Options(context.clone());
+            // Soft-cancel by clearing active request id and returning to editor.
+            // In-flight task may still complete but stale response is ignored.
+            if let PopupState::Processing {
+                context,
+                tool,
+                source_text,
+            } = &state.popup_state
+            {
+                state.active_request_id = None;
+                state.popup_state = PopupState::Editor {
+                    context: context.clone(),
+                    tool: tool.clone(),
+                    source_text: source_text.clone(),
+                };
                 push_popup_state(state);
             }
         }
@@ -670,39 +638,57 @@ fn handle_webview_ipc(
 
 fn handle_internal_event(state: &mut AppState, event: InternalEvent) {
     match event {
-        InternalEvent::AiResponse(result) => match result {
-            Ok(output) => {
-                let ctx = popup_ai_context(&state.popup_state);
-                let tool = popup_ai_tool(&state.popup_state);
-                if let (Some(ctx), Some(tool)) = (ctx, tool) {
-                    if matches!(tool, WritingToolKind::Translate { .. }) {
-                        state.translate_original_content = ctx.text.clone();
-                        state.translate_output_text = output;
-                        state.popup_state = PopupState::TranslateResult { context: ctx };
-                    } else {
+        InternalEvent::AiResponse { request_id, result } => {
+            if state.active_request_id != Some(request_id) {
+                return;
+            }
+
+            match result {
+                Ok(output) => {
+                    if let PopupState::Processing {
+                        context,
+                        tool,
+                        source_text,
+                    } = &state.popup_state
+                    {
                         state.popup_state = PopupState::Result {
-                            context: ctx,
-                            tool,
+                            context: context.clone(),
+                            tool: tool.clone(),
+                            source_text: source_text.clone(),
                             output,
+                            can_replace: context_can_replace(context),
                         };
+                        state.active_request_id = None;
+                        push_popup_state(state);
                     }
-                    push_popup_state(state);
+                }
+                Err(msg) => {
+                    if let PopupState::Processing {
+                        context,
+                        tool,
+                        source_text,
+                    } = &state.popup_state
+                    {
+                        state.popup_state = PopupState::Error {
+                            context: context.clone(),
+                            tool: tool.clone(),
+                            source_text: source_text.clone(),
+                            message: msg,
+                        };
+                        state.active_request_id = None;
+                        push_popup_state(state);
+                    }
                 }
             }
-            Err(msg) => {
-                if let Some(ctx) = popup_ai_context(&state.popup_state) {
-                    state.popup_state = PopupState::Error {
-                        context: ctx,
-                        message: msg,
-                    };
-                    push_popup_state(state);
-                }
-            }
-        },
+        }
 
         InternalEvent::ManualCaptureResult(ctx) => {
             state.current_selection = Some(ctx.clone());
-            state.popup_state = PopupState::Options(ctx.clone());
+            state.popup_state = PopupState::Editor {
+                context: ctx.clone(),
+                tool: default_tool(),
+                source_text: ctx.text.clone(),
+            };
             state.popup_visible = true;
             state.ignore_auto_until = None;
             show_popup(state, &ctx);
@@ -740,15 +726,20 @@ fn handle_internal_event(state: &mut AppState, event: InternalEvent) {
 
 fn start_ai_request(
     state: &mut AppState,
-    ctx: SelectionContext,
+    context: SelectionContext,
     tool: WritingToolKind,
+    source_text: String,
     internal_tx: mpsc::UnboundedSender<InternalEvent>,
 ) {
-    let input = ctx.text.clone();
-    state.last_tool = Some(tool.clone());
+    let request_id = state.next_request_id;
+    state.next_request_id = state.next_request_id.saturating_add(1);
+    state.active_request_id = Some(request_id);
+
+    let input = source_text.clone();
     state.popup_state = PopupState::Processing {
-        context: ctx,
+        context,
         tool: tool.clone(),
+        source_text,
     };
     push_popup_state(state);
 
@@ -785,29 +776,8 @@ fn start_ai_request(
             }
         };
 
-        let _ = internal_tx.send(InternalEvent::AiResponse(result));
+        let _ = internal_tx.send(InternalEvent::AiResponse { request_id, result });
     });
-}
-
-fn popup_ai_context(state: &PopupState) -> Option<SelectionContext> {
-    match state {
-        PopupState::Processing { context, .. } => Some(context.clone()),
-        PopupState::Result { context, .. } => Some(context.clone()),
-        PopupState::TranslateResult { context, .. } => Some(context.clone()),
-        PopupState::Error { context, .. } => Some(context.clone()),
-        PopupState::Options(ctx)
-        | PopupState::TranslateSelection(ctx)
-        | PopupState::PromptEditor(ctx) => Some(ctx.clone()),
-        PopupState::Hidden => None,
-    }
-}
-
-fn popup_ai_tool(state: &PopupState) -> Option<WritingToolKind> {
-    match state {
-        PopupState::Processing { tool, .. } => Some(tool.clone()),
-        PopupState::Result { tool, .. } => Some(tool.clone()),
-        _ => None,
-    }
 }
 
 fn tool_instruction(tool: &WritingToolKind) -> String {
@@ -876,6 +846,7 @@ fn max_tokens_for_tool(input: &str, tool: &WritingToolKind) -> Option<usize> {
 fn dismiss_popup(state: &mut AppState) {
     state.popup_visible = false;
     state.ignore_auto_until = Some(Instant::now() + Duration::from_secs(1));
+    state.active_request_id = None;
     state.popup_state = PopupState::Hidden;
     let _ = state.webview_popup_tx.send(WebViewPopupCommand::Hide);
 }
@@ -912,10 +883,6 @@ fn push_popup_state(state: &AppState) {
         .unwrap_or_else(|| state.settings.theme.clone());
 
     let bridge_ctx = BridgeContext {
-        translate_from: state.translate_from.clone(),
-        translate_to: state.translate_to.clone(),
-        translate_original_content: state.translate_original_content.clone(),
-        translate_output_text: state.translate_output_text.clone(),
         copy_feedback: state.copy_feedback,
         theme_preference,
     };
@@ -929,6 +896,104 @@ fn normalize_text(text: &str) -> String {
     text.replace("\r\n", "\n").trim().to_string()
 }
 
+fn default_tool() -> WritingToolKind {
+    WritingToolKind::EnhanceWriting
+}
+
+fn context_can_replace(context: &SelectionContext) -> bool {
+    context.is_editable
+}
+
+fn popup_tool(state: &PopupState) -> Option<&WritingToolKind> {
+    match state {
+        PopupState::Editor { tool, .. }
+        | PopupState::Processing { tool, .. }
+        | PopupState::Result { tool, .. }
+        | PopupState::Error { tool, .. } => Some(tool),
+        PopupState::Hidden => None,
+    }
+}
+
+fn popup_context_and_source(state: &PopupState) -> Option<(SelectionContext, String)> {
+    match state {
+        PopupState::Editor {
+            context,
+            source_text,
+            ..
+        }
+        | PopupState::Processing {
+            context,
+            source_text,
+            ..
+        }
+        | PopupState::Result {
+            context,
+            source_text,
+            ..
+        }
+        | PopupState::Error {
+            context,
+            source_text,
+            ..
+        } => Some((context.clone(), source_text.clone())),
+        PopupState::Hidden => None,
+    }
+}
+
+fn popup_state_for_editor(
+    state: &PopupState,
+) -> Option<(SelectionContext, WritingToolKind, String)> {
+    match state {
+        PopupState::Editor {
+            context,
+            tool,
+            source_text,
+        }
+        | PopupState::Processing {
+            context,
+            tool,
+            source_text,
+        }
+        | PopupState::Result {
+            context,
+            tool,
+            source_text,
+            ..
+        }
+        | PopupState::Error {
+            context,
+            tool,
+            source_text,
+            ..
+        } => Some((context.clone(), tool.clone(), source_text.clone())),
+        PopupState::Hidden => None,
+    }
+}
+
+fn update_translate_tool<F>(state: &mut AppState, apply: F)
+where
+    F: FnOnce(TranslateLanguage, TranslateLanguage) -> (TranslateLanguage, TranslateLanguage),
+{
+    let Some((context, tool, source_text)) = popup_state_for_editor(&state.popup_state) else {
+        return;
+    };
+
+    let WritingToolKind::Translate { from, to } = tool else {
+        return;
+    };
+
+    let (next_from, next_to) = apply(from, to);
+    state.popup_state = PopupState::Editor {
+        context,
+        tool: WritingToolKind::Translate {
+            from: next_from,
+            to: next_to,
+        },
+        source_text,
+    };
+    push_popup_state(state);
+}
+
 fn find_translate_language(lang_id: &str) -> Option<TranslateLanguage> {
     TRANSLATE_LANGS
         .iter()
@@ -936,15 +1001,27 @@ fn find_translate_language(lang_id: &str) -> Option<TranslateLanguage> {
         .cloned()
 }
 
-fn map_tool_id_to_kind(kind: &str) -> Option<WritingToolKind> {
+fn map_tool_id_to_kind(
+    kind: &str,
+    current_tool: Option<&WritingToolKind>,
+) -> Option<WritingToolKind> {
     match kind {
         "enhance-writing" | "enhance_writing" => Some(WritingToolKind::EnhanceWriting),
         "fix-grammar" | "fix_grammar" => Some(WritingToolKind::FixGrammar),
         "convert-prompt" | "convert_prompt" => Some(WritingToolKind::ConvertPrompt),
-        "translate" => Some(WritingToolKind::Translate {
-            from: TRANSLATE_LANGS[0].clone(),
-            to: TRANSLATE_LANGS[1].clone(),
-        }),
+        "translate" => {
+            if let Some(WritingToolKind::Translate { from, to }) = current_tool {
+                Some(WritingToolKind::Translate {
+                    from: from.clone(),
+                    to: to.clone(),
+                })
+            } else {
+                Some(WritingToolKind::Translate {
+                    from: TRANSLATE_LANGS[0].clone(),
+                    to: TRANSLATE_LANGS[1].clone(),
+                })
+            }
+        }
         _ => None,
     }
 }

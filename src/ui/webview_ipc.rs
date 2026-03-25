@@ -22,15 +22,6 @@ pub struct SettingsFormPayload {
     pub theme: String,
 }
 
-/// Payload for translate confirmation. `text` is optional for backward compatibility.
-#[derive(Debug, Clone, Deserialize)]
-pub struct TranslateConfirmPayload {
-    pub from: String,
-    pub to: String,
-    #[serde(default)]
-    pub text: Option<String>,
-}
-
 /// Messages sent from JavaScript to Rust via window.ipc.postMessage.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", content = "payload")]
@@ -39,8 +30,15 @@ pub enum JsToRust {
     ToolSelected {
         kind: String,
     },
+    RunTool {
+        text: String,
+    },
+    UpdateSourceText {
+        text: String,
+    },
     Dismiss,
-    BackToOptions,
+    BackToEditor,
+    UseOutputAsInput,
     CopyResult,
     ReplaceResult,
     Retry,
@@ -54,12 +52,6 @@ pub enum JsToRust {
         lang_id: String,
     },
     TranslateSwapLangs,
-    TranslateConfirm(TranslateConfirmPayload),
-    PromptEditorConfirm {
-        text: String,
-    },
-    TranslateCopyResult,
-    TranslateReplaceResult,
     // Settings actions
     SettingsChanged {
         field: String,

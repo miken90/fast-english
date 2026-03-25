@@ -4,23 +4,27 @@ use crate::selection::SelectionContext;
 #[derive(Debug, Clone)]
 pub enum PopupState {
     Hidden,
-    Options(SelectionContext),
-    TranslateSelection(SelectionContext),
-    PromptEditor(SelectionContext),
-    TranslateResult {
+    Editor {
         context: SelectionContext,
+        tool: WritingToolKind,
+        source_text: String,
     },
     Processing {
         context: SelectionContext,
         tool: WritingToolKind,
+        source_text: String,
     },
     Result {
         context: SelectionContext,
         tool: WritingToolKind,
+        source_text: String,
         output: String,
+        can_replace: bool,
     },
     Error {
         context: SelectionContext,
+        tool: WritingToolKind,
+        source_text: String,
         message: String,
     },
 }

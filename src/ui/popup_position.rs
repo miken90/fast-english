@@ -1,18 +1,15 @@
 use crate::selection::Rect;
 
-/// Popup dimensions — sized for the 2×2 icon-card grid layout.
+/// Popup dimensions — sized for compact universal editor layout.
 pub const POPUP_WIDTH: f32 = 380.0;
-pub const POPUP_INITIAL_HEIGHT: f32 = OPTIONS_MIN_HEIGHT;
+pub const POPUP_INITIAL_HEIGHT: f32 = EDITOR_MIN_HEIGHT;
 
 /// Minimum height per popup state. JS `autoResizePopup` is sole resize authority;
 /// these values serve as initial hints and floors only.
-pub const OPTIONS_MIN_HEIGHT: f32 = 310.0;
-pub const TRANSLATE_MIN_HEIGHT: f32 = 380.0;
-pub const TRANSLATE_RESULT_MIN_HEIGHT: f32 = 560.0;
-pub const PROMPT_EDITOR_MIN_HEIGHT: f32 = 420.0;
-pub const PROCESSING_MIN_HEIGHT: f32 = 150.0;
-pub const RESULT_MIN_HEIGHT: f32 = 420.0;
-pub const ERROR_MIN_HEIGHT: f32 = 180.0;
+pub const EDITOR_MIN_HEIGHT: f32 = 360.0;
+pub const PROCESSING_MIN_HEIGHT: f32 = 180.0;
+pub const RESULT_MIN_HEIGHT: f32 = 500.0;
+pub const ERROR_MIN_HEIGHT: f32 = 260.0;
 const MARGIN: f32 = 8.0;
 const ANCHOR_SPACING: f32 = 8.0;
 
