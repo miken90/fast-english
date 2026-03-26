@@ -1,6 +1,10 @@
 use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANSLATE_LANGS};
 use crate::selection::{SelectionContext, Tier};
 use crate::settings::AppSettings;
+use crate::ui::popup_position::{
+    EDITOR_MIN_HEIGHT, EDITOR_TRANSLATE_HEIGHT, ERROR_MIN_HEIGHT, PROCESSING_MIN_HEIGHT,
+    RESULT_EXPANDED_HEIGHT, RESULT_MIN_HEIGHT,
+};
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge::{self, BridgeContext};
 use crate::ui::webview_ipc::JsToRust;
@@ -615,10 +619,10 @@ fn handle_webview_ipc(
             let _ = state.webview_settings_tx.send(SettingsCommand::Hide);
         }
 
-        JsToRust::ResizePopup { height } => {
-            // JS autoResizePopup is sole resize authority. Accept any height ≥ min_height.
-            let min_h = webview_bridge::min_height_for_state(&state.popup_state);
-            let final_height = if height >= min_h { height } else { min_h };
+        JsToRust::ResizePopup { height, mode } => {
+            let requested_mode = mode.as_deref().unwrap_or("editor");
+            let requested_height = if height > 0.0 { Some(height) } else { None };
+            let final_height = snap_height_for_mode(requested_mode, requested_height);
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
                 width: 380.0,
                 height: final_height,
@@ -1024,4 +1028,24 @@ fn map_tool_id_to_kind(
         }
         _ => None,
     }
+}
+
+fn snap_height_for_mode(mode: &str, requested_height: Option<f64>) -> f64 {
+    let snapped = match mode {
+        "editor" => EDITOR_MIN_HEIGHT as f64,
+        "editor-translate" => EDITOR_TRANSLATE_HEIGHT as f64,
+        "processing" => PROCESSING_MIN_HEIGHT as f64,
+        "result-compact" => RESULT_MIN_HEIGHT as f64,
+        "result-expanded" => RESULT_EXPANDED_HEIGHT as f64,
+        "error" => ERROR_MIN_HEIGHT as f64,
+        _ => EDITOR_MIN_HEIGHT as f64,
+    };
+
+    if mode == "result-expanded" {
+        if let Some(h) = requested_height {
+            return h.clamp(RESULT_MIN_HEIGHT as f64, RESULT_EXPANDED_HEIGHT as f64);
+        }
+    }
+
+    snapped
 }

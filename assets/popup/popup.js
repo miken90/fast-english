@@ -16,7 +16,9 @@ const appState = {
   languages: [],
   translateFrom: null,
   translateTo: null,
-  resizeRafId: null
+  markdownPreviewEnabled: false,
+  sourceSnippetExpanded: false,
+  lastSnapMode: null
 };
 
 function sendToRust(type, payload) {
@@ -79,6 +81,7 @@ window.setState = function(data) {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.remove('active');
     });
+    appState.lastSnapMode = null;
     return;
   }
 
@@ -96,7 +99,7 @@ window.setState = function(data) {
     showView('error');
   }
 
-  autoResizePopup();
+  requestSnapResizeForCurrentView();
 };
 
 function renderEditor(data) {
@@ -104,6 +107,8 @@ function renderEditor(data) {
   appState.tool = data.tool || appState.tool;
   appState.sourceText = unescHtml(data.sourceText || '');
   appState.canReplace = !!data.canReplace;
+  appState.markdownPreviewEnabled = false;
+  appState.sourceSnippetExpanded = false;
 
   if (Array.isArray(data.languages)) appState.languages = data.languages;
   if (data.translateFrom) appState.translateFrom = data.translateFrom;
@@ -198,22 +203,25 @@ function renderResult(data) {
   if (label) label.textContent = (appState.tool && appState.tool.title) || 'Result';
 
   var outputEl = document.getElementById('result-output');
-  if (outputEl) outputEl.value = appState.resultOutput;
-
   var richEl = document.getElementById('result-rich-preview');
-  if (richEl) {
-    richEl.innerHTML = simpleMarkdown(appState.resultOutput);
-    richEl.style.display = 'none';
-  }
-
   var toggleBtn = document.getElementById('result-toggle-md');
-  if (toggleBtn) toggleBtn.textContent = 'Rich';
-  if (outputEl) outputEl.style.display = '';
+  if (outputEl) outputEl.value = appState.resultOutput;
+  if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput);
+
+  setMarkdownPreviewEnabled(appState.markdownPreviewEnabled);
+
+  var snippetEl = document.getElementById('result-source-snippet');
+  if (snippetEl) snippetEl.value = appState.sourceText;
+  setSourceSnippetExpanded(appState.sourceSnippetExpanded);
 
   var replaceBtn = document.getElementById('result-replace-btn');
   if (replaceBtn) {
     replaceBtn.disabled = !appState.canReplace;
     replaceBtn.setAttribute('aria-disabled', appState.canReplace ? 'false' : 'true');
+  }
+
+  if (toggleBtn) {
+    toggleBtn.disabled = appState.resultOutput.trim().length === 0;
   }
 
   var feedback = document.getElementById('result-copy-feedback');
@@ -245,16 +253,64 @@ function rerunFromResult() {
   sendToRust('RunTool', { text: appState.sourceText || '' });
 }
 
-function autoResizePopup() {
-  if (appState.resizeRafId) cancelAnimationFrame(appState.resizeRafId);
+function isResultExpandedMode() {
+  if (appState.view !== 'result') return false;
+  if (appState.markdownPreviewEnabled) return true;
+  return appState.resultOutput.length > 550;
+}
 
-  appState.resizeRafId = requestAnimationFrame(function() {
-    appState.resizeRafId = null;
-    var container = document.querySelector('.popup-container');
-    if (!container) return;
-    var height = container.scrollHeight + 12;
-    if (height > 0) sendToRust('ResizePopup', { height: height });
-  });
+function resolveSnapMode() {
+  if (appState.view === 'processing') return 'processing';
+  if (appState.view === 'error') return 'error';
+  if (appState.view === 'result') {
+    return isResultExpandedMode() ? 'result-expanded' : 'result-compact';
+  }
+  if (appState.tool && appState.tool.id === 'translate') return 'editor-translate';
+  return 'editor';
+}
+
+function requestSnapResize(mode) {
+  if (!mode || appState.lastSnapMode === mode) return;
+  appState.lastSnapMode = mode;
+  sendToRust('ResizePopup', { mode: mode, height: 0 });
+}
+
+function requestSnapResizeForCurrentView() {
+  requestSnapResize(resolveSnapMode());
+}
+
+function setMarkdownPreviewEnabled(enabled) {
+  appState.markdownPreviewEnabled = !!enabled;
+  var outputEl = document.getElementById('result-output');
+  var richEl = document.getElementById('result-rich-preview');
+  var btn = document.getElementById('result-toggle-md');
+  if (!outputEl || !richEl || !btn) return;
+
+  if (appState.markdownPreviewEnabled) {
+    richEl.innerHTML = simpleMarkdown(outputEl.value || appState.resultOutput || '');
+    richEl.style.display = '';
+    outputEl.style.display = 'none';
+    btn.textContent = 'Raw';
+  } else {
+    richEl.style.display = 'none';
+    outputEl.style.display = '';
+    btn.textContent = 'Rich';
+  }
+}
+
+function setSourceSnippetExpanded(expanded) {
+  appState.sourceSnippetExpanded = !!expanded;
+  var toggle = document.getElementById('result-source-toggle');
+  var wrap = document.getElementById('result-source-wrap');
+  if (!toggle || !wrap) return;
+
+  toggle.setAttribute('aria-expanded', appState.sourceSnippetExpanded ? 'true' : 'false');
+  toggle.textContent = appState.sourceSnippetExpanded ? 'Hide source snippet' : 'Source snippet';
+  if (appState.sourceSnippetExpanded) {
+    wrap.removeAttribute('hidden');
+  } else {
+    wrap.setAttribute('hidden', '');
+  }
 }
 
 function showCopyFeedback(elementId, text) {
@@ -385,22 +441,13 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('result-copy-btn', function() { sendToRust('CopyResult'); });
 
   bindClick('result-toggle-md', function() {
-    var outputEl = document.getElementById('result-output');
-    var richEl = document.getElementById('result-rich-preview');
-    var btn = document.getElementById('result-toggle-md');
-    if (!outputEl || !richEl || !btn) return;
+    setMarkdownPreviewEnabled(!appState.markdownPreviewEnabled);
+    requestSnapResizeForCurrentView();
+  });
 
-    if (richEl.style.display === 'none') {
-      richEl.innerHTML = simpleMarkdown(outputEl.value);
-      richEl.style.display = '';
-      outputEl.style.display = 'none';
-      btn.textContent = 'Raw';
-    } else {
-      richEl.style.display = 'none';
-      outputEl.style.display = '';
-      btn.textContent = 'Rich';
-    }
-    autoResizePopup();
+  bindClick('result-source-toggle', function() {
+    setSourceSnippetExpanded(!appState.sourceSnippetExpanded);
+    requestSnapResizeForCurrentView();
   });
 
   bindClick('error-back', function() { sendToRust('BackToEditor'); });
@@ -425,7 +472,6 @@ document.addEventListener('DOMContentLoaded', function() {
     editorSource.addEventListener('input', function() {
       appState.sourceText = editorSource.value;
       sendToRust('UpdateSourceText', { text: appState.sourceText });
-      autoResizePopup();
     });
   }
 

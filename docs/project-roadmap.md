@@ -67,7 +67,9 @@
 - [x] JS state encapsulation — removed global mutable variables, all state in `appState` object
 - [x] Universal editor popup refactor — unified four-state flow (`Editor` → `Processing` → `Result`/`Error`) for all tools
 - [x] Unified popup IPC/action model — consistent actions (`RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`, language changes)
+- [x] Snap sizing contract — mode-based popup heights (`editor`, `editor-translate`, `processing`, `result-compact`, `result-expanded`, `error`) aligned between JS and Rust
 - [x] Replace gating update — `Replace` is enabled only in `Result` when `canReplace=true`; editor-level replace is intentionally disabled
+- [x] Result view expansion — rich/markdown preview toggle and source snippet collapse/expand with adaptive snap resize
 - [x] Result actions expansion — Back, Re-run, Use output as input, Replace, and Copy with inline feedback
 - [x] Micro-interactions — button scale on active, smooth swap rotation, copy feedback animation
 - [x] Light theme WCAG AA contrast compliance verified

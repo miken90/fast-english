@@ -26,9 +26,9 @@
 │                   └───────────────┬──────────────────────┘                     │
 │                                   │                                            │
 │      ┌────────────────────────────┴─────────────────────────────┐              │
-│      │ Dedicated tao EventLoop threads (wry WebView)            │              │
-│      │ - webview_popup.rs    (floating popup)                   │              │
-│      │ - webview_settings.rs (settings window)                  │              │
+│      │ Shared tao EventLoop host (wry WebView)                  │              │
+│      │ - webview_popup.rs    (UiCommand event loop host)        │              │
+│      │ - webview_settings.rs (SettingsCommand contract)          │              │
 │      └────────────────────────────┬──────────────────────────────┘              │
 │                                   │                                            │
 │                         assets/popup/*.html|css|js                             │
@@ -58,12 +58,12 @@
 | Component | Role |
 |---|---|
 | `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. Implements universal editor transitions (`Editor`/`Processing`/`Result`/`Error`) and action handling (`UseOutputAsInput`, `CancelProcessing`, `ReplaceResult`, `CopyResult`, `Retry`). |
-| `ui/webview_popup.rs` | Popup window thread (`tao` EventLoop + `wry` WebView), receives show/hide/resize/state commands, forwards JS events to Rust. Includes `icons.js` for SVG icon rendering. |
-| `ui/webview_settings.rs` | Settings window thread (`tao` EventLoop + `wry` WebView), handles settings rendering and JS actions. Includes `icons.js`. Passes theme preference from settings state. |
-| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output. Includes theme preference and `canReplace` gating in state payloads. |
-| `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. Includes unified popup action messages used by universal editor flow. |
+| `ui/webview_popup.rs` | Unified WebView UI host: one `tao` EventLoop thread runs both popup and settings windows (`wry`), receives popup/settings commands, forwards JS events to Rust, and inlines CSS/JS assets (including `icons.js`). |
+| `ui/webview_settings.rs` | Settings command contract (`SettingsCommand`) for the shared WebView host; handles settings rendering and feedback updates. |
+| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output, includes theme preference and state-based snap-height hints. |
+| `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. Includes `ResizePopup { height, mode }` and move/translate actions used by universal editor flow. |
 | `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. Includes theme preference field. |
-| `ui/popup_position.rs` | Popup placement + state-dependent window heights (`EDITOR_MIN_HEIGHT`, `PROCESSING_MIN_HEIGHT`, `RESULT_MIN_HEIGHT`, `ERROR_MIN_HEIGHT`). |
+| `ui/popup_position.rs` | Popup placement + snap sizing constants (`EDITOR_MIN_HEIGHT`, `EDITOR_TRANSLATE_HEIGHT`, `PROCESSING_MIN_HEIGHT`, `RESULT_MIN_HEIGHT`, `RESULT_EXPANDED_HEIGHT`, `ERROR_MIN_HEIGHT`). |
 | `assets/popup/icons.js` | Centralized SVG icon module with `renderIcon(name, size)` factory. Manages all tool, action, and status icons. |
 | `assets/popup/tokens.css` | Design tokens (colors, spacing, shadows, typography). Includes light/dark theme overrides via `:root[data-theme="light"]`. |
 | `assets/popup/components.css` | Reusable component library (buttons, textareas, status indicators, labels, feedback toasts). |
@@ -129,10 +129,9 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
   - AI network requests.
   - Async internal event fan-in.
 
-- **WebView UI threads (blocking tao loops)**
-  - `webview-popup` thread: popup `tao::EventLoop<WebViewPopupCommand>`.
-  - `webview-settings` thread: settings `tao::EventLoop<SettingsCommand>`.
-  - Each has a command-forwarder thread (`std::mpsc` receiver → `EventLoopProxy`).
+- **WebView UI thread (blocking tao loop)**
+  - One `webview-ui` thread runs `tao::EventLoop<UiCommand>` and hosts both popup and settings windows.
+  - Two command-forwarder threads bridge `std::mpsc` receivers into the same `EventLoopProxy` (`UiCommand::Popup` / `UiCommand::Settings`).
 
 - **Cross-thread bridges**
   - `tokio::mpsc` for app/runtime events.

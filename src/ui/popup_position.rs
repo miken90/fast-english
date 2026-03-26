@@ -1,15 +1,16 @@
 use crate::selection::Rect;
 
-/// Popup dimensions — sized for compact universal editor layout.
+/// Popup dimensions — universal editor snap sizing.
 pub const POPUP_WIDTH: f32 = 380.0;
 pub const POPUP_INITIAL_HEIGHT: f32 = EDITOR_MIN_HEIGHT;
 
-/// Minimum height per popup state. JS `autoResizePopup` is sole resize authority;
-/// these values serve as initial hints and floors only.
-pub const EDITOR_MIN_HEIGHT: f32 = 360.0;
-pub const PROCESSING_MIN_HEIGHT: f32 = 180.0;
-pub const RESULT_MIN_HEIGHT: f32 = 500.0;
-pub const ERROR_MIN_HEIGHT: f32 = 260.0;
+/// Snap heights (px) for popup states.
+pub const EDITOR_MIN_HEIGHT: f32 = 312.0;
+pub const EDITOR_TRANSLATE_HEIGHT: f32 = 344.0;
+pub const PROCESSING_MIN_HEIGHT: f32 = 168.0;
+pub const RESULT_MIN_HEIGHT: f32 = 360.0;
+pub const RESULT_EXPANDED_HEIGHT: f32 = 420.0;
+pub const ERROR_MIN_HEIGHT: f32 = 220.0;
 const MARGIN: f32 = 8.0;
 const ANCHOR_SPACING: f32 = 8.0;
 

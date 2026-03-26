@@ -48,16 +48,18 @@
         </div>
       </div>
 
-      <div class="editor-card">
-        <div class="editor-label" id="editor-source-label">Source</div>
-        <textarea id="editor-source-text" class="editor-textarea" placeholder="Enter text..."></textarea>
+      <div class="editor-main">
+        <div class="editor-card">
+          <div class="editor-label" id="editor-source-label">Source</div>
+          <textarea id="editor-source-text" class="editor-textarea" placeholder="Enter text..."></textarea>
+        </div>
+
+        <div class="hint-row">Ctrl+Enter run · Esc close</div>
       </div>
 
       <div class="action-row action-row--editor">
         <button class="btn btn--primary" id="editor-run-btn">Run</button>
       </div>
-
-      <div class="hint-row">Ctrl+Enter run · Esc close</div>
     </section>
 
     <section id="view-processing" class="view" tabindex="-1">
@@ -93,23 +95,34 @@
         </button>
       </div>
 
-      <div class="editor-card">
-        <div class="editor-label">Output</div>
-        <textarea id="result-output" class="editor-textarea editor-textarea--readonly" readonly></textarea>
-        <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
+      <div class="result-main">
+        <div class="editor-card result-output-card">
+          <div class="editor-label">Output</div>
+          <textarea id="result-output" class="editor-textarea editor-textarea--readonly" readonly></textarea>
+          <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
+        </div>
+
+        <div class="result-source-block">
+          <button class="btn btn--ghost result-source-toggle" id="result-source-toggle" aria-expanded="false" aria-controls="result-source-wrap">
+            Source snippet
+          </button>
+          <div class="result-source-wrap" id="result-source-wrap" hidden>
+            <textarea id="result-source-snippet" class="editor-textarea editor-textarea--readonly result-source-text" readonly></textarea>
+          </div>
+        </div>
+
+        <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
       </div>
 
-      <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
-
-      <div class="action-row action-row--result">
-        <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
-        <button class="btn btn--primary" id="result-rerun-btn">Rerun</button>
-        <button class="btn btn--secondary" id="result-use-output-btn">Use output as input</button>
-      </div>
-
-      <div class="action-row action-row--result-2">
-        <button class="btn btn--secondary" id="result-replace-btn">Replace</button>
+      <div class="action-row action-row--result-primary">
+        <button class="btn btn--primary" id="result-replace-btn">Replace</button>
         <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
+      </div>
+
+      <div class="action-row action-row--result-secondary">
+        <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
+        <button class="btn btn--secondary" id="result-rerun-btn">Rerun</button>
+        <button class="btn btn--secondary" id="result-use-output-btn">Use output as input</button>
       </div>
 
       <div class="hint-row">Ctrl+Enter rerun · Esc close</div>

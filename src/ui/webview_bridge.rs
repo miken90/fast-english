@@ -1,6 +1,7 @@
 use crate::app::{PopupState, WritingToolKind, DEFAULT_TOOLS, TRANSLATE_LANGS};
 use crate::ui::popup_position::{
-    EDITOR_MIN_HEIGHT, ERROR_MIN_HEIGHT, PROCESSING_MIN_HEIGHT, RESULT_MIN_HEIGHT,
+    EDITOR_MIN_HEIGHT, EDITOR_TRANSLATE_HEIGHT, ERROR_MIN_HEIGHT, PROCESSING_MIN_HEIGHT,
+    RESULT_MIN_HEIGHT,
 };
 use crate::ui::settings_views::SettingsForm;
 use serde_json::json;
@@ -143,12 +144,14 @@ pub fn settings_to_json(form: &SettingsForm) -> String {
     .to_string()
 }
 
-/// Get minimum popup height for a given state (initial hint, not authoritative).
-/// JS `autoResizePopup()` is the sole resize authority after initial render.
+/// Get snap popup height hint for a given state.
 pub fn min_height_for_state(state: &PopupState) -> f64 {
     match state {
         PopupState::Hidden => 0.0,
-        PopupState::Editor { .. } => EDITOR_MIN_HEIGHT as f64,
+        PopupState::Editor { tool, .. } => match tool {
+            WritingToolKind::Translate { .. } => EDITOR_TRANSLATE_HEIGHT as f64,
+            _ => EDITOR_MIN_HEIGHT as f64,
+        },
         PopupState::Processing { .. } => PROCESSING_MIN_HEIGHT as f64,
         PopupState::Result { .. } => RESULT_MIN_HEIGHT as f64,
         PopupState::Error { .. } => ERROR_MIN_HEIGHT as f64,

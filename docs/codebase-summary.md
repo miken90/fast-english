@@ -69,20 +69,20 @@ fast-english/
 
 | File | Purpose |
 |---|---|
-| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle + empty selection fallback. |
-| `webview_popup.rs` | Popup window lifecycle on dedicated thread; show/hide/resize/set-state command handling. |
-| `webview_settings.rs` | Settings window lifecycle on dedicated thread; settings/test/save feedback command handling. |
-| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state used for replace gating. |
-| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper and unified popup actions (`RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`). |
+| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle + empty selection fallback and mode-based snap resize handling. |
+| `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
+| `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
+| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and popup min-height hints by state/tool. |
+| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height, mode }`/`MovePopup` contracts. |
 | `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
-| `popup_position.rs` | Calculates popup position and state-dependent heights. |
+| `popup_position.rs` | Calculates popup anchor placement and snap height constants (`EDITOR_MIN_HEIGHT`, `EDITOR_TRANSLATE_HEIGHT`, `PROCESSING_MIN_HEIGHT`, `RESULT_MIN_HEIGHT`, `RESULT_EXPANDED_HEIGHT`, `ERROR_MIN_HEIGHT`). |
 | `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
 
 ## Runtime Patterns
 
 - **Event-driven core**: `AppEvent` channel drives runtime transitions.
 - **Universal editor state flow**: `PopupState` now centers on `Editor`, `Processing`, `Result`, and `Error`; JS strictly mirrors Rust state.
-- **Two-thread WebView UI model**: popup and settings each run on dedicated `tao` event-loop threads.
+- **Shared WebView UI host model**: one `tao` event-loop thread hosts both popup and settings windows; command-forwarder threads route popup/settings channels into that loop.
 - **Unified IPC/action model**: JSON messages use `{ type, payload }` and route actions like `RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, and `Retry` into `JsToRust`.
 - **Replace gating**: replace is only enabled in `Result` when `canReplace=true`; editor-level replace is disabled.
 - **Result action set**: Back to editor, Re-run, Use output as input, Replace, and Copy (with inline feedback).

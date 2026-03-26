@@ -29,8 +29,9 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 
 ### 2. Floating Popup Interface
 - Appears near selected text automatically or via `Ctrl+Alt+T` hotkey
-- Two-phase flow: tool selection → result display
-- Provides Replace (in-place) and Copy actions on results
+- Universal four-state flow: `Editor` → `Processing` → `Result`/`Error`
+- Snap-sized popup modes by state: editor, editor-translate, processing, result-compact/result-expanded, error
+- Result supports Replace (when editable), Copy, Re-run, Use output as input, and optional rich/markdown preview
 - Dismisses on outside click or Escape key
 
 ### 3. Writing Tools
