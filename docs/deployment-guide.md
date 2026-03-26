@@ -32,6 +32,56 @@ Binary at `target/release/fast-english.exe`.
 
 This builds an optimized release binary targeting x86_64-pc-windows-msvc and packages it into `dist/`.
 
+## Release Process
+
+### Release Rules
+
+- Fast English release builds are Windows-only and **must** run via `powershell.exe`
+- Default release scope for this repo is **portable only**
+- Do **not** include installer artifacts unless the user explicitly asks for installer release support
+- Keep release versions in sync across `Cargo.toml`, `Cargo.lock`, `resources/app.manifest`, `scripts/build-release.ps1`, and `installer/FastEnglish.iss`
+- Release artifacts are published from `dist/`
+- Create GitHub releases as **draft first**, then review assets and notes before publishing
+- Generate release notes from `git log <previous-tag>..HEAD` and keep them user-facing
+
+### Version Sync Checklist
+
+Before cutting a release, update these files:
+
+- `Cargo.toml`
+- `Cargo.lock`
+- `resources/app.manifest`
+- `scripts/build-release.ps1`
+- `installer/FastEnglish.iss`
+- any docs that embed a concrete release filename
+
+### Release Commands
+
+Run all Rust build commands through PowerShell:
+
+```powershell
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; cargo fmt --check 2>&1"
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; cargo clippy 2>&1"
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; cargo build --release --target x86_64-pc-windows-msvc 2>&1"
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; .\scripts\build-release.ps1 2>&1"
+```
+
+If Inno Setup 6 is installed:
+
+```powershell
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' .\installer\FastEnglish.iss 2>&1"
+```
+
+### GitHub Release Flow
+
+1. Sync versions in all release/version files
+2. Run format, lint, release build, and packaging commands
+3. Verify `dist/` contains the expected portable `0.3.0` artifacts
+4. Draft release notes from `git log v0.2.0..HEAD`
+5. Create draft release with `gh release create`
+6. Review notes and assets, then publish
+7. Only add installer assets when the user explicitly asks for them
+
 ## Creating an Installer
 
 The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script for creating a Windows installer.
@@ -40,7 +90,7 @@ The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script f
 2. Build the release binary first (see above)
 3. Open `installer/FastEnglish.iss` in Inno Setup Compiler
 4. Click Build → Compile
-5. Output: `dist/FastEnglish-Setup-1.0.0.exe`
+5. Output: `dist/FastEnglish-Setup-0.3.0.exe`
 
 ## Installation
 

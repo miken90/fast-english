@@ -25,7 +25,7 @@ Copy-Item $binary "$dist\FastEnglish.exe" -Force
 Write-Host "Copied to $dist\FastEnglish.exe" -ForegroundColor Green
 
 # Create portable zip
-$version = "1.0.0"
+$version = "0.3.0"
 $zipName = "FastEnglish-$version-portable.zip"
 Compress-Archive -Path "$dist\FastEnglish.exe" -DestinationPath "$dist\$zipName" -Force
 Write-Host "Portable zip: $dist\$zipName" -ForegroundColor Green

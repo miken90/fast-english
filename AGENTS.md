@@ -117,6 +117,12 @@ powershell.exe -Command "Stop-Process -Name fast-english -ErrorAction SilentlyCo
 powershell.exe -Command "Get-Process fast-english -ErrorAction SilentlyContinue"
 ```
 
+### Release Rules
+- Repo-specific release process lives in `docs/deployment-guide.md`
+- Default release scope for `fast-eng` is portable only; installer release is opt-in and requires explicit user ask
+- Before any release, keep `Cargo.toml`, `Cargo.lock`, `resources/app.manifest`, `scripts/build-release.ps1`, and `installer/FastEnglish.iss` in sync
+- Use PowerShell for build, packaging, and release commands
+
 ### Code Conventions
 - **File naming:** snake_case (Rust standard)
 - **State machine:** `PopupState` enum with associated data
