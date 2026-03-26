@@ -153,11 +153,7 @@ fn run_event_loop(
                 Ok(msg) => {
                     let _ = ipc_tx_popup.send(msg);
                 }
-                Err(e) => warn!(
-                    "Popup IPC parse error: {} — body_length: {}",
-                    e,
-                    body.len()
-                ),
+                Err(e) => warn!("Popup IPC parse error: {} — body_length: {}", e, body.len()),
             }
         })
         .build(&popup_window)
