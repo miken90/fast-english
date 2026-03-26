@@ -26,15 +26,13 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
 
 ### Portable
 
-1. Download `FastEnglish.exe` from Releases
-2. Run the executable — it will appear in your system tray
+1. Download `FastEnglish-0.3.0-portable.zip` from Releases
+2. Extract and run `FastEnglish.exe` — it will appear in your system tray
 3. Right-click the tray icon to open Settings and configure your AI provider API key
 
 ### Installer
 
-1. Download `FastEnglish-Setup-x.x.x.exe` from Releases
-2. Run the installer
-3. Optionally enable "Start with Windows"
+Installer builds are not included by default. They are opt-in for this repo and only published when explicitly requested.
 
 ## Usage
 
