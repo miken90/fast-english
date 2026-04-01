@@ -27,3 +27,5 @@ plans/
 .beads/
 .teams/
 repomix*
+# CocoIndex Code (ccc)
+/.cocoindex_code/

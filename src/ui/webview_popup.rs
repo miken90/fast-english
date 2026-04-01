@@ -138,7 +138,7 @@ fn run_event_loop(
         .with_transparent(false)
         .with_always_on_top(true)
         .with_skip_taskbar(true)
-        .with_inner_size(LogicalSize::new(340.0_f64, 310.0_f64))
+        .with_inner_size(LogicalSize::new(420.0_f64, 260.0_f64))
         .with_visible(false)
         .with_title("Fast English")
         .build(&event_loop)

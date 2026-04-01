@@ -76,8 +76,8 @@ powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files
 
 1. Sync versions in all release/version files
 2. Run format, lint, release build, and packaging commands
-3. Verify `dist/` contains the expected portable `0.3.0` artifacts
-4. Draft release notes from `git log v0.2.0..HEAD`
+3. Verify `dist/` contains the expected portable artifacts
+4. Draft release notes from `git log <previous-tag>..HEAD`
 5. Create draft release with `gh release create`
 6. Review notes and assets, then publish
 7. Only add installer assets when the user explicitly asks for them

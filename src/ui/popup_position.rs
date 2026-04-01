@@ -1,16 +1,18 @@
 use crate::selection::Rect;
 
-/// Popup dimensions — universal editor snap sizing.
-pub const POPUP_WIDTH: f32 = 380.0;
+/// Popup dimensions.
+pub const POPUP_WIDTH: f32 = 420.0;
 pub const POPUP_INITIAL_HEIGHT: f32 = EDITOR_MIN_HEIGHT;
 
-/// Snap heights (px) for popup states.
-pub const EDITOR_MIN_HEIGHT: f32 = 312.0;
-pub const EDITOR_TRANSLATE_HEIGHT: f32 = 344.0;
-pub const PROCESSING_MIN_HEIGHT: f32 = 168.0;
-pub const RESULT_MIN_HEIGHT: f32 = 360.0;
-pub const RESULT_EXPANDED_HEIGHT: f32 = 420.0;
-pub const ERROR_MIN_HEIGHT: f32 = 220.0;
+/// Height bounds (px) for popup states.
+/// Dynamic sizing: JS measures content, Rust clamps to [min, max].
+/// Max heights are ratios of screen height (0.7 = 70%).
+pub const EDITOR_MIN_HEIGHT: f32 = 260.0;
+pub const EDITOR_MAX_RATIO: f32 = 0.7;
+pub const RESULT_MIN_HEIGHT: f32 = 280.0;
+pub const RESULT_MAX_RATIO: f32 = 0.7;
+pub const PROCESSING_HEIGHT: f32 = 155.0;
+pub const ERROR_HEIGHT: f32 = 180.0;
 const MARGIN: f32 = 8.0;
 const ANCHOR_SPACING: f32 = 8.0;
 

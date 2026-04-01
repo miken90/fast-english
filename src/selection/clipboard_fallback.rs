@@ -20,20 +20,24 @@ pub fn get_selection_via_clipboard() -> Option<SelectionContext> {
     // 3. Clear clipboard
     clip.clear().ok();
 
-    // 4. Try WM_COPY on focused control first, then SendInput Ctrl+C
-    if !try_wm_copy() {
-        send_ctrl_c();
-    }
+    // 4. Try WM_COPY first, verify clipboard changed; if not, fall back to Ctrl+C
+    try_wm_copy();
+    let text = match poll_clipboard_text(&mut clip, 200) {
+        Some(t) => t,
+        None => {
+            // WM_COPY didn't produce text — fall back to SendInput Ctrl+C
+            send_ctrl_c();
+            std::thread::sleep(std::time::Duration::from_millis(80));
+            poll_clipboard_text(&mut clip, 500)?
+        }
+    };
 
-    // 5. Poll clipboard for up to 500ms
-    let text = poll_clipboard_text(&mut clip)?;
-
-    // 6. Restore original clipboard
+    // 5. Restore original clipboard
     if let Some(original) = backup {
         let _ = clip.set_text(&original);
     }
 
-    // 7. Get cursor position for popup placement
+    // 6. Get cursor position for popup placement
     let bounds = unsafe {
         let mut pt = POINT::default();
         if GetCursorPos(&mut pt).is_ok() {
@@ -59,22 +63,22 @@ pub fn get_selection_via_clipboard() -> Option<SelectionContext> {
     None
 }
 
-/// Wait until Ctrl, Alt, and T keys are all released (max 500ms).
+/// Wait until Ctrl, Alt, and T keys are all released (max 1200ms).
 /// Prevents SendInput Ctrl+C from being received as Ctrl+Alt+C.
 #[cfg(target_os = "windows")]
 fn wait_for_modifiers_release() {
     use std::time::{Duration, Instant};
     use windows::Win32::UI::Input::KeyboardAndMouse::*;
 
-    let deadline = Instant::now() + Duration::from_millis(500);
+    let deadline = Instant::now() + Duration::from_millis(1200);
     loop {
         let ctrl_down = unsafe { GetAsyncKeyState(VK_CONTROL.0 as i32) } < 0;
         let alt_down = unsafe { GetAsyncKeyState(VK_MENU.0 as i32) } < 0;
         let t_down = unsafe { GetAsyncKeyState(0x54) } < 0; // 'T' key
 
         if !ctrl_down && !alt_down && !t_down {
-            // Small extra delay for key-up events to propagate
-            std::thread::sleep(Duration::from_millis(30));
+            // Extra delay for key-up events to propagate to target app
+            std::thread::sleep(Duration::from_millis(100));
             return;
         }
         if Instant::now() >= deadline {
@@ -85,9 +89,9 @@ fn wait_for_modifiers_release() {
     }
 }
 
-/// Try sending WM_COPY to the focused control. Returns true if message was sent.
+/// Try sending WM_COPY to the focused control.
 #[cfg(target_os = "windows")]
-fn try_wm_copy() -> bool {
+fn try_wm_copy() {
     use windows::Win32::UI::WindowsAndMessaging::*;
 
     unsafe {
@@ -96,24 +100,23 @@ fn try_wm_copy() -> bool {
             ..Default::default()
         };
         if GetGUIThreadInfo(0, &mut gui_info).is_err() {
-            return false;
+            return;
         }
         let focused = gui_info.hwndFocus;
         if focused.0.is_null() {
-            return false;
+            return;
         }
         // WM_COPY = 0x0301
         SendMessageW(focused, 0x0301, None, None);
-        true
     }
 }
 
-/// Poll clipboard for text content, retrying up to 500ms.
+/// Poll clipboard for text content, retrying up to `timeout_ms` milliseconds.
 #[cfg(target_os = "windows")]
-fn poll_clipboard_text(clip: &mut arboard::Clipboard) -> Option<String> {
+fn poll_clipboard_text(clip: &mut arboard::Clipboard, timeout_ms: u64) -> Option<String> {
     use std::time::{Duration, Instant};
 
-    let deadline = Instant::now() + Duration::from_millis(500);
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     loop {
         if let Ok(text) = clip.get_text() {
             if !text.is_empty() {

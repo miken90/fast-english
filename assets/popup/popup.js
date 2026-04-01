@@ -17,8 +17,7 @@ const appState = {
   translateFrom: null,
   translateTo: null,
   markdownPreviewEnabled: false,
-  sourceSnippetExpanded: false,
-  lastSnapMode: null
+  sourceSnippetExpanded: false
 };
 
 function sendToRust(type, payload) {
@@ -81,7 +80,6 @@ window.setState = function(data) {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.remove('active');
     });
-    appState.lastSnapMode = null;
     return;
   }
 
@@ -118,6 +116,7 @@ function renderEditor(data) {
 
   var sourceEl = document.getElementById('editor-source-text');
   if (sourceEl) sourceEl.value = appState.sourceText;
+  updateCharCount('editor-source-text', 'editor-char-count');
 
   var sourceLabel = document.getElementById('editor-source-label');
   if (sourceLabel) {
@@ -134,6 +133,13 @@ function renderEditor(data) {
   }
 }
 
+const TOOL_SHORT_LABELS = {
+  'enhance-writing': 'Enhance',
+  'fix-grammar': 'Grammar',
+  'convert-prompt': 'Prompt',
+  'translate': 'Translate'
+};
+
 function renderToolSwitcher() {
   const row = document.getElementById('tool-switcher');
   if (!row) return;
@@ -143,7 +149,7 @@ function renderToolSwitcher() {
     var btn = document.createElement('button');
     btn.className = 'tool-pill' + (tool.id === appState.tool.id ? ' active' : '');
     btn.type = 'button';
-    btn.textContent = tool.title;
+    btn.textContent = TOOL_SHORT_LABELS[tool.id] || tool.title;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', tool.id === appState.tool.id ? 'true' : 'false');
     btn.dataset.toolId = tool.id;
@@ -207,6 +213,7 @@ function renderResult(data) {
   var toggleBtn = document.getElementById('result-toggle-md');
   if (outputEl) outputEl.value = appState.resultOutput;
   if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput);
+  updateCharCount('result-output', 'result-char-count');
 
   setMarkdownPreviewEnabled(appState.markdownPreviewEnabled);
 
@@ -253,30 +260,36 @@ function rerunFromResult() {
   sendToRust('RunTool', { text: appState.sourceText || '' });
 }
 
-function isResultExpandedMode() {
-  if (appState.view !== 'result') return false;
-  if (appState.markdownPreviewEnabled) return true;
-  return appState.resultOutput.length > 550;
+function updateCharCount(textareaId, countId) {
+  var ta = document.getElementById(textareaId);
+  var cc = document.getElementById(countId);
+  if (ta && cc) cc.textContent = ta.value.length + ' chars';
 }
 
 function resolveSnapMode() {
   if (appState.view === 'processing') return 'processing';
   if (appState.view === 'error') return 'error';
-  if (appState.view === 'result') {
-    return isResultExpandedMode() ? 'result-expanded' : 'result-compact';
-  }
+  if (appState.view === 'result') return 'result';
   if (appState.tool && appState.tool.id === 'translate') return 'editor-translate';
   return 'editor';
 }
 
-function requestSnapResize(mode) {
-  if (!mode || appState.lastSnapMode === mode) return;
-  appState.lastSnapMode = mode;
-  sendToRust('ResizePopup', { mode: mode, height: 0 });
+var _resizeTimer = null;
+function measureAndResize() {
+  if (_resizeTimer) clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(function() {
+    var root = document.getElementById('popup-root');
+    if (!root) return;
+    var activeView = root.querySelector('.view.active');
+    if (!activeView) return;
+    var needed = activeView.scrollHeight + 2;
+    var mode = resolveSnapMode();
+    sendToRust('ResizePopup', { mode: mode, height: needed });
+  }, 150);
 }
 
 function requestSnapResizeForCurrentView() {
-  requestSnapResize(resolveSnapMode());
+  measureAndResize();
 }
 
 function setMarkdownPreviewEnabled(enabled) {
@@ -472,6 +485,8 @@ document.addEventListener('DOMContentLoaded', function() {
     editorSource.addEventListener('input', function() {
       appState.sourceText = editorSource.value;
       sendToRust('UpdateSourceText', { text: appState.sourceText });
+      updateCharCount('editor-source-text', 'editor-char-count');
+      measureAndResize();
     });
   }
 

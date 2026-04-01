@@ -53,12 +53,12 @@
           <div class="editor-label" id="editor-source-label">Source</div>
           <textarea id="editor-source-text" class="editor-textarea" placeholder="Enter text..."></textarea>
         </div>
-
-        <div class="hint-row">Ctrl+Enter run · Esc close</div>
+        <div class="char-count" id="editor-char-count">0 chars</div>
       </div>
 
       <div class="action-row action-row--editor">
         <button class="btn btn--primary" id="editor-run-btn">Run</button>
+        <span class="hint-inline">Ctrl+Enter · Esc</span>
       </div>
     </section>
 
@@ -90,9 +90,14 @@
           <div class="status-dot status-dot--success"></div>
           <span class="label-upper" id="result-tool-label">Result</span>
         </div>
-        <button class="btn btn--icon" id="result-close" aria-label="Close">
-          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-        </button>
+        <div class="header-actions">
+          <button class="btn btn--icon" id="result-rerun-btn" aria-label="Rerun" title="Rerun">
+            <span data-icon-name="refresh" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
+          <button class="btn btn--icon" id="result-close" aria-label="Close">
+            <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
+        </div>
       </div>
 
       <div class="result-main">
@@ -101,6 +106,7 @@
           <textarea id="result-output" class="editor-textarea editor-textarea--readonly" readonly></textarea>
           <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
         </div>
+        <div class="char-count" id="result-char-count">0 chars</div>
 
         <div class="result-source-block">
           <button class="btn btn--ghost result-source-toggle" id="result-source-toggle" aria-expanded="false" aria-controls="result-source-wrap">
@@ -114,18 +120,16 @@
         <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
       </div>
 
-      <div class="action-row action-row--result-primary">
-        <button class="btn btn--primary" id="result-replace-btn">Replace</button>
-        <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
+      <div class="action-row action-row--result">
+        <div class="action-group-left">
+          <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
+          <button class="btn btn--ghost" id="result-use-output-btn">Use as input</button>
+        </div>
+        <div class="action-group-right">
+          <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
+          <button class="btn btn--primary" id="result-replace-btn">Replace</button>
+        </div>
       </div>
-
-      <div class="action-row action-row--result-secondary">
-        <button class="btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Rich</button>
-        <button class="btn btn--secondary" id="result-rerun-btn">Rerun</button>
-        <button class="btn btn--secondary" id="result-use-output-btn">Use output as input</button>
-      </div>
-
-      <div class="hint-row">Ctrl+Enter rerun · Esc close</div>
     </section>
 
     <section id="view-error" class="view" tabindex="-1">

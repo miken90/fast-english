@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 8px;
+  padding: 10px 14px 8px;
   cursor: grab;
   flex-shrink: 0;
 }
@@ -70,11 +70,11 @@
 }
 
 .tool-switcher {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  display: flex;
+  gap: 6px;
   padding: 0 14px 8px;
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .tool-pill {
@@ -86,7 +86,8 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 8px 10px;
+  padding: 6px 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -196,8 +197,8 @@
 
 .editor-textarea {
   width: 100%;
-  min-height: 148px;
-  max-height: 320px;
+  min-height: 80px;
+  flex: 1;
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
   background: rgba(0, 0, 0, 0.32);
@@ -223,8 +224,7 @@
 
 .result-output-card .editor-textarea,
 .result-rich-preview {
-  min-height: 134px;
-  max-height: 220px;
+  min-height: 80px;
 }
 
 .result-rich-preview {
@@ -277,32 +277,45 @@
 
 .action-row--editor {
   padding-top: 4px;
-  padding-bottom: 2px;
+  padding-bottom: 8px;
+}
+
+.hint-inline {
+  font-size: 9px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.char-count {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 2px 14px 0;
+  flex-shrink: 0;
 }
 
 .action-row--editor .btn,
-.action-row--result-primary .btn,
 .action-row--error .btn {
   flex: 1;
 }
 
-.action-row--result-secondary {
-  padding-top: 7px;
+.action-row--result {
+  justify-content: space-between;
+  padding-bottom: 8px;
 }
 
-.action-row--result-secondary .btn {
-  flex: 1;
+.action-group-left,
+.action-group-right {
+  display: flex;
+  gap: 6px;
 }
 
-.action-row--result-primary .btn--primary {
+.action-row--result .btn--primary {
+  flex: none;
+  padding: 10px 20px;
   box-shadow: 0 4px 16px rgba(96, 165, 250, 0.3);
-}
-
-.hint-row {
-  padding: 8px 14px 10px;
-  font-size: 10px;
-  color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .processing-view {

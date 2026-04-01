@@ -2,8 +2,8 @@ use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANS
 use crate::selection::{SelectionContext, Tier};
 use crate::settings::AppSettings;
 use crate::ui::popup_position::{
-    EDITOR_MIN_HEIGHT, EDITOR_TRANSLATE_HEIGHT, ERROR_MIN_HEIGHT, PROCESSING_MIN_HEIGHT,
-    RESULT_EXPANDED_HEIGHT, RESULT_MIN_HEIGHT,
+    EDITOR_MAX_RATIO, EDITOR_MIN_HEIGHT, ERROR_HEIGHT, POPUP_WIDTH, PROCESSING_HEIGHT,
+    RESULT_MAX_RATIO, RESULT_MIN_HEIGHT,
 };
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge::{self, BridgeContext};
@@ -621,10 +621,12 @@ fn handle_webview_ipc(
 
         JsToRust::ResizePopup { height, mode } => {
             let requested_mode = mode.as_deref().unwrap_or("editor");
-            let requested_height = if height > 0.0 { Some(height) } else { None };
-            let final_height = snap_height_for_mode(requested_mode, requested_height);
+            let content_height = if height > 0.0 { Some(height) } else { None };
+            let (_, screen_height) = crate::ui::popup_position::get_screen_size();
+            let final_height =
+                calculate_height_for_mode(requested_mode, content_height, screen_height);
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
-                width: 380.0,
+                width: POPUP_WIDTH as f64,
                 height: final_height,
             });
         }
@@ -1030,22 +1032,20 @@ fn map_tool_id_to_kind(
     }
 }
 
-fn snap_height_for_mode(mode: &str, requested_height: Option<f64>) -> f64 {
-    let snapped = match mode {
-        "editor" => EDITOR_MIN_HEIGHT as f64,
-        "editor-translate" => EDITOR_TRANSLATE_HEIGHT as f64,
-        "processing" => PROCESSING_MIN_HEIGHT as f64,
-        "result-compact" => RESULT_MIN_HEIGHT as f64,
-        "result-expanded" => RESULT_EXPANDED_HEIGHT as f64,
-        "error" => ERROR_MIN_HEIGHT as f64,
-        _ => EDITOR_MIN_HEIGHT as f64,
-    };
-
-    if mode == "result-expanded" {
-        if let Some(h) = requested_height {
-            return h.clamp(RESULT_MIN_HEIGHT as f64, RESULT_EXPANDED_HEIGHT as f64);
+fn calculate_height_for_mode(mode: &str, content_height: Option<f64>, screen_height: f32) -> f64 {
+    match mode {
+        "editor" | "editor-translate" => {
+            let min = EDITOR_MIN_HEIGHT as f64;
+            let max_h = (screen_height as f64) * (EDITOR_MAX_RATIO as f64);
+            content_height.unwrap_or(min).clamp(min, max_h)
         }
+        "result" | "result-compact" | "result-expanded" => {
+            let min = RESULT_MIN_HEIGHT as f64;
+            let max_h = (screen_height as f64) * (RESULT_MAX_RATIO as f64);
+            content_height.unwrap_or(min).clamp(min, max_h)
+        }
+        "processing" => PROCESSING_HEIGHT as f64,
+        "error" => ERROR_HEIGHT as f64,
+        _ => EDITOR_MIN_HEIGHT as f64,
     }
-
-    snapped
 }
