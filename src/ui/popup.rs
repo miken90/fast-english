@@ -39,6 +39,7 @@ struct AppState {
     ignore_auto_until: Option<Instant>,
     next_request_id: u64,
     active_request_id: Option<u64>,
+    manual_capture_in_flight: bool,
     webview_popup_tx: std_mpsc::Sender<WebViewPopupCommand>,
     webview_settings_tx: std_mpsc::Sender<SettingsCommand>,
 }
@@ -48,7 +49,10 @@ enum InternalEvent {
         request_id: u64,
         result: std::result::Result<String, String>,
     },
-    ManualCaptureResult(SelectionContext),
+    ManualCaptureResult {
+        ctx: SelectionContext,
+        allow_empty: bool,
+    },
     TestConnectionResult(std::result::Result<String, String>),
     ReplaceDone,
 }
@@ -89,6 +93,7 @@ pub fn run(
         ignore_auto_until: None,
         next_request_id: 1,
         active_request_id: None,
+        manual_capture_in_flight: false,
         webview_popup_tx,
         webview_settings_tx,
     };
@@ -281,11 +286,44 @@ fn handle_app_event(
             }
         }
 
-        AppEvent::HotkeyPressed | AppEvent::OpenPopupRequested => {
+        AppEvent::HotkeyPressed => {
             if state.popup_visible {
                 dismiss_popup(state);
                 return true;
             }
+            if state.manual_capture_in_flight {
+                return true;
+            }
+            state.manual_capture_in_flight = true;
+            let tx = internal_tx.clone();
+            tokio::spawn(async move {
+                // Always send ManualCaptureResult so the in-flight guard is cleared.
+                // should_open_manual_capture_result rejects empty text for allow_empty=false.
+                let ctx = crate::selection::monitor::try_manual_capture()
+                    .await
+                    .unwrap_or_else(|| SelectionContext {
+                        text: String::new(),
+                        bounds: None,
+                        source_app: String::from("manual"),
+                        detection_tier: Tier::ClipboardFallback,
+                        is_editable: false,
+                    });
+                let _ = tx.send(InternalEvent::ManualCaptureResult {
+                    ctx,
+                    allow_empty: false,
+                });
+            });
+        }
+
+        AppEvent::OpenPopupRequested => {
+            if state.popup_visible {
+                dismiss_popup(state);
+                return true;
+            }
+            if state.manual_capture_in_flight {
+                return true;
+            }
+            state.manual_capture_in_flight = true;
             let tx = internal_tx.clone();
             tokio::spawn(async move {
                 let ctx = crate::selection::monitor::try_manual_capture()
@@ -297,7 +335,10 @@ fn handle_app_event(
                         detection_tier: Tier::ClipboardFallback,
                         is_editable: false,
                     });
-                let _ = tx.send(InternalEvent::ManualCaptureResult(ctx));
+                let _ = tx.send(InternalEvent::ManualCaptureResult {
+                    ctx,
+                    allow_empty: true,
+                });
             });
         }
 
@@ -688,7 +729,15 @@ fn handle_internal_event(state: &mut AppState, event: InternalEvent) {
             }
         }
 
-        InternalEvent::ManualCaptureResult(ctx) => {
+        InternalEvent::ManualCaptureResult { ctx, allow_empty } => {
+            state.manual_capture_in_flight = false;
+            // RT-2: Prevent stale async result from reopening a dismissed popup
+            if state.popup_visible {
+                return;
+            }
+            if !should_open_manual_capture_result(&ctx, allow_empty) {
+                return;
+            }
             state.current_selection = Some(ctx.clone());
             state.popup_state = PopupState::Editor {
                 context: ctx.clone(),
@@ -851,6 +900,7 @@ fn max_tokens_for_tool(input: &str, tool: &WritingToolKind) -> Option<usize> {
 
 fn dismiss_popup(state: &mut AppState) {
     state.popup_visible = false;
+    state.manual_capture_in_flight = false;
     state.ignore_auto_until = Some(Instant::now() + Duration::from_secs(1));
     state.active_request_id = None;
     state.popup_state = PopupState::Hidden;
@@ -908,6 +958,12 @@ fn default_tool() -> WritingToolKind {
 
 fn context_can_replace(context: &SelectionContext) -> bool {
     context.is_editable
+}
+
+fn should_open_manual_capture_result(ctx: &SelectionContext, allow_empty: bool) -> bool {
+    // RT-4: When allow_empty is false (hotkey path), require actual text content.
+    // Bounds alone (e.g. UIA caret position with empty text) is not a meaningful capture.
+    allow_empty || !ctx.text.is_empty()
 }
 
 fn popup_tool(state: &PopupState) -> Option<&WritingToolKind> {
@@ -973,6 +1029,37 @@ fn popup_state_for_editor(
             ..
         } => Some((context.clone(), tool.clone(), source_text.clone())),
         PopupState::Hidden => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_open_manual_capture_result;
+    use crate::selection::{Rect, SelectionContext, Tier};
+
+    fn selection_context(text: &str, has_bounds: bool) -> SelectionContext {
+        SelectionContext {
+            text: text.to_string(),
+            bounds: has_bounds.then(|| Rect::from_point(0.0, 0.0, 1.0, 1.0)),
+            source_app: String::from("test"),
+            detection_tier: Tier::ClipboardFallback,
+            is_editable: false,
+        }
+    }
+
+    #[test]
+    fn manual_hotkey_result_requires_text_content() {
+        // Empty text, no bounds → rejected
+        assert!(!should_open_manual_capture_result(&selection_context("", false), false));
+        // Has text, no bounds → accepted
+        assert!(should_open_manual_capture_result(&selection_context("text", false), false));
+        // RT-4: Bounds-only (UIA caret position with empty text) → rejected for hotkey path
+        assert!(!should_open_manual_capture_result(&selection_context("", true), false));
+    }
+
+    #[test]
+    fn tray_open_allows_empty_manual_result() {
+        assert!(should_open_manual_capture_result(&selection_context("", false), true));
     }
 }
 

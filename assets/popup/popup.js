@@ -115,7 +115,10 @@ function renderEditor(data) {
   renderToolSwitcher();
 
   var sourceEl = document.getElementById('editor-source-text');
-  if (sourceEl) sourceEl.value = appState.sourceText;
+  if (sourceEl) {
+    sourceEl.value = appState.sourceText;
+    autosizeEditorSourceTextarea(sourceEl);
+  }
   updateCharCount('editor-source-text', 'editor-char-count');
 
   var sourceLabel = document.getElementById('editor-source-label');
@@ -264,6 +267,25 @@ function updateCharCount(textareaId, countId) {
   var ta = document.getElementById(textareaId);
   var cc = document.getElementById(countId);
   if (ta && cc) cc.textContent = ta.value.length + ' chars';
+}
+
+function autosizeEditorSourceTextarea(textarea) {
+  if (!textarea) return;
+
+  var style = window.getComputedStyle(textarea);
+  var lineHeight = parseFloat(style.lineHeight) || 19.375;
+  var paddingTop = parseFloat(style.paddingTop) || 0;
+  var paddingBottom = parseFloat(style.paddingBottom) || 0;
+  var borderTop = parseFloat(style.borderTopWidth) || 0;
+  var borderBottom = parseFloat(style.borderBottomWidth) || 0;
+  var verticalExtras = paddingTop + paddingBottom + borderTop + borderBottom;
+  var minHeight = lineHeight * 2 + verticalExtras;
+  var maxHeight = lineHeight * 5 + verticalExtras;
+
+  textarea.style.height = 'auto';
+  var nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+  textarea.style.height = nextHeight + 'px';
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
 }
 
 function resolveSnapMode() {
@@ -482,11 +504,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var editorSource = document.getElementById('editor-source-text');
   if (editorSource) {
+    autosizeEditorSourceTextarea(editorSource);
     editorSource.addEventListener('input', function() {
       appState.sourceText = editorSource.value;
       sendToRust('UpdateSourceText', { text: appState.sourceText });
       updateCharCount('editor-source-text', 'editor-char-count');
-      measureAndResize();
+      autosizeEditorSourceTextarea(editorSource);
     });
   }
 

@@ -69,7 +69,7 @@ fast-english/
 
 | File | Purpose |
 |---|---|
-| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle + empty selection fallback and mode-based snap resize handling. |
+| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle (requires manual capture text/bounds), tray-open empty fallback, and mode-based snap resize handling. |
 | `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
 | `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
 | `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and popup min-height hints by state/tool. |
@@ -111,3 +111,10 @@ All HTML files load tokens → base → components, then app-specific CSS for ov
 - Replace behavior is intentionally gated by `canReplace` in result state; copy/rerun paths remain available when replace is blocked.
 - Result view includes iterative workflow support via `UseOutputAsInput` and re-run actions.
 - Phase 2: Keyboard navigation (roving tabindex), aria-live attributes, cancel processing flow implemented.
+
+## Reliability Improvements (Hotkey Race Prevention)
+
+- **RT-2 (popup_visible guard)**: Manual capture results are ignored if popup is already visible, preventing stale async results from reopening dismissed popups.
+- **RT-4 (strict text requirement)**: Hotkey path rejects bounds-only captures (e.g., UIA caret position with empty text); tray "Open Popup" still allows empty results.
+- **RT-5 (clipboard restore logging)**: `ClipboardRestoreGuard` logs warnings on restore failure. Non-text clipboard formats are not backed up; only plain text is restored.
+- **Blocking I/O safety**: Clipboard capture (with ~1.88s max blocking I/O) now runs via `tokio::task::spawn_blocking()` to prevent blocking worker threads during manual hotkey trigger.

@@ -212,6 +212,39 @@
   overflow-y: auto;
 }
 
+#editor-source-text {
+  min-height: calc(1.55em * 2 + 24px);
+  max-height: calc(1.55em * 5 + 24px);
+  height: calc(1.55em * 2 + 24px);
+  overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  transition: height 90ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #editor-source-text {
+    transition: none;
+  }
+}
+
+#editor-source-text::-webkit-scrollbar {
+  width: 8px;
+}
+
+#editor-source-text::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+}
+
+#editor-source-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .editor-textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);

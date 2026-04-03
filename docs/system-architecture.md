@@ -154,3 +154,15 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 - **CSS**: `:root[data-theme="light"]` overrides all color tokens for light theme support
 - **Updates**: Theme preference IPC sent from settings window to popup window on change
 - **Tokens**: Two-variant system in `tokens.css` — dark defaults, light overrides via selector
+
+## Reliability Patterns
+
+### Manual Capture Race Prevention (RT-2 & RT-4)
+- **Concurrent capture guard**: `manual_capture_in_flight` bool prevents overlapping manual capture requests (hotkey or tray "Open Popup")
+- **Stale result rejection**: Manual capture results are ignored if `popup_visible=true`, preventing dismissed popups from being reopened by delayed async results
+- **Strict hotkey filtering**: Hotkey path requires actual text content; bounds-only captures (empty UIA caret position) are rejected via `should_open_manual_capture_result(false)`. Tray "Open Popup" allows empty results via `allow_empty=true`.
+
+### Clipboard Capture Thread Safety (RT-5)
+- **Blocking I/O isolation**: Clipboard capture (includes ~1.88s max polling with `std::thread::sleep`) runs in `tokio::task::spawn_blocking()` to avoid blocking Tokio worker threads
+- **Format loss documentation**: `ClipboardRestoreGuard` backs up and restores only plain text; non-text formats (images, rich text, HTML) are not preserved across clipboard intercept
+- **Restore failure logging**: Guard logs `warn!` if clipboard text restoration fails, preventing silent data loss

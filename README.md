@@ -5,7 +5,7 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
 ## Features
 
 - **System tray app** — lives in your system tray, always accessible
-- **Global hotkey** — press `Ctrl+Alt+T` to trigger the popup from any application (toggles on/off, works with or without text selection)
+- **Global hotkey** — press `Ctrl+Alt+T` to trigger the popup from any application (toggles on/off; opens only when manual capture finds text or bounds)
 - **Auto-detection** — automatically detects text selection via Windows UI Automation APIs
 - **Writing tools**:
   - **Enhance Writing** — improve clarity and flow
@@ -137,7 +137,7 @@ Fast English uses a hybrid Rust + WebView2 architecture:
 - **Selection monitor** polls via Windows UI Automation APIs every 350ms
 - **AI layer** uses a trait-based design (`AIClient`) with a shared `reqwest::Client` instance
 - **Text replacement** via UI Automation setValue or clipboard paste fallback
-- **Hotkey** toggles popup; works with or without text selection (empty selection opens tool menu)
+- **Hotkey** toggles popup; opens after manual capture only when text or bounds are found (tray “Open Popup” can still open an empty popup)
 - **HTTPS enforcement** validates provider base URLs before persisting settings
 
 ## License

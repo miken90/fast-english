@@ -96,10 +96,19 @@ pub async fn try_manual_capture() -> Option<SelectionContext> {
         return Some(ctx);
     }
 
-    // Tier 3: Clipboard fallback — for apps where UIA doesn't expose selection
+    // Tier 3: Clipboard fallback — for apps where UIA doesn't expose selection.
+    // Runs inside spawn_blocking because the clipboard capture path uses
+    // blocking std::thread::sleep calls (up to ~1.88s total) which would
+    // otherwise block a Tokio worker thread.
     #[cfg(target_os = "windows")]
-    if let Some(ctx) = super::clipboard_fallback::get_selection_via_clipboard() {
-        return Some(ctx);
+    match tokio::task::spawn_blocking(|| {
+        super::clipboard_fallback::get_selection_via_clipboard()
+    })
+    .await
+    {
+        Ok(Some(ctx)) => return Some(ctx),
+        Ok(None) => {}
+        Err(e) => tracing::error!("Clipboard capture task failed: {}", e),
     }
 
     debug!("Manual capture found no selection");

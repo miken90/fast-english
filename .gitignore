@@ -29,3 +29,4 @@ plans/
 repomix*
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+.claude/

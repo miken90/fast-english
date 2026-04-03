@@ -4,11 +4,30 @@ use crate::selection::{Rect, SelectionContext, Tier};
 ///
 /// Strategy: WM_COPY on focused control first, then SendInput Ctrl+C fallback.
 /// Waits for hotkey modifier keys to release before simulating copy.
+///
+/// **Clipboard safety note (RT-5):** `clip.clear()` destroys ALL clipboard formats
+/// (images, HTML, rich text, etc.) but backup/restore only covers plain text.
+/// Non-text clipboard content is lost on every invocation, even on capture failure.
 #[cfg(target_os = "windows")]
 pub fn get_selection_via_clipboard() -> Option<SelectionContext> {
     use arboard::Clipboard;
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+
+    struct ClipboardRestoreGuard<'a> {
+        clip: &'a mut Clipboard,
+        backup: Option<String>,
+    }
+
+    impl Drop for ClipboardRestoreGuard<'_> {
+        fn drop(&mut self) {
+            if let Some(original) = self.backup.take() {
+                if let Err(e) = self.clip.set_text(&original) {
+                    tracing::warn!("Failed to restore clipboard text: {}", e);
+                }
+            }
+        }
+    }
 
     // 1. Wait for hotkey modifiers (Ctrl, Alt, T) to release
     wait_for_modifiers_release();
@@ -16,28 +35,27 @@ pub fn get_selection_via_clipboard() -> Option<SelectionContext> {
     // 2. Backup current clipboard
     let mut clip = Clipboard::new().ok()?;
     let backup = clip.get_text().ok();
+    let restore_guard = ClipboardRestoreGuard {
+        clip: &mut clip,
+        backup,
+    };
 
     // 3. Clear clipboard
-    clip.clear().ok();
+    restore_guard.clip.clear().ok();
 
     // 4. Try WM_COPY first, verify clipboard changed; if not, fall back to Ctrl+C
     try_wm_copy();
-    let text = match poll_clipboard_text(&mut clip, 200) {
+    let text = match poll_clipboard_text(restore_guard.clip, 200) {
         Some(t) => t,
         None => {
             // WM_COPY didn't produce text — fall back to SendInput Ctrl+C
             send_ctrl_c();
             std::thread::sleep(std::time::Duration::from_millis(80));
-            poll_clipboard_text(&mut clip, 500)?
+            poll_clipboard_text(restore_guard.clip, 500)?
         }
     };
 
-    // 5. Restore original clipboard
-    if let Some(original) = backup {
-        let _ = clip.set_text(&original);
-    }
-
-    // 6. Get cursor position for popup placement
+    // 5. Get cursor position for popup placement
     let bounds = unsafe {
         let mut pt = POINT::default();
         if GetCursorPos(&mut pt).is_ok() {
