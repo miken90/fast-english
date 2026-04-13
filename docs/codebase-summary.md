@@ -69,13 +69,17 @@ fast-english/
 
 | File | Purpose |
 |---|---|
-| `popup.rs` | Central runtime loop: consumes `AppEvent`, handles `JsToRust` IPC, orchestrates AI calls (shared HTTP client), and pushes universal popup states to WebViews (`Editor` → `Processing` → `Result`/`Error`). Also handles hotkey toggle (requires manual capture text/bounds), tray-open empty fallback, and mode-based snap resize handling. |
+| `popup.rs` | Thin re-export hub (3 LOC) — delegates to focused submodules below. |
+| `popup_ai.rs` | AI request orchestration (126 LOC) — tool instructions, max-token selection, request launch. |
+| `popup_runtime.rs` | `run()` entry, async event loop, `AppState`, Win32 message pump (222 LOC). |
+| `popup_view.rs` | Show/dismiss/push popup state, height calculation (83 LOC). |
+| `popup_controller.rs` | Event handlers, IPC dispatch, state transitions (741 LOC). |
 | `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
 | `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
 | `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and popup min-height hints by state/tool. |
 | `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height, mode }`/`MovePopup` contracts. |
 | `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
-| `popup_position.rs` | Calculates popup anchor placement and snap height constants (`EDITOR_MIN_HEIGHT`, `EDITOR_TRANSLATE_HEIGHT`, `PROCESSING_MIN_HEIGHT`, `RESULT_MIN_HEIGHT`, `RESULT_EXPANDED_HEIGHT`, `ERROR_MIN_HEIGHT`). |
+| `popup_position.rs` | Calculates popup anchor placement and snap height constants (`POPUP_WIDTH`, `EDITOR_MIN_HEIGHT`, `EDITOR_MAX_RATIO`, `RESULT_MIN_HEIGHT`, `RESULT_MAX_RATIO`, `PROCESSING_HEIGHT`, `ERROR_HEIGHT`). |
 | `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
 
 ## Runtime Patterns
@@ -103,7 +107,7 @@ All HTML files load tokens → base → components, then app-specific CSS for ov
 
 ## Current Notes
 
-- `src/ui/popup.rs` is large (~860 lines) and a future modularization candidate.
+- `src/ui/popup.rs` has been split into 5 focused modules: `popup.rs` (re-export), `popup_ai.rs`, `popup_runtime.rs`, `popup_view.rs`, `popup_controller.rs`.
 - Build/lint complete with warnings (dead code and minor clippy suggestions) but no hard failures.
 - Dead files (popup_ai, popup_views, popup_window, theme) and iced dependency removed in cleanup.
 - Shared `reqwest::Client` via `Arc` used across AI providers.

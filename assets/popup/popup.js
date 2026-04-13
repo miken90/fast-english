@@ -68,33 +68,62 @@ function showView(viewName) {
   }
 }
 
+var _previousView = 'editor';
+
+var VIEW_RENDERERS = {
+  editor: function(data) {
+    exitInlineProcessing();
+    dismissEditorErrorBanner();
+    renderEditor(data);
+    showView('editor');
+  },
+  processing: function(data) {
+    if (data.tool) appState.tool = data.tool;
+    if (_previousView === 'editor' || _previousView === 'processing') {
+      enterInlineProcessing();
+      showView('editor');
+    } else {
+      renderProcessing(data);
+      showView('processing');
+    }
+  },
+  result: function(data) {
+    exitInlineProcessing();
+    dismissEditorErrorBanner();
+    renderResult(data);
+    showView('result');
+  },
+  error: function(data) {
+    exitInlineProcessing();
+    if (_previousView === 'editor' || _previousView === 'processing') {
+      showEditorErrorBanner(data.message || 'An unexpected error occurred.');
+      showView('editor');
+    } else {
+      renderError(data);
+      showView('error');
+    }
+  }
+};
+
 window.setState = function(data) {
   if (!data || !data.view) return;
 
   if (data.theme) applyTheme(data.theme);
-
-  appState.view = data.view;
 
   if (data.view === 'hidden') {
     VIEWS.forEach(function(v) {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.remove('active');
     });
+    appState.view = 'hidden';
     return;
   }
 
-  if (data.view === 'editor') {
-    renderEditor(data);
-    showView('editor');
-  } else if (data.view === 'processing') {
-    renderProcessing(data);
-    showView('processing');
-  } else if (data.view === 'result') {
-    renderResult(data);
-    showView('result');
-  } else if (data.view === 'error') {
-    renderError(data);
-    showView('error');
+  var renderer = VIEW_RENDERERS[data.view];
+  if (renderer) {
+    _previousView = appState.view;
+    appState.view = data.view;
+    renderer(data);
   }
 
   requestSnapResizeForCurrentView();
@@ -114,12 +143,23 @@ function renderEditor(data) {
 
   renderToolSwitcher();
 
+  var headerLabel = document.querySelector('#view-editor .label-upper');
+  if (headerLabel) {
+    headerLabel.textContent = (appState.tool && appState.tool.title) || 'Editor';
+  }
+
+  var runBtn = document.getElementById('editor-run-btn');
+  if (runBtn) {
+    runBtn.textContent = RUN_LABELS[appState.tool.id] || 'Run';
+  }
+
   var sourceEl = document.getElementById('editor-source-text');
   if (sourceEl) {
     sourceEl.value = appState.sourceText;
     autosizeEditorSourceTextarea(sourceEl);
   }
   updateCharCount('editor-source-text', 'editor-char-count');
+  updateRunButtonState();
 
   var sourceLabel = document.getElementById('editor-source-label');
   if (sourceLabel) {
@@ -143,6 +183,13 @@ const TOOL_SHORT_LABELS = {
   'translate': 'Translate'
 };
 
+const RUN_LABELS = {
+  'enhance-writing': 'Enhance',
+  'fix-grammar': 'Fix',
+  'convert-prompt': 'Convert',
+  'translate': 'Translate'
+};
+
 function renderToolSwitcher() {
   const row = document.getElementById('tool-switcher');
   if (!row) return;
@@ -153,8 +200,7 @@ function renderToolSwitcher() {
     btn.className = 'tool-pill' + (tool.id === appState.tool.id ? ' active' : '');
     btn.type = 'button';
     btn.textContent = TOOL_SHORT_LABELS[tool.id] || tool.title;
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', tool.id === appState.tool.id ? 'true' : 'false');
+    btn.setAttribute('aria-pressed', tool.id === appState.tool.id ? 'true' : 'false');
     btn.dataset.toolId = tool.id;
     btn.addEventListener('click', function() {
       sendToRust('ToolSelected', { kind: tool.id });
@@ -252,11 +298,73 @@ function renderError(data) {
   if (msgEl) msgEl.textContent = data.message || 'An unexpected error occurred.';
 }
 
+function enterInlineProcessing() {
+  var editorView = document.getElementById('view-editor');
+  if (!editorView) return;
+  editorView.classList.add('is-processing');
+  editorView.setAttribute('aria-busy', 'true');
+
+  var toolTitle = (appState.tool && appState.tool.title) || 'Processing';
+  var headerLabel = editorView.querySelector('.label-upper');
+  if (headerLabel) headerLabel.textContent = toolTitle + ' — Running\u2026';
+
+  var spinnerInline = document.getElementById('editor-inline-spinner');
+  if (spinnerInline) spinnerInline.style.display = '';
+
+  var runBtn = document.getElementById('editor-run-btn');
+  if (runBtn) runBtn.style.display = 'none';
+  var cancelBtn = document.getElementById('editor-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = '';
+}
+
+function exitInlineProcessing() {
+  var editorView = document.getElementById('view-editor');
+  if (!editorView) return;
+  editorView.classList.remove('is-processing');
+  editorView.removeAttribute('aria-busy');
+
+  var headerLabel = editorView.querySelector('.label-upper');
+  if (headerLabel) {
+    headerLabel.textContent = (appState.tool && appState.tool.title) || 'Editor';
+  }
+
+  var spinnerInline = document.getElementById('editor-inline-spinner');
+  if (spinnerInline) spinnerInline.style.display = 'none';
+
+  var runBtn = document.getElementById('editor-run-btn');
+  if (runBtn) runBtn.style.display = '';
+  var cancelBtn = document.getElementById('editor-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function showEditorErrorBanner(message) {
+  var banner = document.getElementById('editor-error-banner');
+  if (!banner) return;
+  var msgSpan = banner.querySelector('.error-banner__msg');
+  if (msgSpan) msgSpan.textContent = message;
+  banner.removeAttribute('hidden');
+}
+
+function dismissEditorErrorBanner() {
+  var banner = document.getElementById('editor-error-banner');
+  if (banner) banner.setAttribute('hidden', '');
+}
+
 function runCurrentTool() {
   var sourceEl = document.getElementById('editor-source-text');
   var text = sourceEl ? sourceEl.value : appState.sourceText;
   appState.sourceText = text || '';
+  if (!appState.sourceText.trim()) return;
   sendToRust('RunTool', { text: appState.sourceText });
+}
+
+function updateRunButtonState() {
+  var sourceEl = document.getElementById('editor-source-text');
+  var runBtn = document.getElementById('editor-run-btn');
+  if (!runBtn) return;
+  var empty = !sourceEl || !sourceEl.value.trim();
+  runBtn.disabled = empty;
+  runBtn.setAttribute('aria-disabled', empty ? 'true' : 'false');
 }
 
 function rerunFromResult() {
@@ -279,8 +387,8 @@ function autosizeEditorSourceTextarea(textarea) {
   var borderTop = parseFloat(style.borderTopWidth) || 0;
   var borderBottom = parseFloat(style.borderBottomWidth) || 0;
   var verticalExtras = paddingTop + paddingBottom + borderTop + borderBottom;
-  var minHeight = lineHeight * 2 + verticalExtras;
-  var maxHeight = lineHeight * 5 + verticalExtras;
+  var minHeight = lineHeight * 4 + verticalExtras;
+  var maxHeight = lineHeight * 10 + verticalExtras;
 
   textarea.style.height = 'auto';
   var nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
@@ -289,8 +397,16 @@ function autosizeEditorSourceTextarea(textarea) {
 }
 
 function resolveSnapMode() {
-  if (appState.view === 'processing') return 'processing';
-  if (appState.view === 'error') return 'error';
+  if (appState.view === 'processing') {
+    var editorView = document.getElementById('view-editor');
+    if (editorView && editorView.classList.contains('is-processing')) return 'editor';
+    return 'processing';
+  }
+  if (appState.view === 'error') {
+    var banner = document.getElementById('editor-error-banner');
+    if (banner && !banner.hasAttribute('hidden')) return 'editor';
+    return 'error';
+  }
   if (appState.view === 'result') return 'result';
   if (appState.tool && appState.tool.id === 'translate') return 'editor-translate';
   return 'editor';
@@ -329,7 +445,7 @@ function setMarkdownPreviewEnabled(enabled) {
   } else {
     richEl.style.display = 'none';
     outputEl.style.display = '';
-    btn.textContent = 'Rich';
+    btn.textContent = 'Preview';
   }
 }
 
@@ -464,6 +580,16 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('editor-close', function() { sendToRust('Dismiss'); });
   bindClick('editor-settings-btn', function() { sendToRust('OpenSettings'); });
   bindClick('editor-run-btn', runCurrentTool);
+  bindClick('editor-cancel-btn', function() { sendToRust('CancelProcessing'); });
+
+  bindClick('editor-error-retry', function() {
+    dismissEditorErrorBanner();
+    sendToRust('Retry');
+  });
+  bindClick('editor-error-dismiss', function() {
+    dismissEditorErrorBanner();
+    requestSnapResizeForCurrentView();
+  });
 
   bindClick('processing-close', function() { sendToRust('Dismiss'); });
   bindClick('processing-cancel-btn', function() { sendToRust('CancelProcessing'); });
@@ -510,7 +636,17 @@ document.addEventListener('DOMContentLoaded', function() {
       sendToRust('UpdateSourceText', { text: appState.sourceText });
       updateCharCount('editor-source-text', 'editor-char-count');
       autosizeEditorSourceTextarea(editorSource);
+      updateRunButtonState();
     });
+  }
+
+  var resultOutput = document.getElementById('result-output');
+  if (typeof ResizeObserver !== 'undefined') {
+    var resizeObs = new ResizeObserver(function() {
+      requestSnapResizeForCurrentView();
+    });
+    if (editorSource) resizeObs.observe(editorSource);
+    if (resultOutput) resizeObs.observe(resultOutput);
   }
 
   document.addEventListener('keydown', function(e) {

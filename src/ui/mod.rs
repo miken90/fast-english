@@ -1,5 +1,9 @@
 pub mod popup;
+pub mod popup_ai;
+pub mod popup_controller;
 pub mod popup_position;
+pub mod popup_runtime;
+pub mod popup_view;
 pub mod settings_views;
 pub mod tray;
 pub mod webview_bridge;

@@ -334,6 +334,42 @@
 .btn-save:hover  { box-shadow: 0 6px 20px var(--primary-glow); transform: translateY(-1px); }
 .btn-save:active { transform: scale(0.97); }
 
+/* ---------- Dirty Indicator ---------- */
+.dirty-indicator {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--warning, #fbbf2e);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.save-row.is-dirty .dirty-indicator { opacity: 1; }
+
+/* ---------- Save Button Disabled ---------- */
+.btn-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Reset Confirmation Inline ---------- */
+.reset-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.reset-confirm .btn-test {
+  font-size: 10px;
+  padding: 5px 10px;
+}
+
 .save-feedback {
   font-size: 11px;
   font-weight: 600;

@@ -62,6 +62,13 @@ See full proposal: `plans/260319-ui-ux-brand-refresh-proposal/reports/design-260
 - Ghost: transparent, border only
 - Icon: 26-28px circle, no bg
 
+### Textareas
+- Vertically resizable (`resize: vertical`)
+- Editor source: 4-line min, 10-line max, autosize on input
+- Result output: 80px min, resizable
+- Border radius: 12px (card radius)
+- Manual resize triggers popup snap resize via IPC
+
 ### Accessibility Requirements
 - Focus-visible: 2px solid primary, 2px offset
 - Min touch target: 44×44px

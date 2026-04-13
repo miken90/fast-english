@@ -63,14 +63,14 @@
 | `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output, includes theme preference and state-based snap-height hints. |
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. Includes `ResizePopup { height, mode }` and move/translate actions used by universal editor flow. |
 | `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. Includes theme preference field. |
-| `ui/popup_position.rs` | Popup placement + snap sizing constants (`EDITOR_MIN_HEIGHT`, `EDITOR_TRANSLATE_HEIGHT`, `PROCESSING_MIN_HEIGHT`, `RESULT_MIN_HEIGHT`, `RESULT_EXPANDED_HEIGHT`, `ERROR_MIN_HEIGHT`). |
+| `ui/popup_position.rs` | Popup placement + snap sizing constants (`POPUP_WIDTH`, `EDITOR_MIN_HEIGHT`, `EDITOR_MAX_RATIO`, `RESULT_MIN_HEIGHT`, `RESULT_MAX_RATIO`, `PROCESSING_HEIGHT`, `ERROR_HEIGHT`). |
 | `assets/popup/icons.js` | Centralized SVG icon module with `renderIcon(name, size)` factory. Manages all tool, action, and status icons. |
 | `assets/popup/tokens.css` | Design tokens (colors, spacing, shadows, typography). Includes light/dark theme overrides via `:root[data-theme="light"]`. |
 | `assets/popup/components.css` | Reusable component library (buttons, textareas, status indicators, labels, feedback toasts). |
-| `assets/popup/popup.css` | Universal popup layouts and action rows for editor/result/error states, plus animations and Fluent Midnight visual refresh. |
+| `assets/popup/popup.css` | Universal popup layouts and action rows for editor/result/error states, vertically resizable textareas, animations, and Fluent Midnight visual refresh. |
 | `assets/popup/settings.css` | Settings window layouts and styling. |
 | `assets/popup/*.html` | HTML markup for the universal popup sections (`Editor`, `Processing`, `Result`, `Error`) plus settings theme/version UI. |
-| `assets/popup/popup.js` | UI orchestration, `appState`-based rendering for universal views, unified IPC actions, resize debouncing, and result actions (Back/Re-run/Use output as input/Replace/Copy). |
+| `assets/popup/popup.js` | UI orchestration, `appState`-based rendering for universal views, unified IPC actions, textarea autosize + manual resize detection, resize debouncing, and result actions (Back/Re-run/Use output as input/Replace/Copy). |
 | `assets/popup/settings.js` | Settings form handling, theme toggle, cancel/reset buttons, icon rendering. |
 
 ### AI, Selection, Editing

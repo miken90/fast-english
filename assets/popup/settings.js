@@ -177,6 +177,26 @@ var initialFormData = null;
 
 function snapshotFormData() {
   initialFormData = getFormData();
+  checkDirty();
+}
+
+function checkDirty() {
+  var current = getFormData();
+  var dirty = !initialFormData ||
+    current.base_url   !== initialFormData.base_url   ||
+    current.model      !== initialFormData.model      ||
+    current.api_key    !== initialFormData.api_key    ||
+    current.auto_popup !== initialFormData.auto_popup ||
+    current.auto_start !== initialFormData.auto_start ||
+    current.theme      !== initialFormData.theme;
+
+  var saveRow = document.querySelector('.save-row');
+  var saveBtn = document.getElementById('btn-save');
+  if (saveRow) {
+    if (dirty) saveRow.classList.add('is-dirty');
+    else       saveRow.classList.remove('is-dirty');
+  }
+  if (saveBtn) saveBtn.disabled = !dirty;
 }
 
 function resetFormToDefaults() {
@@ -241,13 +261,54 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   var resetBtn = document.getElementById('btn-reset-settings');
-  if (resetBtn) {
+  var resetArea = document.getElementById('reset-area');
+  if (resetBtn && resetArea) {
     resetBtn.addEventListener('click', function() {
-      resetFormToDefaults();
+      resetArea.innerHTML =
+        '<span class="reset-confirm">' +
+          'Reset all settings to defaults? ' +
+          '<button class="btn-test" id="btn-reset-yes">Yes, reset</button>' +
+          '<button class="btn-test" id="btn-reset-no">Cancel</button>' +
+        '</span>';
+      document.getElementById('btn-reset-yes').addEventListener('click', function() {
+        resetFormToDefaults();
+        checkDirty();
+        resetArea.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+        bindResetButton();
+      });
+      document.getElementById('btn-reset-no').addEventListener('click', function() {
+        resetArea.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+        bindResetButton();
+      });
     });
   }
 
-  // Live field changes → notify Rust
+  function bindResetButton() {
+    var btn = document.getElementById('btn-reset-settings');
+    var area = document.getElementById('reset-area');
+    if (btn && area) {
+      btn.addEventListener('click', function() {
+        area.innerHTML =
+          '<span class="reset-confirm">' +
+            'Reset all settings to defaults? ' +
+            '<button class="btn-test" id="btn-reset-yes">Yes, reset</button>' +
+            '<button class="btn-test" id="btn-reset-no">Cancel</button>' +
+          '</span>';
+        document.getElementById('btn-reset-yes').addEventListener('click', function() {
+          resetFormToDefaults();
+          checkDirty();
+          area.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+          bindResetButton();
+        });
+        document.getElementById('btn-reset-no').addEventListener('click', function() {
+          area.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+          bindResetButton();
+        });
+      });
+    }
+  }
+
+  // Live field changes → notify Rust (theme only for live preview)
   var fields = [
     { id: 'input-base-url', field: 'base_url' },
     { id: 'input-model',    field: 'model'    },
@@ -262,8 +323,9 @@ document.addEventListener('DOMContentLoaded', function() {
     el.addEventListener(eventType, function() {
       if (f.field === 'theme') {
         applyTheme(el.value || 'auto');
+        sendToRust('SettingsChanged', { field: f.field, value: el.value });
       }
-      sendToRust('SettingsChanged', { field: f.field, value: el.value });
+      checkDirty();
     });
   });
 
@@ -277,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var el = document.getElementById(t.id);
     if (!el) return;
     el.addEventListener('change', function() {
-      sendToRust('SettingsChanged', { field: t.field, value: el.checked });
+      checkDirty();
     });
   });
 

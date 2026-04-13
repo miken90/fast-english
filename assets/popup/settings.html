@@ -130,9 +130,12 @@
     <!-- Footer: Save + Version -->
     <div class="settings-footer">
       <div class="save-row">
-        <button class="btn-save" id="btn-save">Save Settings</button>
+        <button class="btn-save" id="btn-save" disabled>Save Settings</button>
+        <span class="dirty-indicator" id="dirty-indicator">Unsaved changes</span>
         <button class="btn-test" id="btn-cancel-settings">Cancel</button>
-        <button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>
+        <span id="reset-area">
+          <button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>
+        </span>
         <span class="save-feedback" id="save-feedback" aria-live="polite"></span>
       </div>
       <div class="label-upper" id="version-label">Fast English v0.1.0</div>
