@@ -1,15 +1,15 @@
 use crate::selection::Rect;
 
 /// Popup dimensions.
-pub const POPUP_WIDTH: f32 = 420.0;
+pub const POPUP_WIDTH: f32 = 440.0;
 pub const POPUP_INITIAL_HEIGHT: f32 = EDITOR_MIN_HEIGHT;
 
 /// Height bounds (px) for popup states.
 /// Dynamic sizing: JS measures content, Rust clamps to [min, max].
 /// Max heights are ratios of screen height (0.7 = 70%).
-pub const EDITOR_MIN_HEIGHT: f32 = 260.0;
+pub const EDITOR_MIN_HEIGHT: f32 = 340.0;
 pub const EDITOR_MAX_RATIO: f32 = 0.7;
-pub const RESULT_MIN_HEIGHT: f32 = 280.0;
+pub const RESULT_MIN_HEIGHT: f32 = 360.0;
 pub const RESULT_MAX_RATIO: f32 = 0.7;
 pub const PROCESSING_HEIGHT: f32 = 155.0;
 pub const ERROR_HEIGHT: f32 = 180.0;

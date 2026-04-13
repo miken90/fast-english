@@ -3,13 +3,13 @@
 
 [Setup]
 AppName=Fast English
-AppVersion=0.3.1
+AppVersion=0.3.3
 AppPublisher=Fast English
 AppPublisherURL=https://github.com/miken90/fast-english
 DefaultDirName={autopf}\FastEnglish
 DefaultGroupName=Fast English
 OutputDir=..\dist
-OutputBaseFilename=FastEnglish-Setup-0.3.1
+OutputBaseFilename=FastEnglish-Setup-0.3.3
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
