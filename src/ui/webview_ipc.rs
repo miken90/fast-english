@@ -64,10 +64,8 @@ pub enum JsToRust {
     ResizePopup {
         height: f64,
     },
-    MovePopup {
-        dx: f64,
-        dy: f64,
-    },
+    PopupDragStart,
+    PopupDragMove,
 }
 
 impl RustToJs {

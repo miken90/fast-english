@@ -589,9 +589,12 @@ function simpleMarkdown(text) {
 }
 
 function initPopupDrag() {
+  // The drag only reports that it started and that the mouse moved. Rust reads
+  // the OS cursor to work out the offset, because mouse coordinates here are
+  // CSS pixels and would need a per-monitor scale conversion to be usable.
   var dragging = false;
-  var startX = 0;
-  var startY = 0;
+  var lastX = 0;
+  var lastY = 0;
 
   function isDragHandle(el) {
     while (el && el !== document.body) {
@@ -612,19 +615,18 @@ function initPopupDrag() {
     if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
 
     dragging = true;
-    startX = e.screenX;
-    startY = e.screenY;
+    lastX = e.screenX;
+    lastY = e.screenY;
+    sendToRust('PopupDragStart');
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    var dx = e.screenX - startX;
-    var dy = e.screenY - startY;
-    if (dx === 0 && dy === 0) return;
-    startX = e.screenX;
-    startY = e.screenY;
-    sendToRust('MovePopup', { dx: dx, dy: dy });
+    if (e.screenX === lastX && e.screenY === lastY) return;
+    lastX = e.screenX;
+    lastY = e.screenY;
+    sendToRust('PopupDragMove');
   });
 
   document.addEventListener('mouseup', function() {

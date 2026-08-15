@@ -27,6 +27,8 @@ pub(crate) struct AppState {
     /// Work area of the monitor the popup was last placed on. Height clamping
     /// and repositioning must follow the popup, not the primary monitor.
     pub popup_work: WorkArea,
+    /// Cursor and popup origin captured when a drag starts, both physical.
+    pub popup_drag_origin: Option<((f32, f32), (f64, f64))>,
     pub copy_feedback: bool,
     pub last_auto_shown: Option<String>,
     pub ignore_auto_until: Option<Instant>,
@@ -82,6 +84,7 @@ pub fn run(
         popup_x: 0.0,
         popup_y: 0.0,
         popup_work: WorkArea::fallback(),
+        popup_drag_origin: None,
         copy_feedback: false,
         last_auto_shown: None,
         ignore_auto_until: None,

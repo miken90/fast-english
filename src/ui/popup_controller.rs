@@ -1,5 +1,6 @@
 use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANSLATE_LANGS};
 use crate::selection::{SelectionContext, Tier};
+use crate::ui::popup_monitor;
 use crate::ui::popup_position::{clamp_popup_height, clamp_popup_y, POPUP_WIDTH};
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge;
@@ -434,9 +435,28 @@ pub(crate) fn handle_webview_ipc(
             });
         }
 
-        JsToRust::MovePopup { dx, dy } => {
-            state.popup_x += dx;
-            state.popup_y += dy;
+        JsToRust::PopupDragStart => {
+            // Mouse coordinates from the WebView are CSS pixels, which differ
+            // per monitor scale. Tracking the OS cursor instead keeps the drag
+            // 1:1 on any display without a unit conversion to get wrong.
+            state.popup_drag_origin =
+                popup_monitor::cursor_pos().map(|c| (c, (state.popup_x, state.popup_y)));
+        }
+
+        JsToRust::PopupDragMove => {
+            let Some(((start_x, start_y), (origin_x, origin_y))) = state.popup_drag_origin else {
+                return;
+            };
+            let Some((cursor_x, cursor_y)) = popup_monitor::cursor_pos() else {
+                return;
+            };
+
+            state.popup_x = origin_x + (cursor_x - start_x) as f64;
+            state.popup_y = origin_y + (cursor_y - start_y) as f64;
+            // A drag can cross onto another display, and later resizes must
+            // clamp against whichever monitor the popup ended up on.
+            state.popup_work = popup_monitor::work_area_for_point(cursor_x, cursor_y);
+
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Move {
                 x: state.popup_x,
                 y: state.popup_y,
