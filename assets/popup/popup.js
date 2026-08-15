@@ -422,13 +422,18 @@ function maxPopupHeight() {
 
 /** The one region allowed to scroll once the popup hits its height cap. */
 function scrollRegionForCurrentView() {
-  if (appState.view === 'result') {
+  // Read the view that is actually on screen: processing and errors are shown
+  // inside the editor view when they follow one, so the state name alone would
+  // point at the wrong region.
+  var active = document.querySelector('.view.active');
+  if (!active) return null;
+  if (active.id === 'view-result') {
     return document.getElementById(
       appState.markdownPreviewEnabled ? 'result-rich-preview' : 'result-output'
     );
   }
-  if (appState.view === 'editor') return document.getElementById('editor-source-text');
-  if (appState.view === 'error') return document.getElementById('error-message');
+  if (active.id === 'view-editor') return document.getElementById('editor-source-text');
+  if (active.id === 'view-error') return document.getElementById('error-message');
   return null;
 }
 
