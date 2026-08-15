@@ -22,7 +22,7 @@ Desktop.ini
 credentials.json
 
 # Plans (internal)
-plans/
+/plans/
 .cocoindex_code/
 .beads/
 .teams/
@@ -30,3 +30,10 @@ repomix*
 # CocoIndex Code (ccc)
 /.cocoindex_code/
 .claude/
+
+# Harness core maintenance binary
+scripts/bin/harness
+scripts/bin/harness.exe
+
+# Harness install/update backup snapshots (local, transient)
+.harness-backup/
