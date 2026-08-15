@@ -1,3 +1,4 @@
+use crate::ui::popup_position::{POPUP_INITIAL_HEIGHT, POPUP_WIDTH};
 use crate::ui::webview_ipc::{check_webview2_runtime, JsToRust};
 use crate::ui::webview_settings::SettingsCommand;
 use std::sync::mpsc as std_mpsc;
@@ -142,7 +143,10 @@ fn run_event_loop(
         .with_transparent(false)
         .with_always_on_top(true)
         .with_skip_taskbar(true)
-        .with_inner_size(LogicalSize::new(440.0_f64, 340.0_f64))
+        .with_inner_size(LogicalSize::new(
+            POPUP_WIDTH as f64,
+            POPUP_INITIAL_HEIGHT as f64,
+        ))
         .with_visible(false)
         .with_title("Fast English")
         .build(&event_loop)

@@ -62,6 +62,11 @@ impl WorkArea {
     pub fn height_css(&self) -> f32 {
         self.height / self.scale
     }
+
+    /// Work-area width expressed in CSS pixels.
+    pub fn width_css(&self) -> f32 {
+        self.width / self.scale
+    }
 }
 
 impl Default for WorkArea {
@@ -106,6 +111,11 @@ pub fn place_popup(anchor: Option<(f32, f32)>, size: (f32, f32), work: &WorkArea
     };
 
     (x, y.clamp(min_y, max_y))
+}
+
+/// Popup width in CSS pixels, narrowed on displays too small for the default.
+pub fn popup_width(work: &WorkArea) -> f32 {
+    POPUP_WIDTH.min(work.width_css() - 2.0 * MARGIN).max(240.0)
 }
 
 /// Clamp a content-measured height (CSS pixels) to something the monitor can
@@ -248,6 +258,19 @@ mod tests {
         let work = secondary_left();
         let (x, y) = place_popup(Some((0.0, 0.0)), (4000.0, 4000.0), &work);
         assert_eq!((x, y), (work.left + 8.0, work.top + 8.0));
+    }
+
+    #[test]
+    fn width_narrows_only_on_a_display_too_small_for_the_default() {
+        assert_eq!(popup_width(&primary_hidpi()), POPUP_WIDTH);
+        let narrow = WorkArea {
+            left: 0.0,
+            top: 0.0,
+            width: 400.0,
+            height: 800.0,
+            scale: 1.0,
+        };
+        assert_eq!(popup_width(&narrow), 384.0);
     }
 
     #[test]

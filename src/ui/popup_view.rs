@@ -7,7 +7,7 @@ use crate::app::PopupState;
 
 pub(crate) fn show_popup(state: &mut AppState, ctx: &SelectionContext) {
     use crate::ui::popup_position::{
-        pick_anchor, place_popup, work_area_for_anchor, POPUP_INITIAL_HEIGHT, POPUP_WIDTH,
+        pick_anchor, place_popup, popup_width, work_area_for_anchor, POPUP_INITIAL_HEIGHT,
     };
 
     // Without a selection the popup is centred. The caret cannot stand in for
@@ -21,7 +21,7 @@ pub(crate) fn show_popup(state: &mut AppState, ctx: &SelectionContext) {
 
     let work = work_area_for_anchor(anchor);
     let size = (
-        work.to_physical(POPUP_WIDTH),
+        work.to_physical(popup_width(&work)),
         work.to_physical(POPUP_INITIAL_HEIGHT),
     );
     let (x, y) = place_popup(anchor, size, &work);

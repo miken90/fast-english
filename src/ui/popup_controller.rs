@@ -1,7 +1,7 @@
 use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANSLATE_LANGS};
 use crate::selection::{SelectionContext, Tier};
 use crate::ui::popup_monitor;
-use crate::ui::popup_position::{clamp_popup_height, clamp_popup_y, POPUP_WIDTH};
+use crate::ui::popup_position::{clamp_popup_height, clamp_popup_y, popup_width};
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge;
 use crate::ui::webview_ipc::JsToRust;
@@ -430,7 +430,7 @@ pub(crate) fn handle_webview_ipc(
             }
 
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
-                width: work.to_physical(POPUP_WIDTH) as f64,
+                width: work.to_physical(popup_width(&work)) as f64,
                 height: height_physical as f64,
             });
         }
