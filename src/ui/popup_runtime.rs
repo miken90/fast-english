@@ -1,6 +1,7 @@
 use crate::app::{AppEvent, PopupState};
 use crate::selection::SelectionContext;
 use crate::settings::AppSettings;
+use crate::ui::popup_position::WorkArea;
 use crate::ui::settings_views::SettingsForm;
 use crate::ui::webview_ipc::JsToRust;
 use crate::ui::webview_popup::{spawn_webview_thread, WebViewPopupCommand};
@@ -20,8 +21,12 @@ pub(crate) struct AppState {
     pub settings: AppSettings,
     pub http_client: reqwest::Client,
     pub popup_visible: bool,
+    /// Popup top-left corner in physical screen pixels.
     pub popup_x: f64,
     pub popup_y: f64,
+    /// Work area of the monitor the popup was last placed on. Height clamping
+    /// and repositioning must follow the popup, not the primary monitor.
+    pub popup_work: WorkArea,
     pub copy_feedback: bool,
     pub last_auto_shown: Option<String>,
     pub ignore_auto_until: Option<Instant>,
@@ -76,6 +81,7 @@ pub fn run(
         popup_visible: false,
         popup_x: 0.0,
         popup_y: 0.0,
+        popup_work: WorkArea::fallback(),
         copy_feedback: false,
         last_auto_shown: None,
         ignore_auto_until: None,

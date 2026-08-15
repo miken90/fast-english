@@ -1,6 +1,6 @@
 use crate::app::{AppEvent, PopupState, TranslateLanguage, WritingToolKind, TRANSLATE_LANGS};
 use crate::selection::{SelectionContext, Tier};
-use crate::ui::popup_position::POPUP_WIDTH;
+use crate::ui::popup_position::{clamp_popup_height, clamp_popup_y, POPUP_WIDTH};
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
 use crate::ui::webview_bridge;
 use crate::ui::webview_ipc::JsToRust;
@@ -13,9 +13,7 @@ use tracing::{debug, error};
 
 use super::popup_ai::start_ai_request;
 use super::popup_runtime::{AppState, InternalEvent};
-use super::popup_view::{
-    calculate_height_for_mode, dismiss_popup, push_popup_state, show_popup,
-};
+use super::popup_view::{calculate_height_for_mode, dismiss_popup, push_popup_state, show_popup};
 
 pub(crate) fn handle_app_event(
     state: &mut AppState,
@@ -415,14 +413,28 @@ pub(crate) fn handle_webview_ipc(
         }
 
         JsToRust::ResizePopup { height, mode } => {
+            let work = state.popup_work;
             let requested_mode = mode.as_deref().unwrap_or("editor");
             let content_height = if height > 0.0 { Some(height) } else { None };
-            let (_, screen_height) = crate::ui::popup_position::get_screen_size();
-            let final_height =
-                calculate_height_for_mode(requested_mode, content_height, screen_height);
+            let mode_height =
+                calculate_height_for_mode(requested_mode, content_height, work.height_css());
+            let height_css = clamp_popup_height(mode_height as f32, &work);
+            let height_physical = work.to_physical(height_css);
+
+            // Growing downward can push the popup past the work area, so the
+            // top edge follows the new height.
+            let y = clamp_popup_y(state.popup_y as f32, height_physical, &work) as f64;
+            if (y - state.popup_y).abs() > 0.5 {
+                state.popup_y = y;
+                let _ = state.webview_popup_tx.send(WebViewPopupCommand::Move {
+                    x: state.popup_x,
+                    y: state.popup_y,
+                });
+            }
+
             let _ = state.webview_popup_tx.send(WebViewPopupCommand::Resize {
-                width: POPUP_WIDTH as f64,
-                height: final_height,
+                width: work.to_physical(POPUP_WIDTH) as f64,
+                height: height_physical as f64,
             });
         }
 
@@ -566,10 +578,7 @@ fn context_can_replace(context: &SelectionContext) -> bool {
     context.is_editable
 }
 
-pub(super) fn should_open_manual_capture_result(
-    ctx: &SelectionContext,
-    allow_empty: bool,
-) -> bool {
+pub(super) fn should_open_manual_capture_result(ctx: &SelectionContext, allow_empty: bool) -> bool {
     // RT-4: When allow_empty is false (hotkey path), require actual text content.
     // Bounds alone (e.g. UIA caret position with empty text) is not a meaningful capture.
     allow_empty || !ctx.text.is_empty()

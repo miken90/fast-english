@@ -1,6 +1,7 @@
 pub mod popup;
 pub mod popup_ai;
 pub mod popup_controller;
+pub mod popup_monitor;
 pub mod popup_position;
 pub mod popup_runtime;
 pub mod popup_view;

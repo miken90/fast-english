@@ -5,6 +5,10 @@ use std::thread::JoinHandle;
 use tracing::{error, info, warn};
 
 /// Commands sent from app logic to the WebView popup window.
+///
+/// All geometry is in **physical pixels**. Logical units would be converted by
+/// tao using the window's currently-known monitor, which is the wrong monitor
+/// while the popup is being moved onto another display.
 #[derive(Debug)]
 pub enum WebViewPopupCommand {
     Show {
@@ -71,7 +75,7 @@ fn run_event_loop(
     settings_rx: std_mpsc::Receiver<SettingsCommand>,
     ipc_tx: tokio::sync::mpsc::UnboundedSender<JsToRust>,
 ) {
-    use tao::dpi::{LogicalPosition, LogicalSize};
+    use tao::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
     use tao::event::{Event, StartCause};
     use tao::event_loop::{ControlFlow, EventLoopBuilder};
     use tao::window::WindowBuilder;
@@ -231,8 +235,10 @@ fn run_event_loop(
                         width,
                         height,
                     } => {
-                        popup_window.set_inner_size(LogicalSize::new(width, height));
-                        popup_window.set_outer_position(LogicalPosition::new(x, y));
+                        // Position first: it decides which monitor the window
+                        // belongs to before the size is applied.
+                        popup_window.set_outer_position(PhysicalPosition::new(x, y));
+                        popup_window.set_inner_size(PhysicalSize::new(width, height));
                         popup_window.set_visible(true);
                         popup_window.set_focus();
                     }
@@ -240,10 +246,10 @@ fn run_event_loop(
                         popup_window.set_visible(false);
                     }
                     WebViewPopupCommand::Resize { width, height } => {
-                        popup_window.set_inner_size(LogicalSize::new(width, height));
+                        popup_window.set_inner_size(PhysicalSize::new(width, height));
                     }
                     WebViewPopupCommand::Move { x, y } => {
-                        popup_window.set_outer_position(LogicalPosition::new(x, y));
+                        popup_window.set_outer_position(PhysicalPosition::new(x, y));
                     }
                     WebViewPopupCommand::SetState { json } => {
                         let script = format!("setState({})", json);
