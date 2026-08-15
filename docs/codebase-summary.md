@@ -52,7 +52,7 @@ fast-english/
 │   └── popup/
 │       ├── index.html                     # Popup UI markup
 │       ├── tokens.css                     # Design tokens (colors, spacing, shadows)
-│       ├── base.css                       # Global reset + font faces
+│       ├── base.css                       # Global reset + root variables (system font stack)
 │       ├── components.css                 # Shared component library (buttons, textareas, status)
 │       ├── popup.css                      # Popup-specific styling
 │       ├── popup.js                       # Popup client logic + IPC + roving tabindex
@@ -77,9 +77,9 @@ fast-english/
 | `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
 | `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
 | `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and popup min-height hints by state/tool. |
-| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height, mode }`/`MovePopup` contracts. |
+| `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height }`/`PopupDragStart`/`PopupDragMove` contracts (drag carries no coordinates; the OS cursor is tracked instead). |
 | `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
-| `popup_position.rs` | Calculates popup anchor placement and snap height constants (`POPUP_WIDTH`, `EDITOR_MIN_HEIGHT`, `EDITOR_MAX_RATIO`, `RESULT_MIN_HEIGHT`, `RESULT_MAX_RATIO`, `PROCESSING_HEIGHT`, `ERROR_HEIGHT`). |
+| `popup_position.rs` | Calculates popup anchor placement and content-driven sizing constants (`POPUP_WIDTH`, `POPUP_INITIAL_HEIGHT`, `POPUP_MIN_HEIGHT`). |
 | `tray.rs` | Tray icon/menu creation and menu event mapping to `AppEvent`. |
 
 ## Runtime Patterns
@@ -99,7 +99,7 @@ fast-english/
 Three-layer CSS organization for maintainability and reusability:
 
 1. **tokens.css** — Design tokens (colors, spacing, shadows, typography scale)
-2. **base.css** — Global reset, font faces, root variables
+2. **base.css** — Global reset, root variables (system font stack, no `@font-face`)
 3. **components.css** — Reusable component library (buttons, textareas, status dots, badges)
 4. **popup.css** / **settings.css** — App-specific styles (views, layout, animations)
 
