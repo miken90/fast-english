@@ -101,10 +101,8 @@ pub async fn try_manual_capture() -> Option<SelectionContext> {
     // blocking std::thread::sleep calls (up to ~1.88s total) which would
     // otherwise block a Tokio worker thread.
     #[cfg(target_os = "windows")]
-    match tokio::task::spawn_blocking(|| {
-        super::clipboard_fallback::get_selection_via_clipboard()
-    })
-    .await
+    match tokio::task::spawn_blocking(|| super::clipboard_fallback::get_selection_via_clipboard())
+        .await
     {
         Ok(Some(ctx)) => return Some(ctx),
         Ok(None) => {}
