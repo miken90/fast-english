@@ -66,7 +66,7 @@
         </div>
 
         <div class="test-row">
-          <button class="btn-test" id="btn-test-connection">Test Connection</button>
+          <button class="btn btn--secondary" id="btn-test-connection">Test Connection</button>
           <div class="status-badge status-badge--idle" id="test-status-badge" role="status" aria-live="polite">
             <div class="status-dot status-dot--sm"></div>
             <span id="test-status-text">Not tested</span>
@@ -127,14 +127,13 @@
 
     </div><!-- /.settings-body -->
 
-    <!-- Footer: Save + Version -->
     <div class="settings-footer">
       <div class="save-row">
-        <button class="btn-save" id="btn-save" disabled>Save Settings</button>
+        <button class="btn btn--primary btn-save" id="btn-save" disabled>Save Settings</button>
         <span class="dirty-indicator" id="dirty-indicator">Unsaved changes</span>
-        <button class="btn-test" id="btn-cancel-settings">Cancel</button>
+        <button class="btn btn--ghost" id="btn-cancel-settings">Cancel</button>
         <span id="reset-area">
-          <button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>
+          <button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>
         </span>
         <span class="save-feedback" id="save-feedback" aria-live="polite"></span>
       </div>

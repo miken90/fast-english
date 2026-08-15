@@ -4,14 +4,6 @@
    Load order: tokens.css -> base.css -> popup/settings.css
    =================================================== */
 
-/* ---------- Font ---------- */
-@font-face {
-  font-family: 'Plus Jakarta Sans';
-  font-style: normal;
-  font-weight: 400 700;
-  src: local('Plus Jakarta Sans'), local('PlusJakartaSans');
-}
-
 /* ---------- Reset ---------- */
 *, *::before, *::after {
   box-sizing: border-box;

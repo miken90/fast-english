@@ -86,7 +86,7 @@
   --transition-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Font */
-  --font-family:          'Plus Jakarta Sans', 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
+  --font-family:          'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono:            'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --font-size-xs:         9px;
   --font-size-sm:         11px;
