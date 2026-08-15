@@ -18,14 +18,6 @@ pub const POPUP_INITIAL_HEIGHT: f32 = 340.0;
 pub const POPUP_MIN_HEIGHT: f32 = 120.0;
 /// Share of the monitor work area a popup may occupy at most.
 const MAX_HEIGHT_RATIO: f32 = 0.9;
-
-/// Per-state height bounds, in CSS pixels / work-area ratios.
-pub const EDITOR_MIN_HEIGHT: f32 = 340.0;
-pub const EDITOR_MAX_RATIO: f32 = 0.7;
-pub const RESULT_MIN_HEIGHT: f32 = 360.0;
-pub const RESULT_MAX_RATIO: f32 = 0.7;
-pub const PROCESSING_HEIGHT: f32 = 155.0;
-pub const ERROR_HEIGHT: f32 = 180.0;
 /// Gap kept between the popup and the work-area edges, in CSS pixels.
 const MARGIN: f32 = 8.0;
 /// Gap between the anchor point and the popup edge, in CSS pixels.
@@ -62,7 +54,7 @@ impl WorkArea {
     }
 
     /// CSS pixels (what the WebView measures) → physical pixels.
-    pub fn to_physical(&self, css: f32) -> f32 {
+    pub fn to_physical(self, css: f32) -> f32 {
         css * self.scale
     }
 

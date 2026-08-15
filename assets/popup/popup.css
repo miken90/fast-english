@@ -1,30 +1,50 @@
 /* Fast English — Universal Editor Popup */
 
+/* The window is sized from the document, so the document must never be sized
+   from the window — that would make the measurement echo the window back.
+   Scoped to the popup document; base.css is shared with the settings window. */
+html,
+body {
+  height: auto;
+}
+
 #popup-root {
   width: 100%;
-  height: 100%;
+  height: auto;
 }
 
 .popup-container {
   width: 100%;
-  height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background:
-    radial-gradient(130% 90% at 0% 0%, rgba(96, 165, 250, 0.12) 0%, transparent 54%),
-    radial-gradient(120% 90% at 100% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 55%),
-    var(--mica-bg);
-  box-shadow: var(--shadow-popup);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--border-subtle);
+    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+    var(--color-surface-base);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    var(--shadow-popup);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--color-border-default);
+}
+
+:root[data-theme="light"] .popup-container {
+  background:
+    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+    var(--color-surface-base);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
+    var(--shadow-popup);
 }
 
 .view {
   display: none;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
   flex-direction: column;
 }
@@ -78,30 +98,60 @@
 }
 
 .tool-pill {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 11.5px;
+  font-weight: 600;
   padding: 6px 12px;
   white-space: nowrap;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-base);
 }
 
 .tool-pill:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: var(--text-primary);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  transform: translateY(-0.5px);
 }
 
-.tool-pill.active {
-  border-color: rgba(59, 130, 246, 0.64);
-  color: var(--text-primary);
-  background: rgba(59, 130, 246, 0.2);
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+.tool-pill__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+/* Tool specific active states with distinct design accents */
+.tool-pill[data-tool-id="enhance-writing"].active {
+  border-color: var(--color-tool-blue-fg);
+  background: var(--color-tool-blue-bg);
+  color: var(--color-tool-blue-fg);
+  box-shadow: 0 2px 8px var(--color-primary-glow);
+}
+.tool-pill[data-tool-id="fix-grammar"].active {
+  border-color: var(--color-tool-green-fg);
+  background: var(--color-tool-green-bg);
+  color: var(--color-tool-green-fg);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+.tool-pill[data-tool-id="convert-prompt"].active {
+  border-color: var(--color-tool-purple-fg);
+  background: var(--color-tool-purple-bg);
+  color: var(--color-tool-purple-fg);
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.15);
+}
+.tool-pill[data-tool-id="translate"].active {
+  border-color: var(--color-tool-amber-fg);
+  background: var(--color-tool-amber-bg);
+  color: var(--color-tool-amber-fg);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
 }
 
 .translate-controls {
@@ -169,17 +219,20 @@
 
 .editor-main,
 .result-main {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.result-main {
+/* The single scroll region, enabled only when the content exceeds the height
+   cap. Its max-height is set inline by the measurement pass. */
+.scroll-region--at-max,
+.editor-textarea--scrolling {
   overflow-y: auto;
-  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .editor-card {
@@ -198,24 +251,21 @@
 .editor-textarea {
   width: 100%;
   min-height: 80px;
-  flex: 1;
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.32);
-  color: var(--text-secondary);
+  border-radius: 10px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-input);
+  color: var(--color-text-primary);
   font-family: inherit;
-  font-size: 12.5px;
-  line-height: 1.55;
-  padding: 11px 13px;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
   outline: none;
-  resize: vertical;
+  resize: none;
   overflow-y: auto;
+  transition: all var(--transition-base);
 }
 
 #editor-source-text {
-  min-height: calc(1.55em * 4 + 24px);
-  max-height: calc(1.55em * 10 + 24px);
-  height: calc(1.55em * 4 + 24px);
   overflow-x: hidden;
   overflow-y: hidden;
   scrollbar-gutter: stable;
@@ -223,7 +273,6 @@
   scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
   overscroll-behavior: contain;
   box-sizing: border-box;
-  transition: height 90ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -250,9 +299,18 @@
 }
 
 .editor-textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-primary-default);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 
+    0 0 0 3px rgba(59, 130, 246, 0.15),
+    inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="light"] .editor-textarea:focus {
+  background: var(--color-surface-card);
+  box-shadow: 
+    0 0 0 3px rgba(37, 99, 235, 0.12),
+    inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .editor-textarea--readonly {
@@ -260,19 +318,29 @@
 }
 
 .result-output-card .editor-textarea,
+.result-output,
 .result-rich-preview {
   min-height: 80px;
 }
 
+/* Readonly output is a div, not a textarea: no second scroll container to
+   manage, and long answers stay selectable and keyboard-scrollable. */
+.result-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: visible;
+}
+
 .result-rich-preview {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 11px 13px;
+  background: var(--color-surface-input);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  padding: 12px 14px;
   font-size: 13px;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  overflow-y: auto;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  transition: all var(--transition-base);
 }
 
 .result-source-block {

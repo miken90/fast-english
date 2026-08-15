@@ -13,7 +13,7 @@ use tracing::{debug, error};
 
 use super::popup_ai::start_ai_request;
 use super::popup_runtime::{AppState, InternalEvent};
-use super::popup_view::{calculate_height_for_mode, dismiss_popup, push_popup_state, show_popup};
+use super::popup_view::{dismiss_popup, push_popup_state, show_popup};
 
 pub(crate) fn handle_app_event(
     state: &mut AppState,
@@ -412,13 +412,9 @@ pub(crate) fn handle_webview_ipc(
             let _ = state.webview_settings_tx.send(SettingsCommand::Hide);
         }
 
-        JsToRust::ResizePopup { height, mode } => {
+        JsToRust::ResizePopup { height } => {
             let work = state.popup_work;
-            let requested_mode = mode.as_deref().unwrap_or("editor");
-            let content_height = if height > 0.0 { Some(height) } else { None };
-            let mode_height =
-                calculate_height_for_mode(requested_mode, content_height, work.height_css());
-            let height_css = clamp_popup_height(mode_height as f32, &work);
+            let height_css = clamp_popup_height(height as f32, &work);
             let height_physical = work.to_physical(height_css);
 
             // Growing downward can push the popup past the work area, so the

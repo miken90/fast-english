@@ -158,7 +158,7 @@ function renderEditor(data) {
     sourceEl.value = appState.sourceText;
     autosizeEditorSourceTextarea(sourceEl);
   }
-  updateCharCount('editor-source-text', 'editor-char-count');
+  setCharCount('editor-char-count', appState.sourceText);
   updateRunButtonState();
 
   var sourceLabel = document.getElementById('editor-source-label');
@@ -199,9 +199,14 @@ function renderToolSwitcher() {
     var btn = document.createElement('button');
     btn.className = 'tool-pill' + (tool.id === appState.tool.id ? ' active' : '');
     btn.type = 'button';
-    btn.textContent = TOOL_SHORT_LABELS[tool.id] || tool.title;
     btn.setAttribute('aria-pressed', tool.id === appState.tool.id ? 'true' : 'false');
     btn.dataset.toolId = tool.id;
+
+    var iconName = tool.id.replace(/-/g, '_');
+    var iconSvg = window.renderIcon ? window.renderIcon(iconName, 13, 2.5) : '';
+    btn.innerHTML = (iconSvg ? '<span class="tool-pill__icon">' + iconSvg + '</span>' : '') +
+                    '<span class="tool-pill__label">' + (TOOL_SHORT_LABELS[tool.id] || tool.title) + '</span>';
+
     btn.addEventListener('click', function() {
       sendToRust('ToolSelected', { kind: tool.id });
     });
@@ -260,9 +265,9 @@ function renderResult(data) {
   var outputEl = document.getElementById('result-output');
   var richEl = document.getElementById('result-rich-preview');
   var toggleBtn = document.getElementById('result-toggle-md');
-  if (outputEl) outputEl.value = appState.resultOutput;
+  if (outputEl) outputEl.textContent = appState.resultOutput;
   if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput);
-  updateCharCount('result-output', 'result-char-count');
+  setCharCount('result-char-count', appState.resultOutput);
 
   setMarkdownPreviewEnabled(appState.markdownPreviewEnabled);
 
@@ -295,7 +300,7 @@ function renderError(data) {
   if (typeof data.sourceText === 'string') appState.sourceText = unescHtml(data.sourceText);
 
   var msgEl = document.getElementById('error-message');
-  if (msgEl) msgEl.textContent = data.message || 'An unexpected error occurred.';
+  if (msgEl) msgEl.textContent = unescHtml(data.message || '') || 'An unexpected error occurred.';
 }
 
 function enterInlineProcessing() {
@@ -341,7 +346,7 @@ function showEditorErrorBanner(message) {
   var banner = document.getElementById('editor-error-banner');
   if (!banner) return;
   var msgSpan = banner.querySelector('.error-banner__msg');
-  if (msgSpan) msgSpan.textContent = message;
+  if (msgSpan) msgSpan.textContent = unescHtml(message || '');
   banner.removeAttribute('hidden');
 }
 
@@ -371,10 +376,9 @@ function rerunFromResult() {
   sendToRust('RunTool', { text: appState.sourceText || '' });
 }
 
-function updateCharCount(textareaId, countId) {
-  var ta = document.getElementById(textareaId);
+function setCharCount(countId, text) {
   var cc = document.getElementById(countId);
-  if (ta && cc) cc.textContent = ta.value.length + ' chars';
+  if (cc) cc.textContent = (text || '').length + ' chars';
 }
 
 function autosizeEditorSourceTextarea(textarea) {
@@ -388,46 +392,98 @@ function autosizeEditorSourceTextarea(textarea) {
   var borderBottom = parseFloat(style.borderBottomWidth) || 0;
   var verticalExtras = paddingTop + paddingBottom + borderTop + borderBottom;
   var minHeight = lineHeight * 4 + verticalExtras;
-  var maxHeight = lineHeight * 10 + verticalExtras;
+  var maxHeight = Math.max(minHeight, Math.round(maxPopupHeight() * 0.6));
 
   textarea.style.height = 'auto';
   var nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
   textarea.style.height = nextHeight + 'px';
-  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  // A class rather than an inline style, so it cannot outrank the scroll
+  // region's own overflow rule when both apply to this textarea.
+  textarea.classList.toggle('editor-textarea--scrolling', textarea.scrollHeight > maxHeight);
 }
 
-function resolveSnapMode() {
-  if (appState.view === 'processing') {
-    var editorView = document.getElementById('view-editor');
-    if (editorView && editorView.classList.contains('is-processing')) return 'editor';
-    return 'processing';
-  }
-  if (appState.view === 'error') {
-    var banner = document.getElementById('editor-error-banner');
-    if (banner && !banner.hasAttribute('hidden')) return 'editor';
-    return 'error';
-  }
-  if (appState.view === 'result') return 'result';
-  if (appState.tool && appState.tool.id === 'translate') return 'editor-translate';
-  return 'editor';
-}
+/* ---------- Window sizing ----------
+ * The document lays out at its intrinsic height and reports that height to
+ * Rust. Nothing here may read a value that depends on the window's own size.
+ * Above the cap, exactly one region scrolls; below it, nothing does.
+ */
+
+var MAX_HEIGHT_RATIO = 0.7;
+var MIN_SCROLL_REGION = 80;
+var RESIZE_DEBOUNCE_MS = 150;
 
 var _resizeTimer = null;
-function measureAndResize() {
-  if (_resizeTimer) clearTimeout(_resizeTimer);
-  _resizeTimer = setTimeout(function() {
-    var root = document.getElementById('popup-root');
-    if (!root) return;
-    var activeView = root.querySelector('.view.active');
-    if (!activeView) return;
-    var needed = activeView.scrollHeight + 2;
-    var mode = resolveSnapMode();
-    sendToRust('ResizePopup', { mode: mode, height: needed });
-  }, 150);
+var _imeComposing = false;
+
+function maxPopupHeight() {
+  var avail = (window.screen && window.screen.availHeight) || 800;
+  return Math.round(avail * MAX_HEIGHT_RATIO);
+}
+
+/** The one region allowed to scroll once the popup hits its height cap. */
+function scrollRegionForCurrentView() {
+  if (appState.view === 'result') {
+    return document.getElementById(
+      appState.markdownPreviewEnabled ? 'result-rich-preview' : 'result-output'
+    );
+  }
+  if (appState.view === 'editor') return document.getElementById('editor-source-text');
+  if (appState.view === 'error') return document.getElementById('error-message');
+  return null;
+}
+
+function releaseScrollRegion(el) {
+  if (!el) return;
+  el.style.maxHeight = '';
+  el.classList.remove('scroll-region--at-max');
+}
+
+function applyMeasuredHeight() {
+  _resizeTimer = null;
+  var root = document.getElementById('popup-root');
+  if (!root) return;
+
+  // Always measure at intrinsic height: a cap left over from a previous state
+  // would be measured instead of the content.
+  var region = scrollRegionForCurrentView();
+  releaseScrollRegion(region);
+
+  var maxHeight = maxPopupHeight();
+  var needed = root.offsetHeight;
+
+  if (needed > maxHeight && region) {
+    var excess = needed - maxHeight;
+    var regionHeight = region.getBoundingClientRect().height;
+    region.style.maxHeight = Math.max(MIN_SCROLL_REGION, regionHeight - excess) + 'px';
+    region.classList.add('scroll-region--at-max');
+    needed = root.offsetHeight;
+  }
+
+  sendToRust('ResizePopup', { height: Math.min(needed, maxHeight) });
+}
+
+/**
+ * `immediate` measures on the next frame instead of after the debounce — used
+ * for state changes, where a delayed resize shows as the window snapping to a
+ * new size after it is already on screen.
+ */
+function measureAndResize(immediate) {
+  // Resizing the native window mid-composition displaces the IME candidate
+  // window, so measurement waits for the composition to finish.
+  if (_imeComposing) return;
+  if (_resizeTimer) {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = null;
+  }
+  if (immediate) {
+    requestAnimationFrame(applyMeasuredHeight);
+    return;
+  }
+  _resizeTimer = setTimeout(applyMeasuredHeight, RESIZE_DEBOUNCE_MS);
 }
 
 function requestSnapResizeForCurrentView() {
-  measureAndResize();
+  measureAndResize(true);
 }
 
 function setMarkdownPreviewEnabled(enabled) {
@@ -438,7 +494,7 @@ function setMarkdownPreviewEnabled(enabled) {
   if (!outputEl || !richEl || !btn) return;
 
   if (appState.markdownPreviewEnabled) {
-    richEl.innerHTML = simpleMarkdown(outputEl.value || appState.resultOutput || '');
+    richEl.innerHTML = simpleMarkdown(appState.resultOutput || '');
     richEl.style.display = '';
     outputEl.style.display = 'none';
     btn.textContent = 'Raw';
@@ -634,19 +690,24 @@ document.addEventListener('DOMContentLoaded', function() {
     editorSource.addEventListener('input', function() {
       appState.sourceText = editorSource.value;
       sendToRust('UpdateSourceText', { text: appState.sourceText });
-      updateCharCount('editor-source-text', 'editor-char-count');
-      autosizeEditorSourceTextarea(editorSource);
+      setCharCount('editor-char-count', appState.sourceText);
       updateRunButtonState();
+      // Growing the textarea mid-composition would move the IME candidate
+      // window, so the whole layout pass waits for compositionend.
+      if (_imeComposing) return;
+      autosizeEditorSourceTextarea(editorSource);
+      measureAndResize(false);
     });
-  }
 
-  var resultOutput = document.getElementById('result-output');
-  if (typeof ResizeObserver !== 'undefined') {
-    var resizeObs = new ResizeObserver(function() {
-      requestSnapResizeForCurrentView();
+    editorSource.addEventListener('compositionstart', function() {
+      _imeComposing = true;
     });
-    if (editorSource) resizeObs.observe(editorSource);
-    if (resultOutput) resizeObs.observe(resultOutput);
+
+    editorSource.addEventListener('compositionend', function() {
+      _imeComposing = false;
+      autosizeEditorSourceTextarea(editorSource);
+      measureAndResize(false);
+    });
   }
 
   document.addEventListener('keydown', function(e) {

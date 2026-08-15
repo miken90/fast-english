@@ -63,8 +63,6 @@ pub enum JsToRust {
     // Layout
     ResizePopup {
         height: f64,
-        #[serde(default)]
-        mode: Option<String>,
     },
     MovePopup {
         dx: f64,
