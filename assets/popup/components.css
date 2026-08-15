@@ -20,80 +20,96 @@
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 /* ---------- Button Variants ---------- */
 .btn--primary {
-  background: var(--primary-gradient);
-  box-shadow: 0 4px 15px var(--primary-glow);
-  color: white;
+  background: var(--color-primary-gradient);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
+  color: var(--color-text-on-primary);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 12px 14px;
-}
-
-.btn--primary:hover {
-  box-shadow: 0 6px 20px var(--primary-glow);
-  transform: translateY(-1px);
-}
-
-.btn--primary:active {
-  transform: scale(0.97);
-}
-
-.btn--secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 12px 18px;
-}
-
-.btn--secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-}
-
-.btn--ghost {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
   padding: 10px 16px;
 }
 
+.btn--primary:hover {
+  box-shadow: 0 6px 16px var(--color-primary-glow);
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.btn--primary:active {
+  transform: scale(0.96) translateY(0);
+  filter: brightness(0.95);
+}
+
+.btn--secondary {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+}
+
+.btn--secondary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  transform: translateY(-0.5px);
+}
+
+.btn--secondary:active {
+  transform: scale(0.96) translateY(0);
+}
+
+.btn--ghost {
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
 .btn--ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  transform: translateY(-0.5px);
+}
+
+.btn--ghost:active {
+  transform: scale(0.96) translateY(0);
 }
 
 /* ---------- Icon Buttons ---------- */
 .btn--icon {
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   width: 32px;
   height: 32px;
   border-radius: 50%;
   padding: 0;
   flex-shrink: 0;
+  transition: all var(--transition-base);
 }
 
 .btn--icon:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  transform: scale(1.05);
 }
 
 .btn--icon:active {
@@ -102,21 +118,23 @@
 
 /* Icon button with text (back button pattern) */
 .btn--icon-text {
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px 4px 4px;
+  padding: 6px 10px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
+  transition: all var(--transition-base);
 }
 
 .btn--icon-text:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text-primary);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  transform: translateX(-1px);
 }
 
 .btn--icon-text:active {

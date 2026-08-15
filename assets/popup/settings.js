@@ -266,18 +266,18 @@ document.addEventListener('DOMContentLoaded', function() {
     resetBtn.addEventListener('click', function() {
       resetArea.innerHTML =
         '<span class="reset-confirm">' +
-          'Reset all settings to defaults? ' +
-          '<button class="btn-test" id="btn-reset-yes">Yes, reset</button>' +
-          '<button class="btn-test" id="btn-reset-no">Cancel</button>' +
+          'Reset settings? ' +
+          '<button class="btn btn--secondary btn--sm" id="btn-reset-yes">Yes</button>' +
+          '<button class="btn btn--ghost btn--sm" id="btn-reset-no">No</button>' +
         '</span>';
       document.getElementById('btn-reset-yes').addEventListener('click', function() {
         resetFormToDefaults();
         checkDirty();
-        resetArea.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+        resetArea.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
         bindResetButton();
       });
       document.getElementById('btn-reset-no').addEventListener('click', function() {
-        resetArea.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+        resetArea.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
         bindResetButton();
       });
     });
@@ -290,18 +290,18 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.addEventListener('click', function() {
         area.innerHTML =
           '<span class="reset-confirm">' +
-            'Reset all settings to defaults? ' +
-            '<button class="btn-test" id="btn-reset-yes">Yes, reset</button>' +
-            '<button class="btn-test" id="btn-reset-no">Cancel</button>' +
+            'Reset settings? ' +
+            '<button class="btn btn--secondary btn--sm" id="btn-reset-yes">Yes</button>' +
+            '<button class="btn btn--ghost btn--sm" id="btn-reset-no">No</button>' +
           '</span>';
         document.getElementById('btn-reset-yes').addEventListener('click', function() {
           resetFormToDefaults();
           checkDirty();
-          area.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+          area.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
           bindResetButton();
         });
         document.getElementById('btn-reset-no').addEventListener('click', function() {
-          area.innerHTML = '<button class="btn-test" id="btn-reset-settings">Reset to Defaults</button>';
+          area.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
           bindResetButton();
         });
       });
