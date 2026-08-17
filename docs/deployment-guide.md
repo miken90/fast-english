@@ -111,7 +111,7 @@ powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files
 
 ## Creating an Installer
 
-The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script for creating a Windows installer.
+The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script for creating a Windows installer. Unverified: `installer/FastEnglish.iss` has never been compiled (Inno Setup is not installed in the dev environment) — the steps below are unexercised.
 
 1. Install Inno Setup 6+
 2. Run `.\scripts\build-release.ps1 -Installer` — it builds the binary, packages

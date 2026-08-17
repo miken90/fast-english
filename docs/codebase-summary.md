@@ -7,7 +7,7 @@
 - **UI Stack**: WebView2 via `wry` + `tao` (WebView popup + settings windows)
 - **Build system**: Cargo
 - **Key dependencies**: `windows`, `uiautomation`, `wry`, `tao`, `tray-icon`, `global-hotkey`, `reqwest`, `tokio`
-- **Tests**: limited module-level tests (for IPC serde); no broad integration/E2E suite yet
+- **Tests**: module-level unit tests; no broad integration/E2E suite yet. Count with `find src -name '*.rs' | xargs grep -c '#\[test\]'`
 
 ## Directory Structure
 
@@ -46,6 +46,7 @@ fast-english/
 │       ├── webview_bridge.rs              # Popup/settings state -> JSON bridge
 │       ├── webview_ipc.rs                 # Typed Rust<->JS IPC contracts
 │       ├── popup_position.rs              # Popup placement utilities
+│       ├── window_resize_tracker.rs       # Tells a user frame-drag apart from an app-initiated resize
 │       ├── settings_views.rs              # Settings form model + HTTPS validation
 │       └── tray.rs                        # System tray menu/events
 ├── assets/
@@ -74,7 +75,8 @@ fast-english/
 | `popup_runtime.rs` | `run()` entry, async event loop, `AppState`, Win32 message pump (222 LOC). |
 | `popup_view.rs` | Show/dismiss/push popup state, height calculation (83 LOC). |
 | `popup_controller.rs` | Event handlers, IPC dispatch, state transitions (741 LOC). |
-| `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
+| `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. Feeds every `WindowEvent::Resized` through `window_resize_tracker` to tell a user drag apart from the app's own `set_inner_size`. |
+| `window_resize_tracker.rs` | Distinguishes a user's frame-drag from an app-initiated resize by remembering the size the app last requested; everything else is the user's. |
 | `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
 | `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and theme preference. Carries no height: the WebView measures its own content and asks for a size via `ResizePopup`. |
 | `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height }`/`PopupDragStart`/`PopupDragMove` contracts (drag carries no coordinates; the OS cursor is tracked instead). |
@@ -93,6 +95,7 @@ fast-english/
 - **Safe output rendering**: bridge escapes AI output before injecting into JS state payloads.
 - **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
 - **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
+- **Manual-resize policy**: a user's frame-drag wins for that popup session (`.popup-fill-window` mode, `window.setManualWindowSize(true)`); content-driven auto-sizing resumes on the next hide→show. See [`docs/decisions/0001-manual-resize-wins-for-session.md`](decisions/0001-manual-resize-wins-for-session.md).
 
 ## CSS Architecture (Phase 2)
 

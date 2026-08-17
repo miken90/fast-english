@@ -51,7 +51,7 @@ Keep docs in `./docs` folder:
 
 ### Tech Stack
 - **Language:** Rust (edition 2021)
-- **UI:** iced 0.13 (daemon pattern)
+- **UI:** WebView2 via `wry` + `tao` (popup + settings windows, one shared event-loop thread)
 - **Async:** tokio (multi-thread)
 - **Windows APIs:** `windows` crate 0.58, `uiautomation` 0.24
 - **System:** tray-icon, global-hotkey, arboard (clipboard)
@@ -61,10 +61,12 @@ Keep docs in `./docs` folder:
 - `src/main.rs` — entry, COM STA init, runtime, event channel
 - `src/app.rs` — PopupState state machine, AppEvent, WritingToolKind
 - `src/selection/` — UIA text detection (Tier 1-3), monitor polling
-- `src/ui/` — iced popup, views, positioning, AI integration
+- `src/ui/` — WebView popup/settings hosts, IPC bridge, positioning, resize tracking, AI orchestration
 - `src/ai/` — AIClient trait, OpenAI/Anthropic clients
 - `src/editing/` — text replacement via UIA SetValue / clipboard paste
 - `src/settings.rs` + `src/persistence.rs` — config + DPAPI key storage
+
+See `docs/system-architecture.md` (pointer: `docs/ARCHITECTURE.md`) for the full module map and IPC flow.
 
 ### [CRITICAL] Build & Run — Windows Only
 
@@ -132,7 +134,7 @@ powershell.exe -Command "Get-Process fast-english -ErrorAction SilentlyContinue"
 ### Code Conventions
 - **File naming:** snake_case (Rust standard)
 - **State machine:** `PopupState` enum with associated data
-- **Event flow:** tokio mpsc channel → iced subscription → Message dispatch
+- **Event flow:** tokio mpsc `AppEvent` channel → shared `tao` EventLoop → typed IPC (`JsToRust`/`RustToJs`)
 - **Platform gating:** `#[cfg(target_os = "windows")]` for Win32-specific code
 - **Error handling:** `anyhow::Result` + `tracing` structured logging
 - **Unsafe code:** minimal, only for Win32 FFI (DPAPI, COM, SendInput)

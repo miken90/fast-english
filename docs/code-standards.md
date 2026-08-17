@@ -5,7 +5,6 @@
 ### Directory Convention
 - Group files by feature/responsibility (`ai/`, `selection/`, `editing/`, `ui/`).
 - Keep core orchestration at `src/` root (`main.rs`, `app.rs`, `settings.rs`, `persistence.rs`, `hotkey.rs`).
-- Deprecated iced stubs (e.g., `popup_views.rs`, `popup_window.rs`) should not be modified and will be completely removed in a future PR once WebView is finalized.
 
 ### File Naming
 - **snake_case** for Rust files.

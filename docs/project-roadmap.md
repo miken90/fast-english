@@ -26,9 +26,13 @@
 - [x] Refreshed app icon, branding, and tray icons
 
 ### Known Limitations
-- No unit or integration tests
+- Module-level unit tests only; no broad integration/E2E suite
 - No streaming AI responses
 - Popup positioning can be imprecise in some apps
+- Enhance Writing / Fix Grammar still budget output tokens with the English
+  4-chars-per-token estimate (`PromptBuilder::max_tokens`); only Translate and
+  Convert Prompt use the wider non-English-aware budget. Vietnamese (and other
+  non-Latin-script) input to Enhance/Grammar can still truncate.
 
 ---
 

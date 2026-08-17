@@ -58,7 +58,8 @@
 | Component | Role |
 |---|---|
 | `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. Implements universal editor transitions (`Editor`/`Processing`/`Result`/`Error`) and action handling (`UseOutputAsInput`, `CancelProcessing`, `ReplaceResult`, `CopyResult`, `Retry`). |
-| `ui/webview_popup.rs` | Unified WebView UI host: one `tao` EventLoop thread runs both popup and settings windows (`wry`), receives popup/settings commands, forwards JS events to Rust, and inlines CSS/JS assets (including `icons.js`). |
+| `ui/webview_popup.rs` | Unified WebView UI host: one `tao` EventLoop thread runs both popup and settings windows (`wry`), receives popup/settings commands, forwards JS events to Rust, and inlines CSS/JS assets (including `icons.js`). Routes `WindowEvent::Resized` through `window_resize_tracker` to tell a user drag apart from an app-initiated resize. |
+| `ui/window_resize_tracker.rs` | Tells a user's frame-drag apart from the app's own `set_inner_size` calls — both surface as the same `WindowEvent::Resized`, so it remembers the size the app last requested and treats any mismatch as the user's. |
 | `ui/webview_settings.rs` | Settings command contract (`SettingsCommand`) for the shared WebView host; handles settings rendering and feedback updates. |
 | `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output, includes theme preference. Sends no height — sizing travels the other way, from the WebView's own measurement through `ResizePopup`. |
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. Includes `ResizePopup { height }` and move/translate actions used by universal editor flow. |
@@ -161,6 +162,10 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 - **Concurrent capture guard**: `manual_capture_in_flight` bool prevents overlapping manual capture requests (hotkey or tray "Open Popup")
 - **Stale result rejection**: Manual capture results are ignored if `popup_visible=true`, preventing dismissed popups from being reopened by delayed async results
 - **Strict hotkey filtering**: Hotkey path requires actual text content; bounds-only captures (empty UIA caret position) are rejected via `should_open_manual_capture_result(false)`. Tray "Open Popup" allows empty results via `allow_empty=true`.
+
+### Manual Resize Handoff
+- **Policy**: a user's frame-drag wins for that popup session; content-driven auto-sizing resumes only on the next hide→show. Recorded as a decision in [`docs/decisions/0001-manual-resize-wins-for-session.md`](decisions/0001-manual-resize-wins-for-session.md).
+- **Ambiguity**: a monitor DPI/scale change also raises `WindowEvent::Resized`, so `window_resize_tracker` reads it as a user drag. Self-healing on the next show; not distinguished from a real drag.
 
 ### Clipboard Capture Thread Safety (RT-5)
 - **Blocking I/O isolation**: Clipboard capture (includes ~1.88s max polling with `std::thread::sleep`) runs in `tokio::task::spawn_blocking()` to avoid blocking Tokio worker threads
