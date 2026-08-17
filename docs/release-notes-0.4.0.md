@@ -11,8 +11,8 @@
 - The built .exe now carries proper version information (visible in Explorer's Details tab), and the release packaging script can no longer report success when packaging actually failed. Version comes from `Cargo.toml` only — nothing else to keep in sync.
 - Minor documentation corrections.
 
-## Also included (shipped as 0.3.2 / 0.3.3, never tagged)
-Everything below was already released to users under 0.3.2 and 0.3.3, but those versions were never git-tagged. It's folded into this release's history rather than dropped:
+## Also included (from 0.3.2 and 0.3.3)
+Versions 0.3.2 and 0.3.3 shipped and were tagged. Since this is the first release note since 0.3.0, their user-visible changes are summarised here too:
 - The popup now opens on the monitor holding your text selection, and its width adapts on small displays.
 - Dragging the popup tracks the OS cursor more accurately.
 - The popup uses the system font stack instead of a downloaded web font.
