@@ -60,7 +60,7 @@
 | `ui/popup.rs` | Runtime coordinator. Consumes `AppEvent`, updates `PopupState`, triggers AI/editing, sends commands to WebView threads, handles IPC callbacks from JS. Implements universal editor transitions (`Editor`/`Processing`/`Result`/`Error`) and action handling (`UseOutputAsInput`, `CancelProcessing`, `ReplaceResult`, `CopyResult`, `Retry`). |
 | `ui/webview_popup.rs` | Unified WebView UI host: one `tao` EventLoop thread runs both popup and settings windows (`wry`), receives popup/settings commands, forwards JS events to Rust, and inlines CSS/JS assets (including `icons.js`). |
 | `ui/webview_settings.rs` | Settings command contract (`SettingsCommand`) for the shared WebView host; handles settings rendering and feedback updates. |
-| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output, includes theme preference and state-based snap-height hints. |
+| `ui/webview_bridge.rs` | Serializes Rust popup/settings state to JSON payloads for JS `setState()/setSettings()`, applies HTML escaping for rendered output, includes theme preference. Sends no height — sizing travels the other way, from the WebView's own measurement through `ResizePopup`. |
 | `ui/webview_ipc.rs` | Typed IPC contracts (`JsToRust`, `RustToJs`), JSON serde format, WebView2 runtime preflight check. Includes `ResizePopup { height }` and move/translate actions used by universal editor flow. |
 | `ui/settings_views.rs` | Rust-side `SettingsForm` model + HTTPS enforcement + apply/persist logic. Includes theme preference field. |
 | `ui/popup_position.rs` | Popup placement + content-driven sizing constants (`POPUP_WIDTH`, `POPUP_INITIAL_HEIGHT`, `POPUP_MIN_HEIGHT`). |

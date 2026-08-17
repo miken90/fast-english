@@ -76,7 +76,7 @@ fast-english/
 | `popup_controller.rs` | Event handlers, IPC dispatch, state transitions (741 LOC). |
 | `webview_popup.rs` | Shared WebView UI host on one `tao` EventLoop thread for both popup and settings windows; handles popup show/hide/resize/move/set-state commands and forwards JS IPC to Rust. |
 | `webview_settings.rs` | Settings command model (`SettingsCommand`) used by shared WebView host; drives settings show/hide/test/save feedback updates. |
-| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and popup min-height hints by state/tool. |
+| `webview_bridge.rs` | Converts `PopupState` + settings form into sanitized JSON payloads for JS renderers, including `canReplace` state and theme preference. Carries no height: the WebView measures its own content and asks for a size via `ResizePopup`. |
 | `webview_ipc.rs` | Canonical IPC enums and serde boundaries; includes WebView2 runtime preflight helper, unified popup actions, and `ResizePopup { height }`/`PopupDragStart`/`PopupDragMove` contracts (drag carries no coordinates; the OS cursor is tracked instead). |
 | `settings_views.rs` | Mutable `SettingsForm` model + HTTPS enforcement + persistence apply routine. |
 | `popup_position.rs` | Calculates popup anchor placement and content-driven sizing constants (`POPUP_WIDTH`, `POPUP_INITIAL_HEIGHT`, `POPUP_MIN_HEIGHT`). |
