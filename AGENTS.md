@@ -113,10 +113,10 @@ powershell.exe -Command "cd D:\\WORKSPACES\\PERSONAL\\fast-eng; cargo clippy 2>&
 
 ```bash
 # Kill running instance
-powershell.exe -Command "Stop-Process -Name fast-english -ErrorAction SilentlyContinue"
+powershell.exe -Command "Stop-Process -Name FastEnglish -ErrorAction SilentlyContinue"
 
 # Check if running
-powershell.exe -Command "Get-Process fast-english -ErrorAction SilentlyContinue"
+powershell.exe -Command "Get-Process FastEnglish -ErrorAction SilentlyContinue"
 ```
 
 ### Release Rules

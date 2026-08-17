@@ -32,7 +32,8 @@ pub enum PopupState {
 /// Events flowing through the cross-component channel.
 ///
 /// These are events sent from background threads (tray, hotkey, selection monitor)
-/// into the iced daemon via tokio::mpsc. Internal UI events use iced `Message` directly.
+/// into the popup runtime via a tokio::sync::mpsc channel, which drives the
+/// WebView2 popup/settings windows (wry + a single shared tao EventLoop).
 #[derive(Debug, Clone)]
 pub enum AppEvent {
     // Selection
