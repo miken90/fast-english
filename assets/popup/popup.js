@@ -3,7 +3,7 @@
  */
 'use strict';
 
-const VIEWS = ['editor', 'processing', 'result', 'error'];
+const VIEWS = ['editor', 'processing', 'result', 'error', 'history'];
 
 const appState = {
   view: 'editor',
@@ -16,7 +16,10 @@ const appState = {
   languages: [],
   translateFrom: null,
   translateTo: null,
-  markdownPreviewEnabled: false,
+  /** How the result is being shown: 'raw' | 'rich' | 'diff'. */
+  resultMode: 'raw',
+  /** Whether the diff markup matches the result currently on screen. */
+  diffRendered: false,
   sourceSnippetExpanded: false
 };
 
@@ -93,6 +96,12 @@ var VIEW_RENDERERS = {
     renderResult(data);
     showView('result');
   },
+  history: function(data) {
+    exitInlineProcessing();
+    dismissEditorErrorBanner();
+    renderHistory(data);
+    showView('history');
+  },
   error: function(data) {
     exitInlineProcessing();
     if (_previousView === 'editor' || _previousView === 'processing') {
@@ -109,6 +118,11 @@ window.setState = function(data) {
   if (!data || !data.view) return;
 
   if (data.theme) applyTheme(data.theme);
+
+  // Every state push ends the stream that was running: a request either
+  // finished, failed, or was replaced by this one. Partial raw text never
+  // outlives the request that produced it.
+  endStream();
 
   if (data.view === 'hidden') {
     VIEWS.forEach(function(v) {
@@ -134,7 +148,8 @@ function renderEditor(data) {
   appState.tool = data.tool || appState.tool;
   appState.sourceText = unescHtml(data.sourceText || '');
   appState.canReplace = !!data.canReplace;
-  appState.markdownPreviewEnabled = false;
+  appState.resultMode = 'raw';
+  appState.diffRendered = false;
   appState.sourceSnippetExpanded = false;
 
   if (Array.isArray(data.languages)) appState.languages = data.languages;
@@ -269,7 +284,10 @@ function renderResult(data) {
   if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput);
   setCharCount('result-char-count', appState.resultOutput);
 
-  setMarkdownPreviewEnabled(appState.markdownPreviewEnabled);
+  // The diff belongs to this result and this result only — a stale one would
+  // mark up the previous answer's changes.
+  appState.diffRendered = false;
+  setResultMode(defaultResultMode(appState.tool && appState.tool.id));
 
   var snippetEl = document.getElementById('result-source-snippet');
   if (snippetEl) snippetEl.value = appState.sourceText;
@@ -281,8 +299,16 @@ function renderResult(data) {
     replaceBtn.setAttribute('aria-disabled', appState.canReplace ? 'false' : 'true');
   }
 
+  var empty = appState.resultOutput.trim().length === 0;
   if (toggleBtn) {
-    toggleBtn.disabled = appState.resultOutput.trim().length === 0;
+    toggleBtn.disabled = empty;
+  }
+
+  var diffBtn = document.getElementById('result-toggle-diff');
+  if (diffBtn) {
+    var available = diffAppliesTo(appState.tool && appState.tool.id) && !empty;
+    diffBtn.disabled = !available;
+    diffBtn.style.display = diffAppliesTo(appState.tool && appState.tool.id) ? '' : 'none';
   }
 
   var feedback = document.getElementById('result-copy-feedback');
@@ -293,6 +319,169 @@ function renderResult(data) {
   if (appState.copyFeedback) {
     showCopyFeedback('result-copy-feedback', 'Copied!');
   }
+}
+
+/* ---------- Streaming ----------
+ * Chunks arrive as raw model text and are appended straight into a region that
+ * scrolls on its own. Nothing here measures or resizes the window per chunk:
+ * the region absorbs the growth instead, so a long answer cannot turn into a
+ * window that jitters on every token. The cleaned result replaces this region
+ * once, at completion, through the normal setState path.
+ */
+
+var _streaming = false;
+
+/** The regions streamed text is appended into, across all views. */
+var STREAM_OUTPUT_IDS = ['editor-stream-output', 'processing-stream-output'];
+
+/** Where streamed text goes for whichever view is on screen. */
+function streamHostForCurrentView() {
+  var active = document.querySelector('.view.active');
+  if (!active) return null;
+  if (active.id === 'view-editor') {
+    return {
+      reveal: document.getElementById('editor-stream-card'),
+      output: document.getElementById('editor-stream-output')
+    };
+  }
+  if (active.id === 'view-processing') {
+    var el = document.getElementById('processing-stream-output');
+    return { reveal: el, output: el };
+  }
+  return null;
+}
+
+/** The height reserved for streamed text, from the screen — never the window. */
+function streamRegionHeight() {
+  return Math.max(MIN_SCROLL_REGION, Math.round(maxPopupHeight() * STREAM_REGION_RATIO));
+}
+
+function beginStream(host) {
+  _streaming = true;
+  host.output.textContent = '';
+  if (host.reveal) host.reveal.removeAttribute('hidden');
+
+  // The region is given its full height before the first chunk lands, so the
+  // document stops growing here: everything after this scrolls inside a box
+  // that is already the size it will stay. That is what keeps the window from
+  // being resized token by token. In manual-size mode the flex rules own the
+  // height instead, and an inline one would fight them.
+  if (!_manualWindowSize) {
+    host.output.style.height = streamRegionHeight() + 'px';
+  }
+  // The one measurement of a stream — and it is skipped outright when the user
+  // owns the window size.
+  measureAndResize(true);
+}
+
+function endStream() {
+  if (!_streaming) return;
+  _streaming = false;
+  ['editor-stream-card', 'processing-stream-output'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.setAttribute('hidden', '');
+  });
+  STREAM_OUTPUT_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '';
+    el.style.height = '';
+    releaseScrollRegion(el);
+  });
+}
+
+window.streamChunk = function(data) {
+  if (!data) return;
+  var text = unescHtml(data.text || '');
+  if (!text) return;
+
+  var host = streamHostForCurrentView();
+  if (!host || !host.output) return;
+  if (!_streaming) beginStream(host);
+
+  // Whether to keep following the tail has to be decided before the append,
+  // while the old scroll position still means something.
+  var following = isScrolledToBottom(host.output);
+  host.output.textContent += text;
+  if (following) host.output.scrollTop = host.output.scrollHeight;
+};
+
+function isScrolledToBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+}
+
+/* ---------- History ----------
+ * The list is display-only: entries carry snippets and an index, and opening
+ * one asks Rust for it by index. The full text stays on the Rust side, which is
+ * also what Copy and Edit output read from once an entry is open.
+ */
+
+function renderHistory(data) {
+  var list = document.getElementById('history-list');
+  var empty = document.getElementById('history-empty');
+  var count = document.getElementById('history-count');
+  if (!list) return;
+
+  var entries = Array.isArray(data.entries) ? data.entries : [];
+  list.innerHTML = '';
+
+  if (empty) {
+    if (entries.length === 0) {
+      empty.removeAttribute('hidden');
+    } else {
+      empty.setAttribute('hidden', '');
+    }
+  }
+  if (count) {
+    count.textContent = entries.length === 1 ? '1 result' : entries.length + ' results';
+  }
+
+  entries.forEach(function(entry) {
+    var item = document.createElement('button');
+    item.className = 'history-item';
+    item.type = 'button';
+    item.setAttribute('role', 'listitem');
+
+    var head = document.createElement('div');
+    head.className = 'history-item__head';
+
+    var tool = document.createElement('span');
+    tool.className = 'history-item__tool';
+    tool.textContent = unescHtml(entry.tool || '');
+
+    var when = document.createElement('span');
+    when.className = 'history-item__time';
+    when.textContent = formatTimestamp(entry.timestamp);
+
+    head.appendChild(tool);
+    head.appendChild(when);
+
+    var output = document.createElement('div');
+    output.className = 'history-item__output';
+    output.textContent = unescHtml(entry.outputSnippet || '');
+
+    var source = document.createElement('div');
+    source.className = 'history-item__source';
+    source.textContent = unescHtml(entry.sourceSnippet || '');
+
+    item.appendChild(head);
+    item.appendChild(output);
+    item.appendChild(source);
+
+    item.addEventListener('click', function() {
+      sendToRust('OpenHistoryEntry', { index: entry.index });
+    });
+
+    list.appendChild(item);
+  });
+}
+
+/** Unix seconds to the user's own locale format. */
+function formatTimestamp(seconds) {
+  if (!seconds) return '';
+  var date = new Date(seconds * 1000);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleString();
 }
 
 function renderError(data) {
@@ -418,6 +607,8 @@ function autosizeEditorSourceTextarea(textarea) {
 var MAX_HEIGHT_RATIO = 0.7;
 var MIN_SCROLL_REGION = 80;
 var RESIZE_DEBOUNCE_MS = 150;
+/** Share of the height cap handed to streamed text while it is arriving. */
+var STREAM_REGION_RATIO = 0.45;
 
 var _resizeTimer = null;
 var _imeComposing = false;
@@ -429,7 +620,11 @@ var SCROLL_REGION_IDS = [
   'editor-source-text',
   'result-output',
   'result-rich-preview',
-  'error-message'
+  'result-diff',
+  'history-list',
+  'error-message',
+  'editor-stream-output',
+  'processing-stream-output'
 ];
 
 function maxPopupHeight() {
@@ -442,15 +637,22 @@ function scrollRegionForCurrentView() {
   // Read the view that is actually on screen: processing and errors are shown
   // inside the editor view when they follow one, so the state name alone would
   // point at the wrong region.
+  // While a stream is running the growing text is the region that has to be
+  // capped, whichever view is hosting it.
+  if (_streaming) {
+    var host = streamHostForCurrentView();
+    if (host && host.output) return host.output;
+  }
   var active = document.querySelector('.view.active');
   if (!active) return null;
   if (active.id === 'view-result') {
     return document.getElementById(
-      appState.markdownPreviewEnabled ? 'result-rich-preview' : 'result-output'
+      RESULT_MODE_ELEMENT_IDS[appState.resultMode] || RESULT_MODE_ELEMENT_IDS.raw
     );
   }
   if (active.id === 'view-editor') return document.getElementById('editor-source-text');
   if (active.id === 'view-error') return document.getElementById('error-message');
+  if (active.id === 'view-history') return document.getElementById('history-list');
   return null;
 }
 
@@ -492,6 +694,12 @@ window.setManualWindowSize = function(on) {
       textarea.style.height = '';
       textarea.classList.remove('editor-textarea--scrolling');
     }
+    // Same for the height reserved for a stream in progress: the window the
+    // user just chose decides the region's size from here on.
+    STREAM_OUTPUT_IDS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.height = '';
+    });
   } else {
     autosizeEditorSourceTextarea(document.getElementById('editor-source-text'));
   }
@@ -548,23 +756,127 @@ function requestSnapResizeForCurrentView() {
   measureAndResize(true);
 }
 
-function setMarkdownPreviewEnabled(enabled) {
-  appState.markdownPreviewEnabled = !!enabled;
-  var outputEl = document.getElementById('result-output');
-  var richEl = document.getElementById('result-rich-preview');
-  var btn = document.getElementById('result-toggle-md');
-  if (!outputEl || !richEl || !btn) return;
+/* ---------- Result display modes ----------
+ * The result is shown one of three ways, and only one at a time: the raw text,
+ * a markdown preview, or a word-level diff against what the user wrote. The
+ * modes are exclusive because they are three renderings of the same output —
+ * and because only one region may scroll (see applyMeasuredHeight).
+ *
+ * None of this touches the output itself. Copy, Replace and Edit output all
+ * read the clean text Rust holds in PopupState::Result, so what the user takes
+ * away is never the marked-up version.
+ */
 
-  if (appState.markdownPreviewEnabled) {
-    richEl.innerHTML = simpleMarkdown(appState.resultOutput || '');
-    richEl.style.display = '';
-    outputEl.style.display = 'none';
-    btn.textContent = 'Raw';
-  } else {
-    richEl.style.display = 'none';
-    outputEl.style.display = '';
-    btn.textContent = 'Preview';
+var RESULT_MODE_ELEMENT_IDS = {
+  raw: 'result-output',
+  rich: 'result-rich-preview',
+  diff: 'result-diff'
+};
+
+/** Tools whose output is a corrected version of the input, so a diff means something. */
+function diffAppliesTo(toolId) {
+  // Translate and Convert Prompt produce a different text in a different
+  // shape — diffing those against the source is noise, not information.
+  return toolId === 'fix-grammar' || toolId === 'enhance-writing';
+}
+
+/**
+ * Fix Grammar opens on the diff: corrections are the entire point of the tool,
+ * and its diffs are sparse enough to read at a glance. Enhance Writing opens on
+ * the text, because it rewrites for flow — its diff is often a near-total
+ * replacement, which reads as noise and buries the result the user came for.
+ * Both keep the toggle.
+ */
+function defaultResultMode(toolId) {
+  return toolId === 'fix-grammar' ? 'diff' : 'raw';
+}
+
+function setResultMode(mode) {
+  var next = RESULT_MODE_ELEMENT_IDS[mode] ? mode : 'raw';
+  if (next === 'diff' && !diffAppliesTo(appState.tool && appState.tool.id)) {
+    next = 'raw';
   }
+  // An empty answer would diff as the whole source struck through, which reads
+  // as a deletion the model never made.
+  if (next === 'diff' && !(appState.resultOutput || '').trim()) {
+    next = 'raw';
+  }
+  // Only a diff the user asked for and did not get needs explaining.
+  var diffTooLarge = false;
+  if (next === 'diff' && !renderResultDiff()) {
+    // Too large to diff — the plain text is the honest fallback, but silently
+    // showing it looks like the toggle did nothing.
+    next = 'raw';
+    diffTooLarge = true;
+  }
+  setDiffNoteVisible(diffTooLarge);
+
+  appState.resultMode = next;
+
+  Object.keys(RESULT_MODE_ELEMENT_IDS).forEach(function(name) {
+    var el = document.getElementById(RESULT_MODE_ELEMENT_IDS[name]);
+    if (el) el.style.display = name === next ? '' : 'none';
+  });
+
+  if (next === 'rich') {
+    var richEl = document.getElementById(RESULT_MODE_ELEMENT_IDS.rich);
+    if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput || '');
+  }
+
+  var mdBtn = document.getElementById('result-toggle-md');
+  if (mdBtn) {
+    mdBtn.textContent = next === 'rich' ? 'Raw' : 'Preview';
+    mdBtn.setAttribute('aria-pressed', next === 'rich' ? 'true' : 'false');
+  }
+
+  var diffBtn = document.getElementById('result-toggle-diff');
+  if (diffBtn) {
+    diffBtn.setAttribute('aria-pressed', next === 'diff' ? 'true' : 'false');
+    diffBtn.classList.toggle('active', next === 'diff');
+  }
+}
+
+function setDiffNoteVisible(visible) {
+  var note = document.getElementById('result-diff-note');
+  if (!note) return;
+  if (visible) {
+    note.removeAttribute('hidden');
+  } else {
+    note.setAttribute('hidden', '');
+  }
+}
+
+/**
+ * Build the marked-up diff, once per result. Returns false when the change is
+ * too large to diff, so the caller can fall back instead of showing nothing.
+ *
+ * This runs at completion only. During a stream the popup is still in the
+ * processing state, showing raw text as it arrives — diffing a half-finished
+ * answer would re-mark the whole text on every chunk.
+ */
+function renderResultDiff() {
+  var el = document.getElementById(RESULT_MODE_ELEMENT_IDS.diff);
+  if (!el || !window.diffWords) return false;
+  if (appState.diffRendered) return true;
+
+  var ops = window.diffWords(appState.sourceText || '', appState.resultOutput || '');
+  if (!ops) return false;
+
+  var html = '';
+  for (var i = 0; i < ops.length; i++) {
+    var text = escHtml(ops[i].text);
+    if (ops[i].type === 'insert') {
+      html += '<ins class="diff-ins">' + text + '</ins>';
+    } else if (ops[i].type === 'delete') {
+      html += '<del class="diff-del">' + text + '</del>';
+    } else {
+      html += text;
+    }
+  }
+
+  el.innerHTML = html;
+  appState.diffRendered = true;
+  return true;
 }
 
 function setSourceSnippetExpanded(expanded) {
@@ -699,6 +1011,16 @@ function initPopupDrag() {
 document.addEventListener('DOMContentLoaded', function() {
   bindClick('editor-close', function() { sendToRust('Dismiss'); });
   bindClick('editor-settings-btn', function() { sendToRust('OpenSettings'); });
+  bindClick('editor-history-btn', function() { sendToRust('OpenHistory'); });
+
+  bindClick('history-back', function() { sendToRust('BackToEditor'); });
+  bindClick('history-close', function() { sendToRust('Dismiss'); });
+  bindClick('history-clear-btn', function() {
+    // Stored text is the user's own writing, so clearing is deliberate.
+    if (window.confirm('Delete all saved results?')) {
+      sendToRust('ClearHistory');
+    }
+  });
   bindClick('editor-run-btn', runCurrentTool);
   bindClick('editor-cancel-btn', function() { sendToRust('CancelProcessing'); });
 
@@ -722,7 +1044,14 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('result-copy-btn', function() { sendToRust('CopyResult'); });
 
   bindClick('result-toggle-md', function() {
-    setMarkdownPreviewEnabled(!appState.markdownPreviewEnabled);
+    setResultMode(appState.resultMode === 'rich' ? 'raw' : 'rich');
+    requestSnapResizeForCurrentView();
+  });
+
+  bindClick('result-toggle-diff', function() {
+    setResultMode(appState.resultMode === 'diff' ? 'raw' : 'diff');
+    // The mode change alters the content height. This goes through
+    // measureAndResize, so a window the user sized by hand is left alone.
     requestSnapResizeForCurrentView();
   });
 

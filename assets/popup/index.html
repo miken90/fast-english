@@ -22,6 +22,9 @@
           <span class="spinner-inline" id="editor-inline-spinner" style="display:none;"></span>
         </div>
         <div class="header-actions">
+          <button class="btn btn--icon" id="editor-history-btn" aria-label="Recent results" title="Recent results">
+            <span data-icon-name="history" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
           <button class="btn btn--icon" id="editor-settings-btn" aria-label="Open settings">
             <span data-icon-name="info" data-icon-size="14" data-icon-stroke="2.5"></span>
           </button>
@@ -62,6 +65,11 @@
           <textarea id="editor-source-text" class="editor-textarea" rows="2" placeholder="Enter text..."></textarea>
         </div>
         <div class="char-count" id="editor-char-count">0 chars</div>
+
+        <div class="editor-card stream-card" id="editor-stream-card" hidden>
+          <div class="editor-label">Output</div>
+          <div id="editor-stream-output" class="stream-output" role="region" aria-live="polite" aria-label="Streaming output"></div>
+        </div>
       </div>
 
       <div class="action-row action-row--editor">
@@ -85,6 +93,7 @@
       <div class="processing-view">
         <div class="spinner"></div>
         <div class="processing-label" id="processing-label" aria-live="polite">Processing…</div>
+        <div id="processing-stream-output" class="stream-output" role="region" aria-live="polite" aria-label="Streaming output" hidden></div>
         <button class="btn btn--ghost" id="processing-cancel-btn">Cancel</button>
       </div>
     </section>
@@ -111,8 +120,10 @@
           <div class="editor-label">Output</div>
           <div id="result-output" class="editor-textarea editor-textarea--readonly result-output" tabindex="0" role="region" aria-label="Output"></div>
           <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
+          <div class="result-diff" id="result-diff" tabindex="0" role="region" aria-label="Changes from your text" style="display:none;"></div>
         </div>
         <div class="char-count" id="result-char-count">0 chars</div>
+        <div class="result-note" id="result-diff-note" role="status" hidden>Too much changed to compare — showing the result on its own.</div>
 
         <div class="result-source-block">
           <button class="btn btn--ghost result-source-toggle" id="result-source-toggle" aria-expanded="false" aria-controls="result-source-wrap">
@@ -132,12 +143,41 @@
             <span data-icon-name="refresh" data-icon-size="14" data-icon-stroke="2.5"></span>
           </button>
           <button class="btn btn--ghost btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Preview</button>
+          <button class="btn btn--ghost btn-toggle-diff" id="result-toggle-diff" aria-pressed="false" title="Show what changed">Diff</button>
           <button class="btn btn--ghost" id="result-use-output-btn">Edit output</button>
         </div>
         <div class="action-group-right">
           <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
           <button class="btn btn--primary" id="result-replace-btn">Replace</button>
         </div>
+      </div>
+    </section>
+
+    <section id="view-history" class="view" tabindex="-1">
+      <div class="popup-header popup-header--tight">
+        <button class="btn btn--icon-text" id="history-back">
+          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
+          Back
+        </button>
+        <div class="context-indicator">
+          <div class="status-dot"></div>
+          <span class="label-upper">Recent Results</span>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn--icon" id="history-close" aria-label="Close">
+            <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="history-main">
+        <div id="history-list" class="history-list" role="list" tabindex="0"></div>
+        <div id="history-empty" class="history-empty" hidden>No results yet.</div>
+      </div>
+
+      <div class="action-row action-row--history">
+        <span class="hint-inline" id="history-count"></span>
+        <button class="btn btn--ghost" id="history-clear-btn">Clear history</button>
       </div>
     </section>
 

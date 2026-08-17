@@ -75,6 +75,8 @@ body {
 :root.popup-fill-window #editor-source-text,
 :root.popup-fill-window #result-output,
 :root.popup-fill-window .result-rich-preview,
+:root.popup-fill-window #result-diff,
+:root.popup-fill-window #history-list,
 :root.popup-fill-window #error-message {
   flex: 1 1 0;
   min-height: 80px;
@@ -378,6 +380,167 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-y: visible;
+}
+
+/* ---------- History ----------
+   A list of recent results inside the same popup. The list is the view's
+   scroll region, so a long history never grows the window past the cap. */
+.history-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  outline: none;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-input);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.history-item:hover,
+.history-item:focus-visible {
+  border-color: var(--color-border-focus);
+  background: var(--color-primary-surface);
+}
+
+.history-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.history-item__tool {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary-light);
+}
+
+.history-item__time {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.history-item__output {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The source is context for the result above it, so it reads as secondary. */
+.history-item__source {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.history-empty {
+  padding: 18px 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.action-row--history {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Says why the diff is not on screen when the change was too large to compare.
+   Sits with the char count, in the same muted register. */
+.result-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+/* ---------- Word diff ----------
+   The result marked up against what the user wrote. Same surface as the raw
+   output so switching modes does not move the text, and the marks reuse the
+   success/error tokens rather than introducing a second palette. */
+.result-diff {
+  min-height: 80px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: visible;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-input);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.diff-ins {
+  background: var(--color-success-surface);
+  color: var(--success);
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.diff-del {
+  background: var(--color-error-surface);
+  color: var(--error);
+  text-decoration: line-through;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+/* ---------- Streaming output ----------
+   Holds raw text while the answer is still arriving. It scrolls on its own so
+   growth is absorbed here instead of resizing the window chunk by chunk, and
+   it deliberately avoids .editor-textarea: inline processing dims that class,
+   and text the user is reading must stay legible and selectable. */
+.stream-output {
+  min-height: 80px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-input);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+/* With the user owning the window size, the region takes the slack instead of
+   the height JS reserved for it. flex-basis 0 makes that inline height inert. */
+:root.popup-fill-window .stream-output {
+  flex: 1 1 0;
 }
 
 .result-rich-preview {
