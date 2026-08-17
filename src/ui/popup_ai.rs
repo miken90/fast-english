@@ -121,6 +121,9 @@ pub(crate) fn max_tokens_for_tool(input: &str, tool: &WritingToolKind) -> Option
         WritingToolKind::ConvertPrompt => {
             Some(crate::ai::prompt::PromptBuilder::new().max_tokens_for_convert(input))
         }
+        WritingToolKind::Translate { .. } => {
+            Some(crate::ai::prompt::PromptBuilder::new().max_tokens_for_translate(input))
+        }
         _ => None,
     }
 }
