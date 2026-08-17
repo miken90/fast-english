@@ -27,6 +27,9 @@ pub enum PopupState {
         source_text: String,
         message: String,
     },
+    /// The list of recent results. Holds no data of its own — the entries live
+    /// in `AppState`, which is what the file is loaded into.
+    History,
 }
 
 /// Events flowing through the cross-component channel.
@@ -44,6 +47,7 @@ pub enum AppEvent {
     HotkeyPressed,
     OpenPopupRequested,
     SettingsRequested,
+    HistoryRequested,
     QuitRequested,
 }
 

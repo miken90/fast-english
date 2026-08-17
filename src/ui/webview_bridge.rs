@@ -3,9 +3,11 @@ use crate::ui::settings_views::SettingsForm;
 use serde_json::json;
 
 /// Extra context needed for rendering beyond what PopupState holds.
-pub struct BridgeContext {
+pub struct BridgeContext<'a> {
     pub copy_feedback: bool,
     pub theme_preference: String,
+    /// Recent results — the history view renders from these.
+    pub history: &'a crate::history::History,
 }
 
 /// Escape HTML special chars to prevent XSS when AI output gets injected into JS.
@@ -24,9 +26,45 @@ fn with_theme(mut value: serde_json::Value, theme: &str) -> serde_json::Value {
     value
 }
 
+/// Snippet length for the history list. The full text is kept in Rust and only
+/// sent when an entry is opened.
+const HISTORY_SNIPPET_CHARS: usize = 140;
+
+fn snippet(text: &str) -> String {
+    let trimmed = text.trim();
+    match trimmed.char_indices().nth(HISTORY_SNIPPET_CHARS) {
+        Some((idx, _)) => format!("{}…", &trimmed[..idx]),
+        None => trimmed.to_string(),
+    }
+}
+
 /// Convert PopupState to JSON string for JS setState().
 pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
     match state {
+        PopupState::History => {
+            let entries: Vec<_> = ctx
+                .history
+                .entries()
+                .iter()
+                .enumerate()
+                .map(|(index, entry)| {
+                    json!({
+                        "index": index,
+                        "tool": escape_html(&entry.tool_label),
+                        "timestamp": entry.timestamp,
+                        "sourceSnippet": escape_html(&snippet(&entry.source_text)),
+                        "outputSnippet": escape_html(&snippet(&entry.output)),
+                    })
+                })
+                .collect();
+
+            with_theme(
+                json!({ "view": "history", "entries": entries }),
+                &ctx.theme_preference,
+            )
+            .to_string()
+        }
+
         PopupState::Hidden => {
             with_theme(json!({"view": "hidden"}), &ctx.theme_preference).to_string()
         }
@@ -142,7 +180,7 @@ pub fn settings_to_json(form: &SettingsForm) -> String {
 
 // --- helpers ---
 
-fn tool_id(tool: &WritingToolKind) -> &'static str {
+pub(crate) fn tool_id(tool: &WritingToolKind) -> &'static str {
     match tool {
         WritingToolKind::EnhanceWriting => "enhance-writing",
         WritingToolKind::FixGrammar => "fix-grammar",

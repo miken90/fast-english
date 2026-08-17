@@ -44,6 +44,12 @@ pub enum JsToRust {
     Retry,
     OpenSettings,
     CancelProcessing,
+    // History
+    OpenHistory,
+    OpenHistoryEntry {
+        index: usize,
+    },
+    ClearHistory,
     // Translate actions
     TranslateFromChanged {
         lang_id: String,
