@@ -383,6 +383,13 @@ function setCharCount(countId, text) {
 
 function autosizeEditorSourceTextarea(textarea) {
   if (!textarea) return;
+  // Once the user owns the window size the textarea is sized by the flex
+  // layout instead, and an inline height would fight it.
+  if (_manualWindowSize) {
+    textarea.style.height = '';
+    textarea.classList.remove('editor-textarea--scrolling');
+    return;
+  }
 
   var style = window.getComputedStyle(textarea);
   var lineHeight = parseFloat(style.lineHeight) || 19.375;
@@ -414,6 +421,16 @@ var RESIZE_DEBOUNCE_MS = 150;
 
 var _resizeTimer = null;
 var _imeComposing = false;
+/** True once the user has dragged the window frame; Rust decides this. */
+var _manualWindowSize = false;
+
+/** Every region the measurement pass may have capped, across all views. */
+var SCROLL_REGION_IDS = [
+  'editor-source-text',
+  'result-output',
+  'result-rich-preview',
+  'error-message'
+];
 
 function maxPopupHeight() {
   var avail = (window.screen && window.screen.availHeight) || 800;
@@ -442,6 +459,43 @@ function releaseScrollRegion(el) {
   el.style.maxHeight = '';
   el.classList.remove('scroll-region--at-max');
 }
+
+/**
+ * Switches between the two sizing directions.
+ *
+ * Off (the default): the document lays out at its intrinsic height and the
+ * window follows it. On (after the user drags the frame): the document fills
+ * the window the user chose and measurement stops, so nothing snaps the window
+ * back. Called from Rust — `setManualWindowSize(false)` on every show.
+ */
+window.setManualWindowSize = function(on) {
+  var next = !!on;
+  if (next === _manualWindowSize) return;
+  _manualWindowSize = next;
+
+  var html = document.documentElement;
+  if (html) html.classList.toggle('popup-fill-window', next);
+
+  if (next) {
+    // A pending measurement would resize the window out from under the user.
+    if (_resizeTimer) {
+      clearTimeout(_resizeTimer);
+      _resizeTimer = null;
+    }
+    // Inline caps and heights left by the measurement pass outrank the fill
+    // rules, so they have to go before the layout can stretch.
+    SCROLL_REGION_IDS.forEach(function(id) {
+      releaseScrollRegion(document.getElementById(id));
+    });
+    var textarea = document.getElementById('editor-source-text');
+    if (textarea) {
+      textarea.style.height = '';
+      textarea.classList.remove('editor-textarea--scrolling');
+    }
+  } else {
+    autosizeEditorSourceTextarea(document.getElementById('editor-source-text'));
+  }
+};
 
 function applyMeasuredHeight() {
   _resizeTimer = null;
@@ -473,6 +527,9 @@ function applyMeasuredHeight() {
  * new size after it is already on screen.
  */
 function measureAndResize(immediate) {
+  // The user's own window size wins over the content's; measuring would snap
+  // it back on the next tab switch or result.
+  if (_manualWindowSize) return;
   // Resizing the native window mid-composition displaces the IME candidate
   // window, so measurement waits for the composition to finish.
   if (_imeComposing) return;

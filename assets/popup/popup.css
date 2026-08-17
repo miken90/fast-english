@@ -41,6 +41,50 @@ body {
     var(--shadow-popup);
 }
 
+/* ---------- Manual window size ----------
+   Once the user drags the frame the sizing direction inverts: the document
+   fills the window they chose instead of dictating it. Safe only because the
+   measurement pass is disabled in this mode (see setManualWindowSize), so
+   there is no window -> document -> window echo. */
+:root.popup-fill-window,
+:root.popup-fill-window body,
+:root.popup-fill-window #popup-root,
+:root.popup-fill-window .popup-container {
+  height: 100%;
+}
+
+:root.popup-fill-window .view.active {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The card holding the text takes the slack; headers and action rows keep
+   their intrinsic height. */
+:root.popup-fill-window .editor-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:root.popup-fill-window .editor-label {
+  flex: none;
+}
+
+/* flex-basis 0 so any inline height left over from autosizing is ignored. */
+:root.popup-fill-window #editor-source-text,
+:root.popup-fill-window #result-output,
+:root.popup-fill-window .result-rich-preview,
+:root.popup-fill-window #error-message {
+  flex: 1 1 0;
+  min-height: 80px;
+  overflow-y: auto;
+}
+
+:root.popup-fill-window #error-message {
+  min-height: 0;
+}
+
 .view {
   display: none;
   width: 100%;

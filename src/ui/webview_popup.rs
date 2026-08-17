@@ -76,8 +76,9 @@ fn run_event_loop(
     settings_rx: std_mpsc::Receiver<SettingsCommand>,
     ipc_tx: tokio::sync::mpsc::UnboundedSender<JsToRust>,
 ) {
+    use crate::ui::window_resize_tracker::WindowResizeTracker;
     use tao::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
-    use tao::event::{Event, StartCause};
+    use tao::event::{Event, StartCause, WindowEvent};
     use tao::event_loop::{ControlFlow, EventLoopBuilder};
     use tao::window::WindowBuilder;
     use wry::{WebContext, WebViewBuilder};
@@ -224,6 +225,11 @@ fn run_event_loop(
         .expect("Failed to spawn settings command forwarder");
 
     // --- Unified event loop ---
+    let popup_window_id = popup_window.id();
+    let initial_popup_size = popup_window.inner_size();
+    let mut popup_resize =
+        WindowResizeTracker::new((initial_popup_size.width, initial_popup_size.height));
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         match event {
@@ -242,14 +248,20 @@ fn run_event_loop(
                         // Position first: it decides which monitor the window
                         // belongs to before the size is applied.
                         popup_window.set_outer_position(PhysicalPosition::new(x, y));
+                        popup_resize.expect((width as u32, height as u32));
                         popup_window.set_inner_size(PhysicalSize::new(width, height));
                         popup_window.set_visible(true);
                         popup_window.set_focus();
+                        // Each showing starts from content-driven sizing again;
+                        // a size the user dragged earlier does not outlive the
+                        // popup that was on screen at the time.
+                        let _ = popup_webview.evaluate_script("setManualWindowSize(false)");
                     }
                     WebViewPopupCommand::Hide => {
                         popup_window.set_visible(false);
                     }
                     WebViewPopupCommand::Resize { width, height } => {
+                        popup_resize.expect((width as u32, height as u32));
                         popup_window.set_inner_size(PhysicalSize::new(width, height));
                     }
                     WebViewPopupCommand::Move { x, y } => {
@@ -300,6 +312,18 @@ fn run_event_loop(
                     }
                 },
             },
+            // A popup sized by the user must stop being sized by its content:
+            // the document is switched to filling the window, and the
+            // measurement pass that would snap the window back is disabled.
+            Event::WindowEvent {
+                window_id,
+                event: WindowEvent::Resized(size),
+                ..
+            } if window_id == popup_window_id => {
+                if popup_resize.observe((size.width, size.height)) {
+                    let _ = popup_webview.evaluate_script("setManualWindowSize(true)");
+                }
+            }
             _ => {}
         }
     });

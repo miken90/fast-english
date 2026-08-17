@@ -11,3 +11,4 @@ pub mod webview_bridge;
 pub mod webview_ipc;
 pub mod webview_popup;
 pub mod webview_settings;
+pub mod window_resize_tracker;
