@@ -30,6 +30,11 @@ pub enum WebViewPopupCommand {
     SetState {
         json: String,
     },
+    /// A piece of streamed text appended to the live output region. Separate
+    /// from `SetState` so a chunk does not re-render the whole view.
+    StreamChunk {
+        json: String,
+    },
     EvaluateScript {
         js: String,
     },
@@ -90,6 +95,7 @@ fn run_event_loop(
     let components_css = include_str!("../../assets/popup/components.css");
     let popup_css = include_str!("../../assets/popup/popup.css");
     let popup_icons_js = include_str!("../../assets/popup/icons.js");
+    let popup_diff_js = include_str!("../../assets/popup/diff.js");
     let popup_js = include_str!("../../assets/popup/popup.js");
     let full_popup_html = inline_assets(
         popup_html,
@@ -99,7 +105,7 @@ fn run_event_loop(
             (components_css, "components.css"),
             (popup_css, "popup.css"),
         ],
-        &format!("{}\n{}", popup_icons_js, popup_js),
+        &format!("{}\n{}\n{}", popup_icons_js, popup_diff_js, popup_js),
         "popup.js",
     );
 
@@ -269,6 +275,10 @@ fn run_event_loop(
                     }
                     WebViewPopupCommand::SetState { json } => {
                         let script = format!("setState({})", json);
+                        let _ = popup_webview.evaluate_script(&script);
+                    }
+                    WebViewPopupCommand::StreamChunk { json } => {
+                        let script = format!("streamChunk({})", json);
                         let _ = popup_webview.evaluate_script(&script);
                     }
                     WebViewPopupCommand::EvaluateScript { js } => {

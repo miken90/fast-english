@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod history;
 mod hotkey;
 mod persistence;
 mod settings;
@@ -62,10 +63,13 @@ fn main() -> Result<()> {
     // Create event channel for cross-component communication
     let (event_tx, event_rx) = tokio::sync::mpsc::channel::<app::AppEvent>(100);
 
-    // Start selection monitor (background polling)
+    // Start selection monitor (background polling).
+    // The poll loop only feeds auto-popup, so it follows that setting live via
+    // a watch channel the settings handler updates.
+    let (auto_popup_tx, auto_popup_rx) = tokio::sync::watch::channel(settings.auto_popup_enabled);
     let monitor_tx = event_tx.clone();
     runtime.spawn(async move {
-        selection::monitor::run(monitor_tx).await;
+        selection::monitor::run(monitor_tx, auto_popup_rx).await;
     });
 
     info!("Selection monitor started");
@@ -81,7 +85,7 @@ fn main() -> Result<()> {
     info!("Fast English ready");
 
     // Run WebView-based popup runtime (blocks until exit).
-    ui::popup::run(event_rx, event_tx, settings, runtime)?;
+    ui::popup::run(event_rx, event_tx, settings, auto_popup_tx, runtime)?;
 
     // Cleanup COM
     #[cfg(target_os = "windows")]

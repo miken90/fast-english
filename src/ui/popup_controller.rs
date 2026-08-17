@@ -3,7 +3,7 @@ use crate::selection::{SelectionContext, Tier};
 use crate::ui::popup_monitor;
 use crate::ui::popup_position::{clamp_popup_height, clamp_popup_y, popup_width};
 use crate::ui::settings_views::{ConnectionTestState, SettingsForm};
-use crate::ui::webview_bridge;
+use crate::ui::webview_bridge::{self, tool_id};
 use crate::ui::webview_ipc::JsToRust;
 use crate::ui::webview_popup::WebViewPopupCommand;
 use crate::ui::webview_settings::SettingsCommand;
@@ -12,7 +12,7 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, error};
 
-use super::popup_ai::start_ai_request;
+use super::popup_ai::{accepts_response, accepts_stream_chunk, records_history, start_ai_request};
 use super::popup_runtime::{AppState, InternalEvent};
 use super::popup_view::{dismiss_popup, push_popup_state, show_popup};
 
@@ -129,6 +129,10 @@ pub(crate) fn handle_app_event(
             open_settings(state);
         }
 
+        AppEvent::HistoryRequested => {
+            open_history(state);
+        }
+
         AppEvent::QuitRequested => {
             return false;
         }
@@ -146,6 +150,22 @@ pub(crate) fn handle_webview_ipc(
         JsToRust::Dismiss => dismiss_popup(state),
 
         JsToRust::BackToEditor => {
+            // History is not part of the editor flow: Back returns to whatever
+            // the popup was showing when history was opened, or closes it when
+            // history was opened from the tray with nothing on screen.
+            if matches!(state.popup_state, PopupState::History) {
+                match state.history_return.take() {
+                    Some(PopupState::Hidden) | Some(PopupState::History) | None => {
+                        dismiss_popup(state)
+                    }
+                    Some(previous) => {
+                        state.popup_state = previous;
+                        push_popup_state(state);
+                    }
+                }
+                return;
+            }
+
             if let Some((context, tool, source_text)) = popup_state_for_editor(&state.popup_state) {
                 state.popup_state = PopupState::Editor {
                     context,
@@ -269,19 +289,22 @@ pub(crate) fn handle_webview_ipc(
         }
 
         JsToRust::CancelProcessing => {
-            // Soft-cancel by clearing active request id and returning to editor.
-            // In-flight task may still complete but stale response is ignored.
+            // Aborts the request task, which stops the HTTP body being read, so
+            // a cancelled stream cannot keep producing chunks. Anything already
+            // queued is rejected by the request-id guard.
             if let PopupState::Processing {
                 context,
                 tool,
                 source_text,
             } = &state.popup_state
             {
-                state.active_request_id = None;
+                let (context, tool, source_text) =
+                    (context.clone(), tool.clone(), source_text.clone());
+                state.abort_active_request();
                 state.popup_state = PopupState::Editor {
-                    context: context.clone(),
-                    tool: tool.clone(),
-                    source_text: source_text.clone(),
+                    context,
+                    tool,
+                    source_text,
                 };
                 push_popup_state(state);
             }
@@ -289,6 +312,41 @@ pub(crate) fn handle_webview_ipc(
 
         JsToRust::OpenSettings => {
             open_settings(state);
+        }
+
+        JsToRust::OpenHistory => {
+            open_history(state);
+        }
+
+        JsToRust::OpenHistoryEntry { index } => {
+            let Some(entry) = state.history.get(index) else {
+                return;
+            };
+            // Rebuild the language pair the entry actually ran with, so the
+            // header reads as it did then instead of falling back to defaults.
+            let stored_tool =
+                restore_translate_tool(entry).or_else(|| map_tool_id_to_kind(&entry.tool_id, None));
+            let tool = stored_tool.unwrap_or(default_tool());
+            let source_text = entry.source_text.clone();
+            let output = entry.output.clone();
+
+            // The selection this came from is long gone, so Replace stays off:
+            // there is no longer a place in another app to write it back to.
+            // Copy and Edit output work as they do for a fresh result.
+            state.popup_state = PopupState::Result {
+                context: detached_context(&source_text),
+                tool,
+                source_text,
+                output,
+                can_replace: false,
+            };
+            push_popup_state(state);
+        }
+
+        JsToRust::ClearHistory => {
+            state.history.clear();
+            state.save_history();
+            push_popup_state(state);
         }
 
         JsToRust::SettingsChanged { field, value } => {
@@ -404,6 +462,11 @@ pub(crate) fn handle_webview_ipc(
                         });
                 }
             }
+
+            // A failed save can still have applied auto_popup before erroring,
+            // so the poller follows the in-memory setting either way. It parks
+            // itself when this goes false and resumes when it goes true.
+            let _ = state.auto_popup_tx.send(state.settings.auto_popup_enabled);
         }
 
         JsToRust::CloseSettings => {
@@ -467,10 +530,26 @@ pub(crate) fn handle_webview_ipc(
 
 pub(crate) fn handle_internal_event(state: &mut AppState, event: InternalEvent) {
     match event {
-        InternalEvent::AiResponse { request_id, result } => {
-            if state.active_request_id != Some(request_id) {
+        InternalEvent::AiChunk { request_id, text } => {
+            if !accepts_stream_chunk(state.active_request_id, &state.popup_state, request_id) {
                 return;
             }
+            // Appending to the live region instead of pushing a new state: a
+            // full re-render per chunk would reset scrolling and focus, and
+            // the request is still in Processing until it completes.
+            let _ = state
+                .webview_popup_tx
+                .send(WebViewPopupCommand::StreamChunk {
+                    json: json!({ "text": webview_bridge::escape_html(&text) }).to_string(),
+                });
+        }
+
+        InternalEvent::AiResponse { request_id, result } => {
+            if !accepts_response(state.active_request_id, request_id) {
+                return;
+            }
+            state.active_request_task = None;
+            let keep = records_history(state.active_request_id, request_id, &result);
 
             match result {
                 Ok(output) => {
@@ -480,12 +559,29 @@ pub(crate) fn handle_internal_event(state: &mut AppState, event: InternalEvent) 
                         source_text,
                     } = &state.popup_state
                     {
+                        let (context, tool, source_text) =
+                            (context.clone(), tool.clone(), source_text.clone());
+
+                        // Recorded here, at completion — never per chunk, and
+                        // never for a request that was cancelled or failed.
+                        if keep {
+                            let langs = translate_lang_ids(&tool);
+                            state.history.record(
+                                tool_id(&tool),
+                                &tool.to_string(),
+                                &source_text,
+                                &output,
+                                langs.as_ref().map(|(from, to)| (*from, *to)),
+                            );
+                            state.save_history();
+                        }
+
                         state.popup_state = PopupState::Result {
-                            context: context.clone(),
-                            tool: tool.clone(),
-                            source_text: source_text.clone(),
+                            can_replace: context_can_replace(&context),
+                            context,
+                            tool,
+                            source_text,
                             output,
-                            can_replace: context_can_replace(context),
                         };
                         state.active_request_id = None;
                         push_popup_state(state);
@@ -582,6 +678,59 @@ fn open_settings(state: &mut AppState) {
     }
 }
 
+/// Show the history list, remembering what to come back to.
+///
+/// It lives in the existing popup rather than a second window: the popup is
+/// already the app's only surface, and reusing it means a recovered result
+/// lands in the same result view — with the same Copy, Edit output and diff —
+/// instead of a parallel implementation of all three.
+fn open_history(state: &mut AppState) {
+    state.history_return = Some(state.popup_state.clone());
+    state.popup_state = PopupState::History;
+
+    // Opened from the tray with nothing on screen, so the popup has to be
+    // placed. With no selection it is centred.
+    if !state.popup_visible {
+        state.popup_visible = true;
+        let ctx = detached_context("");
+        show_popup(state, &ctx);
+    }
+    push_popup_state(state);
+}
+
+/// The language ids of a translation, for storing alongside a history entry.
+fn translate_lang_ids(tool: &WritingToolKind) -> Option<(&'static str, &'static str)> {
+    match tool {
+        WritingToolKind::Translate { from, to } => Some((from.id, to.id)),
+        _ => None,
+    }
+}
+
+/// Rebuild a Translate tool from a history entry's stored language ids.
+///
+/// `None` for any other tool, and for an entry saved before the ids were
+/// stored or naming a language this build no longer has — those fall back to
+/// the ordinary tool-id mapping.
+fn restore_translate_tool(entry: &crate::history::HistoryEntry) -> Option<WritingToolKind> {
+    if entry.tool_id != "translate" {
+        return None;
+    }
+    let from = find_translate_language(entry.translate_from.as_deref()?)?;
+    let to = find_translate_language(entry.translate_to.as_deref()?)?;
+    Some(WritingToolKind::Translate { from, to })
+}
+
+/// A context for text that no longer belongs to a live selection.
+fn detached_context(text: &str) -> SelectionContext {
+    SelectionContext {
+        text: text.to_string(),
+        bounds: None,
+        source_app: String::from("history"),
+        detection_tier: Tier::ClipboardFallback,
+        is_editable: false,
+    }
+}
+
 fn normalize_text(text: &str) -> String {
     text.replace("\r\n", "\n").trim().to_string()
 }
@@ -606,7 +755,7 @@ fn popup_tool(state: &PopupState) -> Option<&WritingToolKind> {
         | PopupState::Processing { tool, .. }
         | PopupState::Result { tool, .. }
         | PopupState::Error { tool, .. } => Some(tool),
-        PopupState::Hidden => None,
+        PopupState::Hidden | PopupState::History => None,
     }
 }
 
@@ -632,7 +781,7 @@ fn popup_context_and_source(state: &PopupState) -> Option<(SelectionContext, Str
             source_text,
             ..
         } => Some((context.clone(), source_text.clone())),
-        PopupState::Hidden => None,
+        PopupState::Hidden | PopupState::History => None,
     }
 }
 
@@ -662,7 +811,7 @@ fn popup_state_for_editor(
             source_text,
             ..
         } => Some((context.clone(), tool.clone(), source_text.clone())),
-        PopupState::Hidden => None,
+        PopupState::Hidden | PopupState::History => None,
     }
 }
 

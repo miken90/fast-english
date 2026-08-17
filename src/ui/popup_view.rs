@@ -48,6 +48,7 @@ pub(crate) fn push_popup_state(state: &AppState) {
     let bridge_ctx = BridgeContext {
         copy_feedback: state.copy_feedback,
         theme_preference,
+        history: &state.history,
     };
     let json = webview_bridge::popup_state_to_json(&state.popup_state, &bridge_ctx);
     let _ = state
@@ -59,7 +60,9 @@ pub(crate) fn dismiss_popup(state: &mut AppState) {
     state.popup_visible = false;
     state.manual_capture_in_flight = false;
     state.ignore_auto_until = Some(std::time::Instant::now() + std::time::Duration::from_secs(1));
-    state.active_request_id = None;
+    // Dismissing mid-stream stops the HTTP read too — a hidden popup must not
+    // leave a task writing into it.
+    state.abort_active_request();
     state.popup_state = PopupState::Hidden;
     let _ = state.webview_popup_tx.send(WebViewPopupCommand::Hide);
 }

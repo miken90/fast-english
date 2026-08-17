@@ -9,7 +9,7 @@ use crate::ui::webview_settings::SettingsCommand;
 use anyhow::Result;
 use std::sync::mpsc as std_mpsc;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use super::popup_controller::{handle_app_event, handle_internal_event, handle_webview_ipc};
 use super::popup_view::push_popup_state;
@@ -30,19 +30,56 @@ pub(crate) struct AppState {
     /// Cursor and popup origin captured when a drag starts, both physical.
     pub popup_drag_origin: Option<((f32, f32), (f64, f64))>,
     pub copy_feedback: bool,
+    /// Recent results, loaded from disk at startup.
+    pub history: crate::history::History,
+    /// What the popup was showing before history opened, so Back can go back.
+    pub history_return: Option<PopupState>,
     pub last_auto_shown: Option<String>,
     pub ignore_auto_until: Option<Instant>,
     pub next_request_id: u64,
     pub active_request_id: Option<u64>,
+    /// The in-flight AI task, kept so a cancelled request can abort its HTTP
+    /// read instead of streaming on into a view that has moved on.
+    pub active_request_task: Option<tokio::task::JoinHandle<()>>,
     pub manual_capture_in_flight: bool,
+    /// Live auto-popup setting for the selection poller, which parks itself
+    /// while it is off.
+    pub auto_popup_tx: watch::Sender<bool>,
     pub webview_popup_tx: std_mpsc::Sender<WebViewPopupCommand>,
     pub webview_settings_tx: std_mpsc::Sender<SettingsCommand>,
+}
+
+impl AppState {
+    /// Stop the in-flight AI request: abort the task so the HTTP body stops
+    /// being read, and drop the id so anything already queued is rejected.
+    pub(crate) fn abort_active_request(&mut self) {
+        if let Some(task) = self.active_request_task.take() {
+            task.abort();
+        }
+        self.active_request_id = None;
+    }
+
+    /// Persist history, keeping the app running if the write fails.
+    ///
+    /// The file is small and written from the event loop: a result the user
+    /// just saw is in memory either way, and a failed write costs them a
+    /// history entry, never the result itself.
+    pub(crate) fn save_history(&self) {
+        if let Err(e) = crate::persistence::HistoryStore::save(&self.history) {
+            tracing::warn!("Could not save history: {}", e);
+        }
+    }
 }
 
 pub(crate) enum InternalEvent {
     AiResponse {
         request_id: u64,
         result: std::result::Result<String, String>,
+    },
+    /// A piece of streamed text from a request that may no longer be current.
+    AiChunk {
+        request_id: u64,
+        text: String,
     },
     ManualCaptureResult {
         ctx: SelectionContext,
@@ -60,6 +97,7 @@ pub fn run(
     event_rx: mpsc::Receiver<AppEvent>,
     _event_tx: mpsc::Sender<AppEvent>,
     settings: AppSettings,
+    auto_popup_tx: watch::Sender<bool>,
     runtime: tokio::runtime::Runtime,
 ) -> Result<()> {
     let (webview_popup_tx, webview_popup_rx) = std_mpsc::channel::<WebViewPopupCommand>();
@@ -86,11 +124,17 @@ pub fn run(
         popup_work: WorkArea::fallback(),
         popup_drag_origin: None,
         copy_feedback: false,
+        // A history that cannot be read comes back empty rather than stopping
+        // the app from starting.
+        history: crate::persistence::HistoryStore::load(),
+        history_return: None,
         last_auto_shown: None,
         ignore_auto_until: None,
         next_request_id: 1,
         active_request_id: None,
+        active_request_task: None,
         manual_capture_in_flight: false,
+        auto_popup_tx,
         webview_popup_tx,
         webview_settings_tx,
     };

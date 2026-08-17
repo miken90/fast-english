@@ -1,7 +1,7 @@
 use crate::app::AppEvent;
 use crate::selection::SelectionContext;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tracing::debug;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
@@ -14,12 +14,29 @@ const DEBOUNCE_DELAY: Duration = Duration::from_millis(700);
 /// sending the event, preventing repeated popup opens during active text selection.
 ///
 /// Polls for text selection changes every 500ms.
-pub async fn run(tx: mpsc::Sender<AppEvent>) {
+///
+/// Polling only produces auto-popups, so while `auto_popup` is off the loop
+/// parks on the watch channel instead of making cross-process UIA calls that
+/// nothing consumes. Flipping the setting resumes it in place — no restart.
+/// The manual hotkey path does not go through here at all; it calls
+/// [`try_manual_capture`] directly and keeps working while the loop is parked.
+pub async fn run(tx: mpsc::Sender<AppEvent>, mut auto_popup: watch::Receiver<bool>) {
     let mut last_sent_text: Option<String> = None;
     let mut last_sent_app: String = String::new();
     let mut pending: Option<(SelectionContext, Instant)> = None;
 
     loop {
+        if !*auto_popup.borrow_and_update() {
+            // Drop the debounce state: a selection made while auto-popup was
+            // off must not replay the moment it is switched back on.
+            pending = None;
+            last_sent_text = None;
+            last_sent_app.clear();
+            if wait_until_enabled(&mut auto_popup).await.is_err() {
+                return; // Settings owner is gone — the app is shutting down.
+            }
+        }
+
         tokio::time::sleep(POLL_INTERVAL).await;
 
         match detect_selection() {
@@ -67,6 +84,16 @@ pub async fn run(tx: mpsc::Sender<AppEvent>) {
     }
 }
 
+/// Park until auto-popup is on. `Err` means every sender was dropped.
+async fn wait_until_enabled(
+    auto_popup: &mut watch::Receiver<bool>,
+) -> Result<(), watch::error::RecvError> {
+    while !*auto_popup.borrow_and_update() {
+        auto_popup.changed().await?;
+    }
+    Ok(())
+}
+
 /// Attempt selection detection using the multi-tier strategy (polling path).
 ///
 /// Tier 1 (UIA TextPattern) and Tier 2 (UIA ValuePattern) only.
@@ -111,4 +138,46 @@ pub async fn try_manual_capture() -> Option<SelectionContext> {
 
     debug!("Manual capture found no selection");
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::time::timeout;
+
+    #[tokio::test]
+    async fn an_enabled_poller_does_not_park() {
+        let (_tx, mut rx) = watch::channel(true);
+
+        timeout(Duration::from_millis(100), wait_until_enabled(&mut rx))
+            .await
+            .expect("wait_until_enabled parked while auto-popup was on")
+            .expect("channel closed");
+    }
+
+    #[tokio::test]
+    async fn a_disabled_poller_parks_until_the_setting_is_turned_back_on() {
+        let (tx, mut rx) = watch::channel(false);
+
+        assert!(
+            timeout(Duration::from_millis(100), wait_until_enabled(&mut rx))
+                .await
+                .is_err(),
+            "the poll loop kept running with auto-popup off"
+        );
+
+        tx.send(true).expect("no receiver");
+        timeout(Duration::from_millis(100), wait_until_enabled(&mut rx))
+            .await
+            .expect("the poll loop did not resume when auto-popup was re-enabled")
+            .expect("channel closed");
+    }
+
+    #[tokio::test]
+    async fn a_parked_poller_gives_up_when_the_settings_owner_is_gone() {
+        let (tx, mut rx) = watch::channel(false);
+        drop(tx);
+
+        assert!(wait_until_enabled(&mut rx).await.is_err());
+    }
 }
