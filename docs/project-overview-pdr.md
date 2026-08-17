@@ -31,8 +31,14 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 - Appears near selected text automatically or via `Ctrl+Alt+T` hotkey
 - Universal four-state flow: `Editor` → `Processing` → `Result`/`Error`
 - Snap-sized popup modes by state: editor, editor-translate, processing, result-compact/result-expanded, error
+- Answers stream in as the model produces them, instead of waiting for the full response
 - Result supports Replace (when editable), Copy, Re-run, Use output as input, and optional rich/markdown preview
+- Fix Grammar opens with a word-level diff (removed/added highlighting); Enhance Writing offers the same diff off by default; Translate and Convert Prompt do not offer a diff
 - Dismisses on outside click or Escape key
+
+### 2b. Recent Results
+- Last 20 completed results kept, DPAPI-encrypted at rest, reachable from the tray or the popup header
+- Opening an entry restores the result view (Copy, Edit output, diff); Replace is disabled since the original selection no longer exists
 
 ### 3. Writing Tools
 | Tool | Description |
@@ -68,14 +74,13 @@ Fast English eliminates the friction of rewriting text by bringing AI-powered wr
 ## Future Roadmap Ideas
 
 ### Short-Term
-- Add unit and integration tests
-- Streaming AI responses for perceived speed improvement
+- Add integration/E2E tests (unit tests exist; broad suite still pending)
 - Keyboard shortcuts within the popup
+- Undo support — revert to original text
 
 ### Medium-Term
 - Additional AI providers (Ollama for local models, Google Gemini)
 - Custom user-defined writing tools
-- Usage history (local only)
 
 ### Long-Term
 - Installer with auto-update mechanism

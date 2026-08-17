@@ -12,3 +12,4 @@ documents here as real choices are accepted, then index them in this file.
 ## Index
 
 - [0001 Manual resize wins for the popup session](0001-manual-resize-wins-for-session.md) — a user's frame-drag wins for that popup session; content-driven auto-sizing resumes on the next hide→show.
+- [0002 Recent-result history is encrypted at rest, not plaintext](0002-history-encrypted-at-rest.md) — history reuses the API key's DPAPI user-scope encryption instead of plain JSON.

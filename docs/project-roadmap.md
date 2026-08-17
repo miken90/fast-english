@@ -27,12 +27,7 @@
 
 ### Known Limitations
 - Module-level unit tests only; no broad integration/E2E suite
-- No streaming AI responses
 - Popup positioning can be imprecise in some apps
-- Enhance Writing / Fix Grammar still budget output tokens with the English
-  4-chars-per-token estimate (`PromptBuilder::max_tokens`); only Translate and
-  Convert Prompt use the wider non-English-aware budget. Vietnamese (and other
-  non-Latin-script) input to Enhance/Grammar can still truncate.
 
 ---
 
@@ -100,15 +95,28 @@
 
 ## Phase 5: Enhanced UX
 
-**Status**: Planned
+**Status**: In Progress (streaming, diff view, and history delivered 2026-08-17, v0.5.0)
 
-### Goals
-- [ ] Streaming AI responses (show text as it arrives)
-- [ ] History of recent rewrites (local storage)
+### Delivered Features (v0.5.0)
+- [x] Streaming AI responses — text appears as the model produces it (`src/ai/sse.rs`)
+- [x] Diff view for Fix Grammar (on by default) and Enhance Writing (off by
+  default) — word-level LCS highlighting in `assets/popup/diff.js`; not
+  offered for Translate or Convert Prompt
+- [x] Recent Results — last 20 completed results, DPAPI-encrypted at rest
+  (`src/history.rs`), reachable from the tray and the popup header
+
+### Remaining Goals
 - [ ] Undo support — revert to original text
 - [ ] Multiple result variants
-- [ ] Dark/light mode theme switching
 - [ ] Custom keyboard shortcuts per tool
+
+### Known Limitations (v0.5.0)
+- Streaming has never run against a live provider; verified only against
+  synthetic frames matching the OpenAI SSE spec. A non-OpenAI-compatible
+  endpoint may fail.
+- The diff view, history list, and streaming output have not been seen
+  rendering in the running app — verified by code review and automated tests
+  only. See `docs/release-notes-0.5.0.md`.
 
 ---
 

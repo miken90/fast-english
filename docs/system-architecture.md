@@ -50,7 +50,8 @@
 | `main.rs` | Entry point. COM STA init, settings load, tokio runtime, monitor/tray/hotkey wiring, starts WebView popup runtime. |
 | `app.rs` | Shared domain types: `PopupState`, `AppEvent`, `WritingToolKind`, translate constants. |
 | `settings.rs` | App settings model (`AppSettings`, provider fields, toggles). |
-| `persistence.rs` | Persist settings in `%APPDATA%/FastEnglish/`; API keys protected with DPAPI. |
+| `persistence.rs` | Persist settings in `%APPDATA%/FastEnglish/`; API keys and `history.dat` (recent results) protected with DPAPI. |
+| `history.rs` | Recent-result entry shape (tool, source, output, timestamp, translate pair) and caps: 20 entries, 8000 chars/field, re-applied on load. |
 | `hotkey.rs` | Registers global `Ctrl+Alt+T`, emits `AppEvent::HotkeyPressed`. |
 
 ### UI (WebView2)
@@ -71,14 +72,15 @@
 | `assets/popup/popup.css` | Universal popup layouts and action rows for editor/result/error states, vertically resizable textareas, animations, and Fluent Midnight visual refresh. |
 | `assets/popup/settings.css` | Settings window layouts and styling. |
 | `assets/popup/*.html` | HTML markup for the universal popup sections (`Editor`, `Processing`, `Result`, `Error`) plus settings theme/version UI. |
-| `assets/popup/popup.js` | UI orchestration, `appState`-based rendering for universal views, unified IPC actions, textarea autosize + manual resize detection, resize debouncing, and result actions (Back/Re-run/Use output as input/Replace/Copy). |
+| `assets/popup/popup.js` | UI orchestration, `appState`-based rendering for universal views, unified IPC actions, textarea autosize + manual resize detection, resize debouncing, streamed-text appending, the Recent Results list view, and result actions (Back/Re-run/Use output as input/Replace/Copy). |
+| `assets/popup/diff.js` | Word-level LCS diff, no dependency/build step: common prefix/suffix trim before the quadratic step, whitespace-preserving word split (keeps Vietnamese diacritics intact), and a `MAX_DIFF_TOKENS` (800/side) size guard that falls back to plain text with an inline note. Toggled per tool from `popup.js`. |
 | `assets/popup/settings.js` | Settings form handling, theme toggle, cancel/reset buttons, icon rendering. |
 
 ### AI, Selection, Editing
 
 | Area | Key Modules | Role |
 |---|---|---|
-| AI | `ai/mod.rs`, `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs` | Provider abstraction (shared `reqwest::Client`), API calls, prompt/output handling. `create_ai_client()` factory in `mod.rs`. |
+| AI | `ai/mod.rs`, `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs`, `ai/sse.rs` | Provider abstraction (shared `reqwest::Client`), streaming (`process_streaming`, default falls back to non-streaming) and non-streaming API calls, byte-level SSE decoding, script-density token budgeting. `create_ai_client()` factory in `mod.rs`. |
 | Selection | `selection/monitor.rs`, `uia_text.rs`, `uia_value.rs`, `clipboard_fallback.rs` | Detect selected text (UIA tiers + clipboard fallback) and emit context events. |
 | Editing | `editing/text_service.rs`, `editing/clipboard.rs` | Replace selected text (UIA SetValue first, clipboard paste fallback). |
 
@@ -115,7 +117,7 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 3. JS actions (`ToolSelected`, `UpdateSourceText`, `RunTool`) post IPC to Rust.
 4. Rust transitions to `Processing`, executes AI request, then transitions to `Result`/`Error`.
 5. Rust sends fresh `SetState` JSON; JS re-renders the active universal view.
-6. Result/Error actions route through unified IPC: `BackToEditor`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`, `CancelProcessing`.
+6. Result/Error actions route through unified IPC: `BackToEditor`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`, `CancelProcessing`. `OpenHistory`/`OpenHistoryEntry`/`ClearHistory` route Recent Results independently of the current popup state.
 7. Replace is gated by `can_replace`; when false, `ReplaceResult` stays disabled and copy/rerun flows remain available.
 
 ## Threading Model
@@ -141,7 +143,7 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 
 ## Security Considerations
 
-- API keys are stored only in DPAPI-protected storage; not persisted in WebView assets.
+- API keys and recent-result history (`history.dat`) are stored only in DPAPI-protected storage, scoped to the Windows account; not persisted in WebView assets. DPAPI protects against another account, a stolen disk, or a backup — not against other code running as the same user.
 - User-facing text injected into HTML contexts is escaped in `webview_bridge::escape_html`.
 - IPC payloads are structured typed messages with serde deserialization boundaries.
 - HTTPS enforcement: provider base URLs must use `https://`; validated before settings are persisted.
@@ -166,6 +168,12 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 ### Manual Resize Handoff
 - **Policy**: a user's frame-drag wins for that popup session; content-driven auto-sizing resumes only on the next hide→show. Recorded as a decision in [`docs/decisions/0001-manual-resize-wins-for-session.md`](decisions/0001-manual-resize-wins-for-session.md).
 - **Ambiguity**: a monitor DPI/scale change also raises `WindowEvent::Resized`, so `window_resize_tracker` reads it as a user drag. Self-healing on the next show; not distinguished from a real drag.
+
+### Streaming Request Safety
+- **Request-id guard**: `accepts_stream_chunk`/`accepts_response` reject a chunk or final response whose request id no longer matches the active one, so a stale stream from a superseded or cancelled request cannot paint into a live view.
+- **Cancel aborts the task**: `abort_active_request()` runs before a new request id is issued, so cancelling stops the HTTP body being read instead of leaving a task that writes into a dead view.
+- **Manual-resize interaction**: every sizing path checks `_manualWindowSize` before resizing, so a stream growing the result region never resizes a window the user has already dragged.
+- **History gating**: `records_history` only accepts a completed, successful response tied to the still-active request id — never a chunk, and never a cancelled or failed request.
 
 ### Clipboard Capture Thread Safety (RT-5)
 - **Blocking I/O isolation**: Clipboard capture (includes ~1.88s max polling with `std::thread::sleep`) runs in `tokio::task::spawn_blocking()` to avoid blocking Tokio worker threads

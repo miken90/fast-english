@@ -7,7 +7,7 @@
 - **UI Stack**: WebView2 via `wry` + `tao` (WebView popup + settings windows)
 - **Build system**: Cargo
 - **Key dependencies**: `windows`, `uiautomation`, `wry`, `tao`, `tray-icon`, `global-hotkey`, `reqwest`, `tokio`
-- **Tests**: module-level unit tests; no broad integration/E2E suite yet. Count with `find src -name '*.rs' | xargs grep -c '#\[test\]'`
+- **Tests**: module-level unit tests; no broad integration/E2E suite yet. 75 tests as of v0.5.0 (up from 37 pre-0.5.0). Count with `grep -rn '#\[.*test\]' src --include='*.rs' | wc -l` (the narrower `#\[test\]` pattern misses `#[tokio::test]`)
 
 ## Directory Structure
 
@@ -21,12 +21,14 @@ fast-english/
 │   ├── app.rs                             # PopupState, AppEvent, writing tool and translation models
 │   ├── hotkey.rs                          # Global Ctrl+Alt+T registration
 │   ├── settings.rs                        # Settings model
-│   ├── persistence.rs                     # JSON storage + DPAPI key storage
+│   ├── persistence.rs                     # JSON storage + DPAPI key/history storage
+│   ├── history.rs                         # Recent-result entries: shape, caps, policy
 │   ├── ai/
-│   │   ├── client.rs                      # AIClient trait
+│   │   ├── client.rs                      # AIClient trait (streaming + non-streaming)
 │   │   ├── openai.rs                      # OpenAI client (shared reqwest::Client)
 │   │   ├── anthropic.rs                   # Anthropic client
-│   │   ├── prompt.rs                      # Prompt/output normalization
+│   │   ├── prompt.rs                      # Prompt/output normalization, script-density token budget
+│   │   ├── sse.rs                         # Byte-level SSE decoder for streaming completions
 │   │   └── mod.rs                         # create_ai_client() factory
 │   ├── selection/
 │   │   ├── monitor.rs                     # Polling + debounce + manual capture
@@ -56,7 +58,8 @@ fast-english/
 │       ├── base.css                       # Global reset + root variables (system font stack)
 │       ├── components.css                 # Shared component library (buttons, textareas, status)
 │       ├── popup.css                      # Popup-specific styling
-│       ├── popup.js                       # Popup client logic + IPC + roving tabindex
+│       ├── popup.js                       # Popup client logic + IPC + roving tabindex + streaming/history views
+│       ├── diff.js                        # Word-level LCS diff rendering for Fix Grammar/Enhance Writing
 │       ├── settings.html                  # Settings UI markup
 │       ├── settings.css                   # Settings-specific styling
 │       └── settings.js                    # Settings client logic + IPC posts
@@ -89,12 +92,17 @@ fast-english/
 - **Event-driven core**: `AppEvent` channel drives runtime transitions.
 - **Universal editor state flow**: `PopupState` now centers on `Editor`, `Processing`, `Result`, and `Error`; JS strictly mirrors Rust state.
 - **Shared WebView UI host model**: one `tao` event-loop thread hosts both popup and settings windows; command-forwarder threads route popup/settings channels into that loop.
-- **Unified IPC/action model**: JSON messages use `{ type, payload }` and route actions like `RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, and `Retry` into `JsToRust`.
+- **Unified IPC/action model**: JSON messages use `{ type, payload }` and route actions like `RunTool`, `CancelProcessing`, `UseOutputAsInput`, `ReplaceResult`, `CopyResult`, `Retry`, `OpenHistory`, `OpenHistoryEntry`, and `ClearHistory` into `JsToRust`.
 - **Replace gating**: replace is only enabled in `Result` when `canReplace=true`; editor-level replace is disabled.
 - **Result action set**: Back to editor, Re-run, Use output as input, Replace, and Copy (with inline feedback).
 - **Safe output rendering**: bridge escapes AI output before injecting into JS state payloads.
 - **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
 - **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
+- **Streaming completions**: `AIClient::process_streaming` decodes SSE chunks via `ai/sse.rs` and appends them to the live `Result` region under the same request-id guard (`accepts_response`) that rejects stale responses; `abort_active_request()` runs before a new request id is issued. A provider without a streaming override falls back to the non-streaming path through the same trait default. `test_connection` never streams.
+- **Idle selection poller**: `selection/monitor.rs` parks on a `tokio::sync::watch` channel while auto-popup is off instead of polling UIA every 500ms; it resumes in place when the setting turns back on. The manual hotkey path does not go through this loop.
+- **Recent Results (history)**: a completed result is recorded once, at completion only — never per chunk, never for a cancelled or failed request. Stored via `persistence::HistoryStore`, DPAPI-encrypted at `%APPDATA%\FastEnglish\history.dat`, capped at `history::MAX_ENTRIES` (20) and `history::MAX_TEXT_CHARS` (8000) per field, re-applied on load. A missing, truncated, undecryptable, or malformed file degrades to an empty history. Opening an entry rebuilds the result view with Replace disabled.
+- **Diff view**: `assets/popup/diff.js` renders a word-level LCS diff client-side (no dependency, no build step); a common prefix/suffix trim runs before the quadratic step, and inputs over `MAX_DIFF_TOKENS` (800 per side) fall back to plain text with an inline note. Fix Grammar opens with the diff on; Enhance Writing offers it off by default; Translate and Convert Prompt never offer it. Copy and Replace always use the clean text.
+- **Script-density token budget**: `ai/prompt.rs::estimated_tokens` charges ASCII bytes at `/4` and non-ASCII bytes at `/2` (Vietnamese and other multi-byte scripts cost more bytes per token than ASCII). Applies uniformly to `max_tokens`, `max_tokens_for_translate`, and `max_tokens_for_convert`; pure-ASCII input is unchanged.
 - **Manual-resize policy**: a user's frame-drag wins for that popup session (`.popup-fill-window` mode, `window.setManualWindowSize(true)`); content-driven auto-sizing resumes on the next hide→show. See [`docs/decisions/0001-manual-resize-wins-for-session.md`](decisions/0001-manual-resize-wins-for-session.md).
 
 ## CSS Architecture (Phase 2)
