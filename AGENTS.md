@@ -120,7 +120,13 @@ powershell.exe -Command "Get-Process fast-english -ErrorAction SilentlyContinue"
 ### Release Rules
 - Repo-specific release process lives in `docs/deployment-guide.md`
 - Default release scope for `fast-eng` is portable only; installer release is opt-in and requires explicit user ask
-- Before any release, keep `Cargo.toml`, `Cargo.lock`, `resources/app.manifest`, `scripts/build-release.ps1`, and `installer/FastEnglish.iss` in sync
+- **Version: `Cargo.toml` is the only place it is written.** There is nothing to sync by hand. It reaches everything else automatically:
+  - VERSIONINFO on the `.exe` — `build.rs` passes it to `resources/app.rc` as an rc macro
+  - the app manifest — `build.rs` substitutes `{{FE_VERSION_4}}` in `resources/app.manifest.in` and writes the result to `OUT_DIR`; the repo holds only the template
+  - the portable zip name and the release assertions — `scripts/build-release.ps1` reads it out of `Cargo.toml`
+  - the installer — `scripts/build-release.ps1 -Installer` passes `/DAppVersion` to ISCC; `installer/FastEnglish.iss` errors out if the define is missing rather than falling back to a literal
+- Never add a version literal to a resource, manifest, script, or installer file. Bump `Cargo.toml` (and let `Cargo.lock` follow) and rebuild
+- A release build fails if the version embedded in the built exe does not match `Cargo.toml`
 - Use PowerShell for build, packaging, and release commands
 
 ### Code Conventions

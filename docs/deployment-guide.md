@@ -39,21 +39,40 @@ This builds an optimized release binary targeting x86_64-pc-windows-msvc and pac
 - Fast English release builds are Windows-only and **must** run via `powershell.exe`
 - Default release scope for this repo is **portable only**
 - Do **not** include installer artifacts unless the user explicitly asks for installer release support
-- Keep release versions in sync across `Cargo.toml`, `Cargo.lock`, `resources/app.manifest`, `scripts/build-release.ps1`, and `installer/FastEnglish.iss`
+- The version lives in `Cargo.toml` and nowhere else — see [Version Source of Truth](#version-source-of-truth)
 - Release artifacts are published from `dist/`
 - Create GitHub releases as **draft first**, then review assets and notes before publishing
 - Generate release notes from `git log <previous-tag>..HEAD` and keep them user-facing
 
-### Version Sync Checklist
+### Version Source of Truth
 
-Before cutting a release, update these files:
+There is no version sync checklist. `Cargo.toml` is the only file that states the
+version; everything else derives it at build time.
 
-- `Cargo.toml`
-- `Cargo.lock`
-- `resources/app.manifest`
-- `scripts/build-release.ps1`
-- `installer/FastEnglish.iss`
-- any docs that embed a concrete release filename
+| Consumer | How it gets the version |
+|---|---|
+| VERSIONINFO on the `.exe` (Explorer Details tab) | `build.rs` passes `FE_VERSION_COMMA` / `FE_VERSION_STR` to `resources/app.rc` as rc macros |
+| App manifest (`assemblyIdentity version`) | `build.rs` substitutes `{{FE_VERSION_4}}` in `resources/app.manifest.in` and writes the result to `OUT_DIR`; `app.rc` embeds it from there |
+| Portable zip filename | `scripts/build-release.ps1` reads `Cargo.toml` |
+| Installer (`AppVersion`, output filename) | `scripts/build-release.ps1 -Installer` passes `/DAppVersion=<version>` to ISCC |
+
+To cut a new version: bump `version` in `Cargo.toml`, run a build so `Cargo.lock`
+follows, and rebuild. Update any docs that quote a concrete release filename.
+
+Guardrails, so a stale version cannot ship silently:
+
+- `resources/app.manifest.in` is a template, not a manifest. `build.rs` panics if
+  the `{{FE_VERSION_4}}` placeholder goes missing.
+- `installer/FastEnglish.iss` has no version of its own and raises `#error` if
+  `AppVersion` is not defined — a missing define fails the compile instead of
+  falling back to a literal.
+- `scripts/build-release.ps1` aborts if the version embedded in the built exe
+  does not match `Cargo.toml`.
+
+One caveat: cargo can consider the crate fresh when you move *back* to a version
+it already has cached artifacts for, leaving the previous resource embedded. The
+build script's version assertion catches this; clear it with
+`cargo clean -p fast-english`. Normal forward bumps rebuild correctly.
 
 ### Release Commands
 
@@ -66,15 +85,23 @@ powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; cargo build --relea
 powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; .\scripts\build-release.ps1 2>&1"
 ```
 
-If Inno Setup 6 is installed:
+If Inno Setup 6 is installed, build the installer through the release script so
+the version define is supplied from `Cargo.toml`:
 
 ```powershell
-powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' .\installer\FastEnglish.iss 2>&1"
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; .\scripts\build-release.ps1 -Installer 2>&1"
+```
+
+Invoking ISCC directly requires passing the define yourself, or the compile
+fails with `AppVersion is not defined`:
+
+```powershell
+powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /DAppVersion=0.3.3 .\installer\FastEnglish.iss 2>&1"
 ```
 
 ### GitHub Release Flow
 
-1. Sync versions in all release/version files
+1. Bump `version` in `Cargo.toml` (the only place it is written) and let `Cargo.lock` follow
 2. Run format, lint, release build, and packaging commands
 3. Verify `dist/` contains the expected portable artifacts
 4. Draft release notes from `git log <previous-tag>..HEAD`
@@ -87,10 +114,13 @@ powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files
 The project includes an [Inno Setup](https://jrsoftware.org/isinfo.php) script for creating a Windows installer.
 
 1. Install Inno Setup 6+
-2. Build the release binary first (see above)
-3. Open `installer/FastEnglish.iss` in Inno Setup Compiler
-4. Click Build → Compile
-5. Output: `dist/FastEnglish-Setup-0.3.0.exe`
+2. Run `.\scripts\build-release.ps1 -Installer` — it builds the binary, packages
+   it, then compiles the installer with the version taken from `Cargo.toml`
+3. Output: `dist/FastEnglish-Setup-<version>.exe`
+
+Opening `installer/FastEnglish.iss` in the Inno Setup Compiler GUI will not work
+on its own: the script carries no version and stops with `AppVersion is not
+defined`. Use the release script, or pass `/DAppVersion=<version>` to ISCC.
 
 ## Installation
 

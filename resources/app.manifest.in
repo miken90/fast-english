@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Template, not a usable manifest. build.rs substitutes {{FE_VERSION_4}} with
+  the version from Cargo.toml and writes the result to OUT_DIR, which is what
+  rc.exe embeds. Never hardcode a version here.
+-->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity
-    version="0.3.3.0"
+    version="{{FE_VERSION_4}}"
     processorArchitecture="*"
     name="FastEnglish"
     type="win32"

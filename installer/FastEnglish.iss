@@ -1,15 +1,24 @@
 ; Fast English Inno Setup Installer
 ; Requires Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
+;
+; The version is never written in this file. It is passed in by
+; scripts\build-release.ps1 -Installer, which reads it from Cargo.toml, the
+; single source of truth. A missing define is a hard error rather than a
+; default, because a default here is exactly the drift this removes.
+
+#ifndef AppVersion
+  #error AppVersion is not defined. Build with: scripts\build-release.ps1 -Installer
+#endif
 
 [Setup]
 AppName=Fast English
-AppVersion=0.3.3
+AppVersion={#AppVersion}
 AppPublisher=Fast English
 AppPublisherURL=https://github.com/miken90/fast-english
 DefaultDirName={autopf}\FastEnglish
 DefaultGroupName=Fast English
 OutputDir=..\dist
-OutputBaseFilename=FastEnglish-Setup-0.3.3
+OutputBaseFilename=FastEnglish-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest

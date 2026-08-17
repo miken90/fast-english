@@ -1,9 +1,50 @@
 // Windows resource script
-// Embeds manifest and icon into the binary.
+// Embeds the manifest, icon, and version info into the binary.
+//
+// FE_VERSION_COMMA, FE_VERSION_STR, and FE_MANIFEST_PATH are defined by
+// build.rs from the version in Cargo.toml, which is the single source of truth.
+// Never hardcode a version in this file.
+//
+// The manifest is generated into OUT_DIR with the version substituted, so it is
+// referenced through a macro instead of by a name next to this file.
+//
+// ASCII only: rc.exe reads this as ANSI, so non-ASCII punctuation would arrive
+// mangled in the Details tab.
 
 #define RT_MANIFEST 24
 
-1 RT_MANIFEST "app.manifest"
+1 RT_MANIFEST FE_MANIFEST_PATH
 
-// Uncomment when app.ico is available:
 1 ICON "app.ico"
+
+// Resource ID 1, not the VS_VERSION_INFO symbol: that name only exists via
+// winver.h, and without it rc.exe names the resource as a string, where
+// GetFileVersionInfo never finds it and the Details tab stays blank.
+1 VERSIONINFO
+ FILEVERSION    FE_VERSION_COMMA
+ PRODUCTVERSION FE_VERSION_COMMA
+ FILEFLAGSMASK  0x3fL
+ FILEFLAGS      0x0L
+ FILEOS         0x40004L
+ FILETYPE       0x1L
+ FILESUBTYPE    0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "Canh Nguyen"
+            VALUE "FileDescription",  "Fast English - AI Writing Assistant for Windows"
+            VALUE "FileVersion",      FE_VERSION_STR
+            VALUE "InternalName",     "fast-english"
+            VALUE "LegalCopyright",   "Copyright (C) Canh Nguyen"
+            VALUE "OriginalFilename", "FastEnglish.exe"
+            VALUE "ProductName",      "Fast English"
+            VALUE "ProductVersion",   FE_VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
