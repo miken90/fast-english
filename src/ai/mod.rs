@@ -1,6 +1,7 @@
 pub mod client;
 pub mod openai;
 pub mod prompt;
+pub mod sse;
 
 /// Create an AI client from settings.
 pub fn create_ai_client(
