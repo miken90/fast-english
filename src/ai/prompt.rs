@@ -26,24 +26,21 @@ impl PromptBuilder {
     }
 
     pub fn max_tokens(&self, input: &str) -> usize {
-        let estimated_tokens = input.len() / 4; // ~4 chars per token for English
-        let budget = (estimated_tokens * 2).max(200);
+        let budget = (estimated_tokens(input) * 2).max(200);
         budget.min(4096)
     }
 
     /// Convert prompt output is often longer than input — give more room.
     pub fn max_tokens_for_convert(&self, input: &str) -> usize {
-        let estimated_tokens = input.len() / 4;
-        let budget = (estimated_tokens * 3).max(400);
+        let budget = (estimated_tokens(input) * 3).max(400);
         budget.min(4096)
     }
 
-    /// The 4-chars-per-token estimate is an English one. Vietnamese and other
-    /// non-Latin-script targets tokenize roughly 1.5-2x worse, so a translation
-    /// budgeted like English runs out mid-sentence.
+    /// Translation crosses scripts: the output language can tokenize far worse
+    /// than the input one, which the input-side estimate cannot see. The extra
+    /// multiplier covers that gap.
     pub fn max_tokens_for_translate(&self, input: &str) -> usize {
-        let estimated_tokens = input.len() / 4;
-        let budget = (estimated_tokens * 3).max(200);
+        let budget = (estimated_tokens(input) * 3).max(200);
         budget.min(4096)
     }
 
@@ -146,6 +143,26 @@ impl PromptBuilder {
 
         lines.join("\n").trim().to_string()
     }
+}
+
+/// Estimate how many tokens `input` costs.
+///
+/// `str::len` counts UTF-8 BYTES, and the familiar 4-per-token rule of thumb
+/// only holds while those bytes are ASCII. Vietnamese inflates both sides of
+/// that ratio, but not by the same factor: a diacritic character costs 2-3
+/// bytes, while tokenizers break it into roughly one token per 2 bytes. So the
+/// byte count hides part of the problem instead of all of it — a Vietnamese
+/// paragraph budgeted as `bytes / 4 * 2` ends up with barely any headroom over
+/// its own re-emitted length, which is what truncates Enhance and Fix Grammar
+/// mid-sentence.
+///
+/// Charging non-ASCII bytes at the worse rate restores a comparable margin for
+/// every script without a language table or a new dependency. Pure-ASCII input
+/// is unchanged, byte for byte, from the previous estimate.
+fn estimated_tokens(input: &str) -> usize {
+    let non_ascii = input.bytes().filter(|b| !b.is_ascii()).count();
+    let ascii = input.len() - non_ascii;
+    ascii / 4 + non_ascii / 2
 }
 
 /// Unwrap a result the model put inside a single code fence.
@@ -265,6 +282,66 @@ mod tests {
         // The convert path keeps its own budget and its own floor.
         assert_eq!(builder.max_tokens_for_convert(&input), 3000);
         assert_eq!(builder.max_tokens_for_convert(""), 400);
+    }
+
+    /// A paragraph of real Vietnamese prose — ~44% of its UTF-8 bytes are
+    /// non-ASCII, which is typical for the language.
+    fn vietnamese_paragraph() -> String {
+        "Hôm nay tôi muốn viết một đoạn văn dài bằng tiếng Việt để kiểm tra \
+         xem ngân sách token của ứng dụng có đủ cho phần kết quả hay không. "
+            .repeat(12)
+    }
+
+    #[test]
+    fn vietnamese_input_is_budgeted_for_a_same_length_vietnamese_output() {
+        let builder = PromptBuilder::new();
+        let input = vietnamese_paragraph();
+
+        // Enhance Writing and Fix Grammar answer in the input language, so the
+        // output is about as long as the input. Two UTF-8 bytes per token is a
+        // deliberately pessimistic reading of how Vietnamese tokenizes; the
+        // budget has to clear that on its own.
+        let output_tokens_worst_case = input.len() / 2;
+        let budget = builder.max_tokens(&input);
+
+        assert!(
+            budget >= output_tokens_worst_case,
+            "budget {} is below the worst-case output of {} tokens",
+            budget,
+            output_tokens_worst_case
+        );
+        // Still a real budget, not the ceiling doing the work.
+        assert!(budget < 4096);
+    }
+
+    #[test]
+    fn the_vietnamese_budget_beats_the_plain_byte_estimate() {
+        let builder = PromptBuilder::new();
+        let input = vietnamese_paragraph();
+
+        let old_budget = (input.len() / 4 * 2).min(4096);
+        assert!(builder.max_tokens(&input) > old_budget);
+    }
+
+    #[test]
+    fn english_budgets_are_unchanged() {
+        let builder = PromptBuilder::new();
+        let english = "The quarterly report is ready for review. ".repeat(40);
+
+        assert_eq!(builder.max_tokens(&english), english.len() / 4 * 2);
+        assert_eq!(builder.max_tokens(&"x".repeat(4000)), 2000);
+        // The floor still applies to short input.
+        assert_eq!(builder.max_tokens("Fix this."), 200);
+    }
+
+    #[test]
+    fn the_ceiling_still_clamps_non_ascii_input() {
+        let builder = PromptBuilder::new();
+        let input = vietnamese_paragraph().repeat(40);
+
+        assert_eq!(builder.max_tokens(&input), 4096);
+        assert_eq!(builder.max_tokens_for_translate(&input), 4096);
+        assert_eq!(builder.max_tokens_for_convert(&input), 4096);
     }
 
     #[test]
