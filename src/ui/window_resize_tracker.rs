@@ -7,6 +7,21 @@
 /// Physical pixel size of the popup's client area.
 pub type Size = (u32, u32);
 
+/// Round a computed physical size to the whole pixels a window is actually set
+/// to.
+///
+/// The popup's size is derived from CSS pixels times a monitor scale, so it is
+/// routinely fractional. The window can only take whole pixels, and the size it
+/// then reports back is compared against what the app asked for — so the
+/// request and the expectation have to be rounded the same way, once, or a
+/// resize the app caused reads as a frame the user dragged.
+pub fn physical_size(width: f64, height: f64) -> Size {
+    (
+        width.round().max(1.0) as u32,
+        height.round().max(1.0) as u32,
+    )
+}
+
 #[derive(Debug)]
 pub struct WindowResizeTracker {
     /// The size the app last asked the window manager for, still unconfirmed.
@@ -51,6 +66,26 @@ impl WindowResizeTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_fractional_size_rounds_to_one_whole_pixel_size() {
+        // 480 x 380 CSS at 125% — the height lands on a half pixel.
+        assert_eq!(physical_size(600.0, 475.5), (600, 476));
+        assert_eq!(physical_size(600.4, 475.4), (600, 475));
+        // A degenerate size still leaves a window that exists.
+        assert_eq!(physical_size(0.0, 0.2), (1, 1));
+    }
+
+    #[test]
+    fn a_rounded_request_is_recognised_when_the_window_reports_it_back() {
+        let (w, h) = physical_size(600.0, 475.5);
+        let mut tracker = WindowResizeTracker::new((600, 475));
+        tracker.expect((w, h));
+        assert!(
+            !tracker.observe((w, h)),
+            "the app's own rounded resize was read as a user drag"
+        );
+    }
 
     #[test]
     fn applying_our_own_size_is_not_a_user_resize() {

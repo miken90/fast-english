@@ -87,6 +87,20 @@ body {
   min-height: 0;
 }
 
+/* A window shorter than the cards' own minimum heights leaves this box too
+   small for them. Without containment they keep their minimum and spill past
+   its bottom edge, painting under the action row — the run button ends up
+   drawn over the output box. The overflow is absorbed here instead, so every
+   section stays inside its own box and the buttons are never covered. */
+:root.popup-fill-window .editor-main,
+:root.popup-fill-window .result-main,
+:root.popup-fill-window .history-main,
+:root.popup-fill-window .processing-view,
+:root.popup-fill-window .error-view-inner {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .view {
   display: none;
   width: 100%;

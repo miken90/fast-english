@@ -10,9 +10,25 @@ use crate::selection::Rect;
 use super::popup_monitor;
 
 /// Popup width in CSS pixels.
-pub const POPUP_WIDTH: f32 = 440.0;
+///
+/// The floor is the tool-tab row, measured from the popup document at its own
+/// tokens (Segoe UI, 11.5px/600): four pills of 88.59 + 93.92 + 84.02 + 91.55
+/// = 358.08, three 6px gaps (18), the switcher's 14px side padding (28) and the
+/// container's 1px borders (2) — 406.08, below which the row scrolls sideways
+/// and a tool falls out of view. That is a floor, not a target: at 406 the last
+/// pill ends flush against the edge. 520 leaves 113.92px clear after it, so the
+/// row reads as inset instead of edge to edge.
+pub const POPUP_WIDTH: f32 = 520.0;
 /// Height used for first placement, before the document reports its own.
-pub const POPUP_INITIAL_HEIGHT: f32 = 340.0;
+///
+/// The editor view needs 378.75 CSS px once the output card is on screen: a
+/// 1px border, 50 header and 37 tab row above, a 47 action row and 1px border
+/// below, and a body that cannot go under 243.75 (two cards at a 22.5 label
+/// plus an 80 text box, an 18.5 char count, two 10px gaps). Shorter than that
+/// the body is squeezed while its cards keep their own minimum, and the run
+/// button ends up drawn over the output. 400 keeps the first frame — the one
+/// painted before any measurement comes back — 21.25px clear of that range.
+pub const POPUP_INITIAL_HEIGHT: f32 = 400.0;
 /// Floor for a content-driven height, so a broken measurement cannot collapse
 /// the window to nothing.
 pub const POPUP_MIN_HEIGHT: f32 = 120.0;
@@ -174,6 +190,13 @@ pub fn work_area_for_anchor(anchor: Option<(f32, f32)>) -> WorkArea {
 mod tests {
     use super::*;
 
+    /// Narrowest window the whole tool-tab row still fits in, in CSS pixels —
+    /// measured from the popup document; see `POPUP_WIDTH` for the breakdown.
+    const TABS_MIN_WIDTH: f32 = 406.08;
+    /// Shortest window the editor view lays out in without one section
+    /// covering another; see `POPUP_INITIAL_HEIGHT` for the breakdown.
+    const LAYOUT_MIN_HEIGHT: f32 = 378.75;
+
     /// 1920x1080 at 100%, positioned to the LEFT of the primary monitor.
     fn secondary_left() -> WorkArea {
         WorkArea {
@@ -199,7 +222,7 @@ mod tests {
     #[test]
     fn popup_stays_on_a_monitor_at_negative_coordinates() {
         let work = secondary_left();
-        let size = (440.0, 340.0);
+        let size = (POPUP_WIDTH, POPUP_INITIAL_HEIGHT);
         let (x, y) = place_popup(Some((-1500.0, 400.0)), size, &work);
 
         assert!(
@@ -213,15 +236,27 @@ mod tests {
     #[test]
     fn popup_hangs_below_the_anchor_when_there_is_room() {
         let work = secondary_left();
-        let (_, y) = place_popup(Some((100.0, 200.0)), (440.0, 340.0), &work);
+        let (_, y) = place_popup(
+            Some((100.0, 200.0)),
+            (POPUP_WIDTH, POPUP_INITIAL_HEIGHT),
+            &work,
+        );
         assert_eq!(y, 208.0, "expected anchor + 8px spacing");
     }
 
     #[test]
     fn popup_flips_above_the_anchor_near_the_bottom_edge() {
         let work = secondary_left();
-        let (_, y) = place_popup(Some((100.0, 1000.0)), (440.0, 340.0), &work);
-        assert_eq!(y, 1000.0 - 340.0 - 8.0, "expected flip above the anchor");
+        let (_, y) = place_popup(
+            Some((100.0, 1000.0)),
+            (POPUP_WIDTH, POPUP_INITIAL_HEIGHT),
+            &work,
+        );
+        assert_eq!(
+            y,
+            1000.0 - POPUP_INITIAL_HEIGHT - 8.0,
+            "expected flip above the anchor"
+        );
     }
 
     #[test]
@@ -248,9 +283,9 @@ mod tests {
     #[test]
     fn centred_placement_without_an_anchor() {
         let work = secondary_left();
-        let (x, y) = place_popup(None, (440.0, 340.0), &work);
-        assert_eq!(x, -1920.0 + (1920.0 - 440.0) / 2.0);
-        assert_eq!(y, (1032.0 - 340.0) / 2.0);
+        let (x, y) = place_popup(None, (POPUP_WIDTH, POPUP_INITIAL_HEIGHT), &work);
+        assert_eq!(x, -1920.0 + (1920.0 - POPUP_WIDTH) / 2.0);
+        assert_eq!(y, (1032.0 - POPUP_INITIAL_HEIGHT) / 2.0);
     }
 
     #[test]
@@ -258,6 +293,31 @@ mod tests {
         let work = secondary_left();
         let (x, y) = place_popup(Some((0.0, 0.0)), (4000.0, 4000.0), &work);
         assert_eq!((x, y), (work.left + 8.0, work.top + 8.0));
+    }
+
+    #[test]
+    fn the_default_width_leaves_the_tab_row_clear_of_the_edge() {
+        // Fitting the pills is the floor. The default has to sit far enough
+        // above it that the row reads as inset instead of edge to edge.
+        let width = popup_width(&primary_hidpi());
+        assert!(
+            width >= TABS_MIN_WIDTH + 64.0,
+            "{width} leaves only {} px after the last tab",
+            width - TABS_MIN_WIDTH
+        );
+    }
+
+    #[test]
+    fn the_first_frame_is_tall_enough_that_no_section_covers_another() {
+        // The height the monitor actually grants is what the document lays out
+        // in, so the clamp is what has to clear the minimum — not the constant.
+        for work in [primary_hidpi(), secondary_left()] {
+            let height = clamp_popup_height(POPUP_INITIAL_HEIGHT, &work);
+            assert!(
+                height >= LAYOUT_MIN_HEIGHT,
+                "{height} is below the {LAYOUT_MIN_HEIGHT} the editor view needs"
+            );
+        }
     }
 
     #[test]
@@ -271,6 +331,15 @@ mod tests {
             scale: 1.0,
         };
         assert_eq!(popup_width(&narrow), 384.0);
+        // A display that fits the default keeps it rather than tracking width.
+        let wide = WorkArea {
+            left: 0.0,
+            top: 0.0,
+            width: 1000.0,
+            height: 800.0,
+            scale: 1.0,
+        };
+        assert_eq!(popup_width(&wide), POPUP_WIDTH);
     }
 
     #[test]
@@ -287,9 +356,9 @@ mod tests {
     fn growing_the_popup_pulls_it_back_inside_the_work_area() {
         let work = secondary_left();
         // Placed near the bottom at its initial height, then grown.
-        let y = clamp_popup_y(900.0, 340.0, &work);
-        assert_eq!(y, 1032.0 - 340.0 - 8.0);
+        let y = clamp_popup_y(900.0, POPUP_INITIAL_HEIGHT, &work);
+        assert_eq!(y, 1032.0 - POPUP_INITIAL_HEIGHT - 8.0);
         // A height that still fits is left untouched.
-        assert_eq!(clamp_popup_y(100.0, 340.0, &work), 100.0);
+        assert_eq!(clamp_popup_y(100.0, POPUP_INITIAL_HEIGHT, &work), 100.0);
     }
 }

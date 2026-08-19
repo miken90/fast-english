@@ -81,7 +81,7 @@ fn run_event_loop(
     settings_rx: std_mpsc::Receiver<SettingsCommand>,
     ipc_tx: tokio::sync::mpsc::UnboundedSender<JsToRust>,
 ) {
-    use crate::ui::window_resize_tracker::WindowResizeTracker;
+    use crate::ui::window_resize_tracker::{physical_size, WindowResizeTracker};
     use tao::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
     use tao::event::{Event, StartCause, WindowEvent};
     use tao::event_loop::{ControlFlow, EventLoopBuilder};
@@ -254,8 +254,9 @@ fn run_event_loop(
                         // Position first: it decides which monitor the window
                         // belongs to before the size is applied.
                         popup_window.set_outer_position(PhysicalPosition::new(x, y));
-                        popup_resize.expect((width as u32, height as u32));
-                        popup_window.set_inner_size(PhysicalSize::new(width, height));
+                        let size = physical_size(width, height);
+                        popup_resize.expect(size);
+                        popup_window.set_inner_size(PhysicalSize::new(size.0, size.1));
                         popup_window.set_visible(true);
                         popup_window.set_focus();
                         // Each showing starts from content-driven sizing again;
@@ -267,8 +268,9 @@ fn run_event_loop(
                         popup_window.set_visible(false);
                     }
                     WebViewPopupCommand::Resize { width, height } => {
-                        popup_resize.expect((width as u32, height as u32));
-                        popup_window.set_inner_size(PhysicalSize::new(width, height));
+                        let size = physical_size(width, height);
+                        popup_resize.expect(size);
+                        popup_window.set_inner_size(PhysicalSize::new(size.0, size.1));
                     }
                     WebViewPopupCommand::Move { x, y } => {
                         popup_window.set_outer_position(PhysicalPosition::new(x, y));
