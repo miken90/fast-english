@@ -1,5 +1,10 @@
 # Fast English — System Architecture
 
+The canonical architecture document: current product, code, state, update, and
+ownership boundaries. This repo predates the installed harness, so it keeps this
+filename rather than the harness's generic `ARCHITECTURE.md`; there is no second
+copy.
+
 ## High-Level Component Diagram
 
 ```

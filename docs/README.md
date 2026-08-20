@@ -17,7 +17,8 @@ smallest authoritative surface below.
 
 - [`system-architecture.md`](system-architecture.md): the canonical
   architecture — process model, IPC, AI layer, timeout and failure policy,
-  window sizing. [`ARCHITECTURE.md`](ARCHITECTURE.md) is a pointer to it.
+  window sizing. This repo predates the harness, so it keeps this filename
+  instead of a generic `ARCHITECTURE.md`.
 - [`codebase-summary.md`](codebase-summary.md): module map and where each
   concern lives.
 - [`code-standards.md`](code-standards.md): conventions this repo actually

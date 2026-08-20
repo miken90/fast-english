@@ -66,7 +66,7 @@ Keep docs in `./docs` folder:
 - `src/editing/` — text replacement via UIA SetValue / clipboard paste
 - `src/settings.rs` + `src/persistence.rs` — config + DPAPI key storage
 
-See `docs/system-architecture.md` (pointer: `docs/ARCHITECTURE.md`) for the full module map and IPC flow.
+See `docs/system-architecture.md` for the full module map and IPC flow.
 
 ### [CRITICAL] Build & Run — Windows Only
 
