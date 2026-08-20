@@ -15,7 +15,11 @@
 
 param(
     # Installer release is opt-in; portable is the standard scope.
-    [switch]$Installer
+    [switch]$Installer,
+    # The zip is named from Cargo.toml's version, so a rebuild at an unchanged
+    # version would otherwise overwrite an already-published zip. -Force opts
+    # into that overwrite deliberately.
+    [switch]$Force
 )
 
 # Artifacts older than this are left over from an earlier build, not this one.
@@ -115,6 +119,14 @@ Write-Host "  OK  embedded version matches Cargo.toml ($embedded)" -ForegroundCo
 # --- Portable zip ---
 $zipName = "FastEnglish-$version-portable.zip"
 $zipPath = Join-Path $dist $zipName
+
+# The zip name is derived from Cargo.toml's version alone, so a rebuild at an
+# unchanged version would silently overwrite an already-published zip. Refuse
+# unless the caller explicitly opts in with -Force.
+if ((Test-Path -LiteralPath $zipPath) -and -not $Force) {
+    Fail "dist\$zipName already exists and Cargo.toml's version ($version) has not changed. Refusing to overwrite a possibly-published zip. Bump the version in Cargo.toml, or rerun with -Force to overwrite deliberately."
+}
+
 Compress-Archive -LiteralPath $distExe -DestinationPath $zipPath -Force -ErrorAction Continue
 Assert-FreshArtifact -Path $zipPath -Label "dist\$zipName"
 
