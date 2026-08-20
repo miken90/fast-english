@@ -1,7 +1,7 @@
 use super::client::AIClient;
 use super::error;
 use super::prompt::PromptBuilder;
-use super::response::{check_completion, CompletionResponse};
+use super::response::{check_completion, Completion, CompletionResponse};
 use super::sse::{SseDecoder, SseItem};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -103,7 +103,7 @@ impl AIClient for OpenAIClient {
         instruction: &str,
         system_override: Option<&str>,
         max_tokens_override: Option<usize>,
-    ) -> Result<String> {
+    ) -> Result<Completion> {
         let body = self.completion_body(
             text,
             instruction,
@@ -140,7 +140,7 @@ impl AIClient for OpenAIClient {
         system_override: Option<&str>,
         max_tokens_override: Option<usize>,
         on_chunk: &(dyn for<'a> Fn(&'a str) + Send + Sync),
-    ) -> Result<String> {
+    ) -> Result<Completion> {
         let body = self.completion_body(
             text,
             instruction,
@@ -219,6 +219,7 @@ impl AIClient for OpenAIClient {
 
         parsed
             .into_content()
+            .map(|completion| completion.text)
             .map_err(|reason| anyhow::anyhow!(reason))
     }
 }
@@ -228,22 +229,23 @@ impl OpenAIClient {
     ///
     /// A stream can end three ways that all look like success at the transport
     /// layer: a finished answer, nothing at all, and an answer the model was
-    /// cut off partway through. Only the first is a result.
+    /// cut off partway through. The last of those is still a result — it comes
+    /// back with a notice rather than being thrown away.
     fn finish_stream(
         &self,
         full: String,
         decoder: &SseDecoder,
         first_delta_ms: Option<u128>,
-    ) -> Result<String> {
+    ) -> Result<Completion> {
         tracing::debug!(
             first_token_ms = first_delta_ms.map(|ms| ms as u64),
             chars = full.chars().count(),
             finish_reason = decoder.finish_reason(),
             "stream finished"
         );
-        check_completion(&full, decoder.finish_reason())
+        let notice = check_completion(&full, decoder.finish_reason())
             .map_err(|reason| anyhow::anyhow!(reason))?;
-        Ok(full)
+        Ok(Completion { text: full, notice })
     }
 }
 
@@ -309,7 +311,7 @@ mod tests {
     async fn stream_against(
         response: &'static [u8],
         hold_open: bool,
-    ) -> (Result<String>, Vec<String>, String) {
+    ) -> (Result<Completion>, Vec<String>, String) {
         let base = serve_once(response, hold_open).await;
         let client = client_for(&base, quick_client());
         let painted = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -471,7 +473,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_truncated_answer_is_reported_rather_than_handed_back() {
+    async fn a_truncated_answer_is_kept_and_flagged_rather_than_discarded() {
         let (out, painted, _) = stream_against(
             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n\
               data: {\"choices\":[{\"delta\":{\"content\":\"She goes ho\"}}]}\n\n\
@@ -480,9 +482,11 @@ mod tests {
         )
         .await;
 
-        let msg = out.unwrap_err().to_string();
-        assert!(msg.contains("cut off"), "{msg}");
-        assert!(msg.contains("shorter selection"), "{msg}");
+        let completion = out.expect("a truncated answer is still an answer");
+        assert_eq!(completion.text, "She goes ho");
+        let notice = completion.notice.expect("and it carries a warning");
+        assert!(notice.contains("cut off"), "{notice}");
+        assert!(notice.contains("shorter selection"), "{notice}");
         assert_eq!(painted, ["She goes ho"]);
     }
 
@@ -497,7 +501,7 @@ mod tests {
         )
         .await;
 
-        assert_eq!(out.unwrap(), "She goes home.");
+        assert_eq!(out.unwrap(), Completion::whole("She goes home."));
         assert_eq!(painted, ["She goes ", "home."]);
     }
 

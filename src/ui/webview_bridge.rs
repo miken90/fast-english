@@ -124,6 +124,7 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
             source_text,
             output,
             can_replace,
+            notice,
             ..
         } => with_theme(
             json!({
@@ -135,7 +136,10 @@ pub fn popup_state_to_json(state: &PopupState, ctx: &BridgeContext) -> String {
                 "sourceText": escape_html(source_text),
                 "output": escape_html(output),
                 "canReplace": *can_replace,
-                "copyFeedback": ctx.copy_feedback
+                "copyFeedback": ctx.copy_feedback,
+                // Present only when the answer is incomplete; the result view
+                // shows it above the output as a warning, not an error.
+                "notice": notice.as_deref().map(escape_html)
             }),
             &ctx.theme_preference,
         )

@@ -74,10 +74,21 @@ impl AppState {
     }
 }
 
+/// What an AI request produced, once the UI layer has decided whether a
+/// broken stream left anything worth showing.
+///
+/// A notice is not an error: it means the text is real but stops short, so the
+/// result view renders it with a warning instead of the error screen.
+#[derive(Debug)]
+pub(crate) struct AiOutcome {
+    pub text: String,
+    pub notice: Option<String>,
+}
+
 pub(crate) enum InternalEvent {
     AiResponse {
         request_id: u64,
-        result: std::result::Result<String, String>,
+        result: std::result::Result<AiOutcome, String>,
     },
     /// A piece of streamed text from a request that may no longer be current.
     AiChunk {

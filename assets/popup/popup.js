@@ -20,6 +20,8 @@ const appState = {
   resultMode: 'raw',
   /** Whether the diff markup matches the result currently on screen. */
   diffRendered: false,
+  /** Warning shown above the output when the answer is incomplete. */
+  resultNotice: '',
   sourceSnippetExpanded: false
 };
 
@@ -269,6 +271,21 @@ function renderResult(data) {
   appState.resultOutput = unescHtml(data.output || '');
   appState.canReplace = !!data.canReplace;
   appState.copyFeedback = !!data.copyFeedback;
+  appState.resultNotice = data.notice ? unescHtml(data.notice) : '';
+
+  // The answer is on screen either way; the notice only says it stops short.
+  // It belongs to this result alone, so it is cleared whenever one arrives
+  // without it rather than lingering over the next answer.
+  var noticeEl = document.getElementById('result-notice');
+  if (noticeEl) {
+    var noticeMsg = noticeEl.querySelector('.result-notice__msg');
+    if (noticeMsg) noticeMsg.textContent = appState.resultNotice;
+    if (appState.resultNotice) {
+      noticeEl.removeAttribute('hidden');
+    } else {
+      noticeEl.setAttribute('hidden', '');
+    }
+  }
 
   var label = document.getElementById('result-tool-label');
   if (label) label.textContent = (appState.tool && appState.tool.title) || 'Result';

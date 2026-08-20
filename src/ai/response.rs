@@ -6,10 +6,38 @@
 //! array, with a choice whose content is `null`, or with a completion the model
 //! stopped emitting halfway through. Each of those reaches the user as a blank
 //! popup unless it is caught here.
+//!
+//! The last of those is the one that is not a failure. A completion the model
+//! ran out of budget for is still text the user asked for, and throwing it away
+//! leaves them with nothing when they could have had most of an answer. It
+//! comes back as a `Completion` carrying a notice instead, so the popup can
+//! show the text and say plainly that it stops short.
 
 use serde::Deserialize;
 
 use super::error;
+
+/// A usable answer, and anything the user needs told about it.
+///
+/// `notice` is set when the text is worth showing but incomplete. It is a
+/// warning, never an error: the caller renders a result either way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Completion {
+    pub text: String,
+    pub notice: Option<String>,
+}
+
+impl Completion {
+    /// A whole answer, with nothing to warn about. Only the tests build one
+    /// by hand — the real paths go through `into_content` or `finish_stream`.
+    #[cfg(test)]
+    pub fn whole(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            notice: None,
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct CompletionResponse {
@@ -39,7 +67,7 @@ pub struct ProviderError {
 
 impl CompletionResponse {
     /// The answer, or the reason there is not one.
-    pub fn into_content(self) -> Result<String, String> {
+    pub fn into_content(self) -> Result<Completion, String> {
         if let Some(reason) = error::describe_unusable_success(
             self.error
                 .as_ref()
@@ -55,31 +83,41 @@ impl CompletionResponse {
         });
         let content = choice.message.content.unwrap_or_default();
 
-        check_completion(&content, choice.finish_reason.as_deref())?;
-        Ok(content)
+        let notice = check_completion(&content, choice.finish_reason.as_deref())?;
+        Ok(Completion {
+            text: content,
+            notice,
+        })
     }
 }
 
-/// Whether a completed answer is usable, whichever path produced it.
+/// Whether a completed answer is usable, whichever path produced it, and what
+/// the user has to be told about it.
 ///
-/// `length` means the model ran out of output budget mid-sentence. Handing that
-/// back looks like a finished answer, and the user pastes a cut-off sentence
-/// into their document without ever being told — so it is reported instead.
-pub fn check_completion(content: &str, finish_reason: Option<&str>) -> Result<(), String> {
+/// `length` means the model ran out of output budget mid-sentence. The text is
+/// still what the user asked for, so it is returned — but silently handing back
+/// a cut-off sentence lets them paste it somewhere without ever knowing, which
+/// is why it comes with a notice the result view has to show.
+///
+/// An answer with no text in it is the one case with nothing to return.
+pub fn check_completion(
+    content: &str,
+    finish_reason: Option<&str>,
+) -> Result<Option<String>, String> {
     if content.trim().is_empty() {
         return Err(error::empty_completion_message());
     }
     if finish_reason == Some("length") {
-        return Err(error::truncated_message());
+        return Ok(Some(error::truncated_message()));
     }
-    Ok(())
+    Ok(None)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn parse(body: &str) -> Result<String, String> {
+    fn parse(body: &str) -> Result<Completion, String> {
         serde_json::from_str::<CompletionResponse>(body)
             .expect("test body is valid JSON")
             .into_content()
@@ -88,7 +126,7 @@ mod tests {
     #[test]
     fn a_normal_completion_comes_back_as_its_content() {
         let out = parse(r#"{"choices":[{"message":{"content":"She goes home."}}]}"#).unwrap();
-        assert_eq!(out, "She goes home.");
+        assert_eq!(out, Completion::whole("She goes home."));
     }
 
     #[test]
@@ -114,25 +152,32 @@ mod tests {
     }
 
     #[test]
-    fn a_truncated_completion_is_reported_instead_of_returned() {
-        let err = parse(
+    fn a_truncated_completion_keeps_its_text_and_gains_a_warning() {
+        let out = parse(
             r#"{"choices":[{"message":{"content":"She goes ho"},"finish_reason":"length"}]}"#,
         )
-        .unwrap_err();
-        assert!(err.contains("cut off"));
+        .unwrap();
 
-        // A normal stop reason is not a failure.
-        assert!(parse(
-            r#"{"choices":[{"message":{"content":"She goes home."},"finish_reason":"stop"}]}"#
+        // The text the user asked for survives — throwing it away leaves them
+        // with nothing when most of an answer was already paid for.
+        assert_eq!(out.text, "She goes ho");
+        let notice = out.notice.expect("a truncated answer carries a warning");
+        assert!(notice.contains("cut off"));
+        assert!(notice.contains("limit"));
+
+        // A normal stop reason carries no warning.
+        let whole = parse(
+            r#"{"choices":[{"message":{"content":"She goes home."},"finish_reason":"stop"}]}"#,
         )
-        .is_ok());
+        .unwrap();
+        assert_eq!(whole.notice, None);
     }
 
     #[test]
     fn the_shared_check_covers_the_streaming_path_too() {
         assert!(check_completion("", None).is_err());
-        assert!(check_completion("text", Some("length")).is_err());
-        assert!(check_completion("text", Some("stop")).is_ok());
-        assert!(check_completion("text", None).is_ok());
+        assert!(check_completion("text", Some("length")).unwrap().is_some());
+        assert_eq!(check_completion("text", Some("stop")).unwrap(), None);
+        assert_eq!(check_completion("text", None).unwrap(), None);
     }
 }

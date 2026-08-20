@@ -20,6 +20,10 @@ pub enum PopupState {
         source_text: String,
         output: String,
         can_replace: bool,
+        /// Shown above the output when the answer is usable but incomplete —
+        /// the model hit its token limit, or the stream broke after enough
+        /// text had arrived to be worth keeping. `None` is a whole answer.
+        notice: Option<String>,
     },
     Error {
         context: SelectionContext,

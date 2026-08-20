@@ -150,6 +150,18 @@ pub fn describe_unusable_success(body_error: Option<&str>, had_choice: bool) -> 
     None
 }
 
+/// The stream broke after the answer had already partly arrived.
+///
+/// The text is kept, so this is a warning shown beside it rather than an error
+/// screen. It carries the underlying cause because "the connection dropped" and
+/// "the proxy stalled" ask the user for different things next.
+pub fn interrupted_message(cause: &str) -> String {
+    format!(
+        "This answer stops short — the connection broke before the model finished. {} Run it again for the whole answer.",
+        cause.trim()
+    )
+}
+
 /// The model was cut off by its own output budget.
 pub fn truncated_message() -> String {
     "The answer was cut off before it finished — the model hit its output limit. Run it again on a shorter selection.".to_string()
@@ -428,6 +440,20 @@ mod tests {
             "connection reset",
         );
         assert!(msg.contains("broke while the answer was arriving"));
+    }
+
+    #[test]
+    fn the_two_incomplete_answer_warnings_say_which_one_happened() {
+        let hit_the_limit = truncated_message();
+        assert!(hit_the_limit.contains("cut off"));
+        assert!(hit_the_limit.contains("output limit"));
+
+        let broke = interrupted_message("The connection to proxy.example.com broke.");
+        assert!(broke.contains("stops short"));
+        // The cause is carried through: a dropped connection and a stalled
+        // proxy need different things from the user next.
+        assert!(broke.contains("proxy.example.com"));
+        assert!(broke.contains("Run it again"));
     }
 
     #[test]

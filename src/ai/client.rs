@@ -1,3 +1,4 @@
+use super::response::Completion;
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -10,7 +11,7 @@ pub trait AIClient: Send + Sync {
         instruction: &str,
         system_override: Option<&str>,
         max_tokens_override: Option<usize>,
-    ) -> Result<String>;
+    ) -> Result<Completion>;
 
     /// Stream the completion, handing each piece of text to `on_chunk` as it
     /// arrives, and return the full raw text.
@@ -25,14 +26,14 @@ pub trait AIClient: Send + Sync {
         system_override: Option<&str>,
         max_tokens_override: Option<usize>,
         on_chunk: &(dyn for<'a> Fn(&'a str) + Send + Sync),
-    ) -> Result<String> {
-        let output = self
+    ) -> Result<Completion> {
+        let completion = self
             .process(text, instruction, system_override, max_tokens_override)
             .await?;
-        if !output.is_empty() {
-            on_chunk(&output);
+        if !completion.text.is_empty() {
+            on_chunk(&completion.text);
         }
-        Ok(output)
+        Ok(completion)
     }
 
     async fn test_connection(&self) -> Result<String>;

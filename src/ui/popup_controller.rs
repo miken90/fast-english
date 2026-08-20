@@ -339,6 +339,9 @@ pub(crate) fn handle_webview_ipc(
                 source_text,
                 output,
                 can_replace: false,
+                // History stores the text that was kept, not why it stopped —
+                // a warning about a run that ended minutes ago is noise.
+                notice: None,
             };
             push_popup_state(state);
         }
@@ -552,7 +555,7 @@ pub(crate) fn handle_internal_event(state: &mut AppState, event: InternalEvent) 
             let keep = records_history(state.active_request_id, request_id, &result);
 
             match result {
-                Ok(output) => {
+                Ok(outcome) => {
                     if let PopupState::Processing {
                         context,
                         tool,
@@ -570,7 +573,7 @@ pub(crate) fn handle_internal_event(state: &mut AppState, event: InternalEvent) 
                                 tool_id(&tool),
                                 &tool.to_string(),
                                 &source_text,
-                                &output,
+                                &outcome.text,
                                 langs.as_ref().map(|(from, to)| (*from, *to)),
                             );
                             state.save_history();
@@ -581,7 +584,8 @@ pub(crate) fn handle_internal_event(state: &mut AppState, event: InternalEvent) 
                             context,
                             tool,
                             source_text,
-                            output,
+                            output: outcome.text,
+                            notice: outcome.notice,
                         };
                         state.active_request_id = None;
                         push_popup_state(state);

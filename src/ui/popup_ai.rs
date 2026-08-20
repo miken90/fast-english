@@ -1,7 +1,7 @@
 use crate::app::WritingToolKind;
 use crate::selection::SelectionContext;
 
-use super::popup_runtime::{AppState, InternalEvent};
+use super::popup_runtime::{AiOutcome, AppState, InternalEvent};
 use super::popup_view::push_popup_state;
 use crate::app::PopupState;
 use tokio::sync::mpsc;
@@ -69,11 +69,17 @@ pub(crate) fn start_ai_request(
                     // decides where a result ends from paragraph boundaries,
                     // which a half-arrived answer does not have, so it runs
                     // once at the end over the whole text.
-                    let streamed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                    //
+                    // The deltas are also kept here, not just counted: if the
+                    // stream dies partway the text that did arrive is the only
+                    // copy left, and it is what the user gets to keep.
+                    let streamed = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
                     let chunk_tx = internal_tx.clone();
-                    let saw_chunk = streamed.clone();
+                    let collected = streamed.clone();
                     let on_chunk = move |delta: &str| {
-                        saw_chunk.store(true, std::sync::atomic::Ordering::Relaxed);
+                        if let Ok(mut buffer) = collected.lock() {
+                            buffer.push_str(delta);
+                        }
                         let _ = chunk_tx.send(InternalEvent::AiChunk {
                             request_id,
                             text: delta.to_string(),
@@ -90,11 +96,17 @@ pub(crate) fn start_ai_request(
                         )
                         .await
                     {
-                        Ok(raw) => Ok(clean_output_for_tool(&raw, &tool)),
-                        Err(e) => Err(stream_error_message(
-                            &e.to_string(),
-                            streamed.load(std::sync::atomic::Ordering::Relaxed),
-                        )),
+                        Ok(completion) => Ok(AiOutcome {
+                            text: clean_output_for_tool(&completion.text, &tool),
+                            notice: completion.notice,
+                        }),
+                        Err(e) => {
+                            let partial = streamed
+                                .lock()
+                                .map(|buffer| buffer.clone())
+                                .unwrap_or_default();
+                            salvage_broken_stream(&partial, &e.to_string(), &tool)
+                        }
                     }
                 }
                 Err(e) => Err(e),
@@ -139,18 +151,44 @@ pub(crate) fn accepts_stream_chunk(
 pub(crate) fn records_history(
     active_request_id: Option<u64>,
     request_id: u64,
-    result: &std::result::Result<String, String>,
+    result: &std::result::Result<AiOutcome, String>,
 ) -> bool {
     accepts_response(active_request_id, request_id) && result.is_ok()
 }
 
-/// A stream that dies after partial text must not read as a finished answer.
+/// How much text a broken stream has to have delivered before the fragment is
+/// worth keeping.
 ///
-/// A failure that already describes a cut-off answer — the model hitting its
-/// own output limit — is passed through as it is, so the user is not told the
-/// response was cut off twice in one sentence.
+/// Below this there is nothing usable in it — a word or two of an answer helps
+/// nobody, and the reason the request died is the more useful thing to show.
+/// Above it the user has most of something they asked for, and discarding it
+/// costs them the whole run.
+const MIN_SALVAGEABLE_CHARS: usize = 20;
+
+/// Decide what a stream that failed partway leaves the user with.
+///
+/// A failure after enough text has arrived is not the same event as a failure
+/// with nothing to show. The first keeps the text and says plainly that it
+/// stops short; the second is an error, because there is nothing else to give.
+fn salvage_broken_stream(
+    partial: &str,
+    error: &str,
+    tool: &WritingToolKind,
+) -> std::result::Result<AiOutcome, String> {
+    let cleaned = clean_output_for_tool(partial, tool);
+    if cleaned.trim().chars().count() < MIN_SALVAGEABLE_CHARS {
+        return Err(stream_error_message(error, !partial.trim().is_empty()));
+    }
+    Ok(AiOutcome {
+        text: cleaned,
+        notice: Some(crate::ai::error::interrupted_message(error)),
+    })
+}
+
+/// A stream that dies before it has said anything useful is a plain failure,
+/// and the fragment it did deliver is worth naming in the message.
 fn stream_error_message(error: &str, had_partial_text: bool) -> String {
-    if had_partial_text && !error.contains("cut off") {
+    if had_partial_text {
         format!("The response was cut off: {}", error)
     } else {
         error.to_string()
@@ -275,6 +313,7 @@ mod tests {
             source_text: String::from("source"),
             output: String::from("done"),
             can_replace: false,
+            notice: None,
         };
 
         // The id still matches — only the view has moved on, and there is no
@@ -284,10 +323,17 @@ mod tests {
         assert!(!accepts_stream_chunk(Some(1), &PopupState::Hidden, 1));
     }
 
+    fn outcome(text: &str) -> std::result::Result<AiOutcome, String> {
+        Ok(AiOutcome {
+            text: text.to_string(),
+            notice: None,
+        })
+    }
+
     #[test]
     fn only_a_completed_result_is_recorded_in_history() {
-        let ok: std::result::Result<String, String> = Ok("She goes home.".to_string());
-        let failed: std::result::Result<String, String> = Err("HTTP 500".to_string());
+        let ok = outcome("She goes home.");
+        let failed: std::result::Result<AiOutcome, String> = Err("HTTP 500".to_string());
 
         assert!(records_history(Some(1), 1, &ok));
         // Cancelled or dismissed: abort_active_request cleared the id before
@@ -297,6 +343,85 @@ mod tests {
         assert!(!records_history(Some(2), 1, &ok));
         // Finished, but with an error — there is no result to keep.
         assert!(!records_history(Some(1), 1, &failed));
+    }
+
+    #[test]
+    fn an_incomplete_answer_is_still_a_result_worth_keeping() {
+        // The text is real; only its ending is missing. Dropping it from
+        // history would be dropping something the user can still use.
+        let truncated = Ok(AiOutcome {
+            text: "She goes ho".to_string(),
+            notice: Some(crate::ai::error::truncated_message()),
+        });
+        assert!(records_history(Some(1), 1, &truncated));
+    }
+
+    #[test]
+    fn a_stream_that_broke_late_keeps_its_text_and_gains_a_warning() {
+        let partial = "The deadline moved to Friday and the room is booked for";
+        let outcome = salvage_broken_stream(
+            partial,
+            "The connection to proxy.example.com broke while the answer was arriving. Try again.",
+            &WritingToolKind::EnhanceWriting,
+        )
+        .expect("enough text arrived to be worth keeping");
+
+        assert_eq!(outcome.text, partial);
+        let notice = outcome.notice.expect("and the user is told it stops short");
+        assert!(notice.contains("stops short"), "{notice}");
+        // The cause survives, so the user knows what to do about it.
+        assert!(notice.contains("proxy.example.com"), "{notice}");
+    }
+
+    #[test]
+    fn a_stream_that_broke_early_stays_an_error() {
+        // A word and a half is not an answer; the reason it died is the more
+        // useful thing to put on screen.
+        let err = salvage_broken_stream(
+            "The dead",
+            "HTTP 503: the provider failed",
+            &WritingToolKind::EnhanceWriting,
+        )
+        .unwrap_err();
+
+        assert!(err.contains("The response was cut off"), "{err}");
+        assert!(err.contains("HTTP 503"), "{err}");
+    }
+
+    #[test]
+    fn a_stream_that_delivered_nothing_reports_only_the_cause() {
+        let err = salvage_broken_stream(
+            "",
+            "HTTP 401: the API key was rejected",
+            &WritingToolKind::EnhanceWriting,
+        )
+        .unwrap_err();
+
+        // Nothing was painted, so there is no cut-off answer to describe.
+        assert_eq!(err, "HTTP 401: the API key was rejected");
+    }
+
+    #[test]
+    fn the_salvage_threshold_is_measured_in_characters_not_bytes() {
+        // Exactly on the threshold, in a language whose byte count runs well
+        // ahead of its character count — a `len()` here would keep fragments a
+        // Vietnamese user would find far too short to use.
+        let vietnamese = "Hôm nay trời rất đẹp";
+        assert_eq!(vietnamese.chars().count(), MIN_SALVAGEABLE_CHARS);
+        assert!(vietnamese.len() > MIN_SALVAGEABLE_CHARS);
+        assert!(salvage_broken_stream(
+            vietnamese,
+            "connection reset",
+            &WritingToolKind::FixGrammar
+        )
+        .is_ok());
+
+        // One character short of it is not worth keeping.
+        let shorter: String = vietnamese.chars().take(MIN_SALVAGEABLE_CHARS - 1).collect();
+        assert!(
+            salvage_broken_stream(&shorter, "connection reset", &WritingToolKind::FixGrammar)
+                .is_err()
+        );
     }
 
     #[test]
@@ -384,10 +509,5 @@ mod tests {
             stream_error_message("HTTP 401: bad key", false),
             "HTTP 401: bad key"
         );
-
-        // A truncation already says the answer was cut off; saying it twice
-        // reads as two different failures.
-        let truncated = crate::ai::error::truncated_message();
-        assert_eq!(stream_error_message(&truncated, true), truncated);
     }
 }
