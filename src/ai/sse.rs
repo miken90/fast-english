@@ -24,11 +24,20 @@ pub struct SseDecoder {
     partial_line: Vec<u8>,
     /// `data:` payloads collected for the event currently being built.
     data: Vec<String>,
+    /// The last `finish_reason` any choice reported. It arrives on its own
+    /// frame after the text, so it can only be read once the body is done.
+    finish_reason: Option<String>,
 }
 
 impl SseDecoder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Why the model stopped, once the stream has ended. `Some("length")` is
+    /// the one that matters: the answer is cut off, not finished.
+    pub fn finish_reason(&self) -> Option<&str> {
+        self.finish_reason.as_deref()
     }
 
     /// Feed raw bytes, returning every event that completed inside them.
@@ -108,6 +117,9 @@ impl SseDecoder {
         }
 
         for choice in frame.choices {
+            if let Some(reason) = choice.finish_reason {
+                self.finish_reason = Some(reason);
+            }
             if let Some(text) = choice.delta.content {
                 if !text.is_empty() {
                     out.push(SseItem::Delta(text));
@@ -129,6 +141,8 @@ struct StreamFrame {
 struct StreamChoice {
     #[serde(default)]
     delta: StreamDelta,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -255,6 +269,26 @@ mod tests {
             .is_empty());
 
         assert_eq!(deltas(decoder.finish()), ["tail"]);
+    }
+
+    #[test]
+    fn a_length_finish_reason_is_kept_for_the_end_of_the_stream() {
+        let mut decoder = SseDecoder::new();
+        assert_eq!(decoder.finish_reason(), None);
+
+        decoder.feed(frame("half a sen").as_bytes());
+        assert_eq!(decoder.finish_reason(), None);
+
+        // The reason arrives on its own frame, with an empty delta.
+        decoder.feed(b"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\n");
+        assert_eq!(decoder.finish_reason(), Some("length"));
+    }
+
+    #[test]
+    fn a_normal_stop_is_recorded_as_itself() {
+        let mut decoder = SseDecoder::new();
+        decoder.feed(b"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n");
+        assert_eq!(decoder.finish_reason(), Some("stop"));
     }
 
     #[test]

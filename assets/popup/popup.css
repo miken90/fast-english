@@ -345,7 +345,7 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-  .spinner, .spinner-inline {
+  .spinner {
     animation-duration: 0.8s !important;
   }
 }
@@ -771,38 +771,6 @@ body {
   margin: 2px 0;
 }
 
-/* ---------- Inline Processing ---------- */
-.view.is-processing .editor-textarea {
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.view.is-processing .tool-pill {
-  pointer-events: none;
-  opacity: 0.4;
-}
-
-.view.is-processing .btn--primary {
-  display: none;
-}
-
-.view.is-processing .translate-controls {
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.spinner-inline {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(59, 130, 246, 0.2);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  vertical-align: middle;
-  margin-left: 6px;
-}
-
 /* ---------- Error Banner ---------- */
 .error-banner {
   display: flex;
@@ -815,10 +783,6 @@ body {
   font-size: 12px;
   z-index: 10;
   flex-shrink: 0;
-}
-
-.error-banner[hidden] {
-  display: none;
 }
 
 .error-banner__icon {

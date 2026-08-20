@@ -75,35 +75,31 @@ var _previousView = 'editor';
 
 var VIEW_RENDERERS = {
   editor: function(data) {
-    exitInlineProcessing();
     dismissEditorErrorBanner();
     renderEditor(data);
     showView('editor');
   },
+  // Running always gets its own screen. It is the only view with a live region
+  // for streamed text, so the answer starts painting the moment the first
+  // token lands instead of after the whole completion.
   processing: function(data) {
-    if (data.tool) appState.tool = data.tool;
-    if (_previousView === 'editor' || _previousView === 'processing') {
-      enterInlineProcessing();
-      showView('editor');
-    } else {
-      renderProcessing(data);
-      showView('processing');
-    }
+    renderProcessing(data);
+    showView('processing');
   },
   result: function(data) {
-    exitInlineProcessing();
     dismissEditorErrorBanner();
     renderResult(data);
     showView('result');
   },
   history: function(data) {
-    exitInlineProcessing();
     dismissEditorErrorBanner();
     renderHistory(data);
     showView('history');
   },
+  // A failed run returns to the editor with the reason above the text, so the
+  // input is still there to retry or edit. A failure arriving from anywhere
+  // else has no editor to return to and gets the full error view.
   error: function(data) {
-    exitInlineProcessing();
     if (_previousView === 'editor' || _previousView === 'processing') {
       showEditorErrorBanner(data.message || 'An unexpected error occurred.');
       showView('editor');
@@ -331,24 +327,15 @@ function renderResult(data) {
 
 var _streaming = false;
 
-/** The regions streamed text is appended into, across all views. */
-var STREAM_OUTPUT_IDS = ['editor-stream-output', 'processing-stream-output'];
+/** The regions streamed text is appended into. */
+var STREAM_OUTPUT_IDS = ['processing-stream-output'];
 
-/** Where streamed text goes for whichever view is on screen. */
+/** Where streamed text goes, when a view that can host it is on screen. */
 function streamHostForCurrentView() {
   var active = document.querySelector('.view.active');
-  if (!active) return null;
-  if (active.id === 'view-editor') {
-    return {
-      reveal: document.getElementById('editor-stream-card'),
-      output: document.getElementById('editor-stream-output')
-    };
-  }
-  if (active.id === 'view-processing') {
-    var el = document.getElementById('processing-stream-output');
-    return { reveal: el, output: el };
-  }
-  return null;
+  if (!active || active.id !== 'view-processing') return null;
+  var el = document.getElementById('processing-stream-output');
+  return { reveal: el, output: el };
 }
 
 /** The height reserved for streamed text, from the screen — never the window. */
@@ -377,7 +364,7 @@ function beginStream(host) {
 function endStream() {
   if (!_streaming) return;
   _streaming = false;
-  ['editor-stream-card', 'processing-stream-output'].forEach(function(id) {
+  STREAM_OUTPUT_IDS.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.setAttribute('hidden', '');
   });
@@ -492,45 +479,6 @@ function renderError(data) {
   if (msgEl) msgEl.textContent = unescHtml(data.message || '') || 'An unexpected error occurred.';
 }
 
-function enterInlineProcessing() {
-  var editorView = document.getElementById('view-editor');
-  if (!editorView) return;
-  editorView.classList.add('is-processing');
-  editorView.setAttribute('aria-busy', 'true');
-
-  var toolTitle = (appState.tool && appState.tool.title) || 'Processing';
-  var headerLabel = editorView.querySelector('.label-upper');
-  if (headerLabel) headerLabel.textContent = toolTitle + ' — Running\u2026';
-
-  var spinnerInline = document.getElementById('editor-inline-spinner');
-  if (spinnerInline) spinnerInline.style.display = '';
-
-  var runBtn = document.getElementById('editor-run-btn');
-  if (runBtn) runBtn.style.display = 'none';
-  var cancelBtn = document.getElementById('editor-cancel-btn');
-  if (cancelBtn) cancelBtn.style.display = '';
-}
-
-function exitInlineProcessing() {
-  var editorView = document.getElementById('view-editor');
-  if (!editorView) return;
-  editorView.classList.remove('is-processing');
-  editorView.removeAttribute('aria-busy');
-
-  var headerLabel = editorView.querySelector('.label-upper');
-  if (headerLabel) {
-    headerLabel.textContent = (appState.tool && appState.tool.title) || 'Editor';
-  }
-
-  var spinnerInline = document.getElementById('editor-inline-spinner');
-  if (spinnerInline) spinnerInline.style.display = 'none';
-
-  var runBtn = document.getElementById('editor-run-btn');
-  if (runBtn) runBtn.style.display = '';
-  var cancelBtn = document.getElementById('editor-cancel-btn');
-  if (cancelBtn) cancelBtn.style.display = 'none';
-}
-
 function showEditorErrorBanner(message) {
   var banner = document.getElementById('editor-error-banner');
   if (!banner) return;
@@ -623,7 +571,6 @@ var SCROLL_REGION_IDS = [
   'result-diff',
   'history-list',
   'error-message',
-  'editor-stream-output',
   'processing-stream-output'
 ];
 
@@ -1022,7 +969,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   bindClick('editor-run-btn', runCurrentTool);
-  bindClick('editor-cancel-btn', function() { sendToRust('CancelProcessing'); });
 
   bindClick('editor-error-retry', function() {
     dismissEditorErrorBanner();

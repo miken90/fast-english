@@ -160,29 +160,45 @@ pub struct WritingTool {
     pub prompt_instruction: &'static str,
 }
 
+/// The per-tool half of the prompt. The shared rules — output only the result,
+/// never answer the text, never add or drop content — live in
+/// `PromptBuilder::system_prompt`; each instruction here says only what makes
+/// its own tool different.
 pub const DEFAULT_TOOLS: &[WritingTool] = &[
     WritingTool {
         id: "enhance-writing",
         title: "Enhance Writing",
         short_description: "Improve clarity and flow",
-        prompt_instruction: "Improve clarity, flow, and readability. Preserve meaning and language. Return only the improved text.",
+        prompt_instruction: "Rewrite for clarity, flow, and readability.\n\
+             - Write in the SAME language as the input. Vietnamese in, Vietnamese out. Never translate.\n\
+             - Keep the author's meaning, facts, register, and level of formality. Do not make casual writing formal or the reverse.\n\
+             - Add nothing: no new facts, examples, opinions, greetings, or sign-offs. Remove nothing the author meant to say.\n\
+             - Leave a single word, a URL, a file path, a code snippet, or a line of numbers exactly as it is — there is nothing to improve.\n\
+             - If the text is already clear, return it unchanged.",
     },
     WritingTool {
         id: "fix-grammar",
         title: "Fix Grammar",
         short_description: "Correct grammar and spelling",
-        prompt_instruction: "Fix grammar, spelling, and punctuation. Return only the corrected text.",
+        prompt_instruction: "Correct grammar, spelling, punctuation, diacritics, and capitalization. Nothing else.\n\
+             - Write in the SAME language as the input. Vietnamese in, Vietnamese out. Never translate.\n\
+             - This is a minimal edit. Keep the author's word choice, sentence order, tone, and formatting. Do not rephrase, shorten, expand, or restyle anything that is already correct.\n\
+             - Leave slang, names, technical terms, code, and URLs alone even when they look wrong.\n\
+             - If the text has no errors, return it character for character as it is.",
     },
     WritingTool {
         id: "convert-prompt",
         title: "Convert Prompt",
         short_description: "Convert text into an AI prompt",
-        prompt_instruction: "Convert into a clear, structured AI prompt. Preserve intent, add context, constraints, and output format. Return only the final prompt in markdown.",
+        prompt_instruction: "Rewrite the input into a production-quality AI prompt.\n\
+             - The output IS the prompt: English, markdown, no preamble and no code fence around it.\n\
+             - Keep the author's intent and every concrete detail they gave. Do not invent requirements.\n\
+             - State role or context, the task, constraints, and the expected output format, as far as the input supports them.",
     },
     WritingTool {
         id: "translate",
         title: "Translate",
         short_description: "Translate text between languages",
-        prompt_instruction: "Translate text. Return only the translation.",
+        prompt_instruction: "Translate the text. Return only the translation.",
     },
 ];

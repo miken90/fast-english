@@ -42,6 +42,9 @@ pub(crate) struct AppState {
     /// read instead of streaming on into a view that has moved on.
     pub active_request_task: Option<tokio::task::JoinHandle<()>>,
     pub manual_capture_in_flight: bool,
+    /// When the connection to the AI endpoint was last warmed, so opening the
+    /// popup repeatedly does not send a probe every time.
+    pub last_prewarm: Option<Instant>,
     /// Live auto-popup setting for the selection poller, which parks itself
     /// while it is off.
     pub auto_popup_tx: watch::Sender<bool>,
@@ -108,9 +111,7 @@ pub fn run(
     let _webview_thread =
         spawn_webview_thread(webview_popup_rx, webview_settings_rx, webview_ipc_tx);
 
-    let http_client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let http_client = crate::ai::build_http_client()?;
 
     let state = AppState {
         popup_state: PopupState::Hidden,
@@ -134,6 +135,7 @@ pub fn run(
         active_request_id: None,
         active_request_task: None,
         manual_capture_in_flight: false,
+        last_prewarm: None,
         auto_popup_tx,
         webview_popup_tx,
         webview_settings_tx,

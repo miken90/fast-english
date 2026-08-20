@@ -19,7 +19,6 @@
         <div class="context-indicator">
           <div class="status-dot status-dot--pulse"></div>
           <span class="label-upper">Editor</span>
-          <span class="spinner-inline" id="editor-inline-spinner" style="display:none;"></span>
         </div>
         <div class="header-actions">
           <button class="btn btn--icon" id="editor-history-btn" aria-label="Recent results" title="Recent results">
@@ -65,16 +64,10 @@
           <textarea id="editor-source-text" class="editor-textarea" rows="2" placeholder="Enter text..."></textarea>
         </div>
         <div class="char-count" id="editor-char-count">0 chars</div>
-
-        <div class="editor-card stream-card" id="editor-stream-card" hidden>
-          <div class="editor-label">Output</div>
-          <div id="editor-stream-output" class="stream-output" role="region" aria-live="polite" aria-label="Streaming output"></div>
-        </div>
       </div>
 
       <div class="action-row action-row--editor">
         <button class="btn btn--primary" id="editor-run-btn">Run</button>
-        <button class="btn btn--ghost" id="editor-cancel-btn" style="display:none;">Cancel</button>
         <span class="hint-inline">Ctrl+Enter · Esc</span>
       </div>
     </section>

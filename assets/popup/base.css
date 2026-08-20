@@ -11,6 +11,15 @@
   padding: 0;
 }
 
+/* The `hidden` attribute only carries the user-agent's `display: none`, which
+   any author rule outranks. Several layout rules set `display` on whole
+   families of elements — `.editor-card` in fill-window mode is one — and each
+   of those silently un-hid every hidden member. Restating the rule here as an
+   author declaration keeps `hidden` meaning hidden. */
+[hidden] {
+  display: none !important;
+}
+
 /* ---------- Base Layout ---------- */
 html, body {
   width: 100%;

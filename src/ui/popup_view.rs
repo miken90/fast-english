@@ -36,6 +36,23 @@ pub(crate) fn show_popup(state: &mut AppState, ctx: &SelectionContext) {
         width: size.0 as f64,
         height: size.1 as f64,
     });
+
+    prewarm_endpoint(state);
+}
+
+/// Warm the connection to the AI endpoint while the popup is on screen, so the
+/// first run of a session does not wait for a TLS handshake it could have paid
+/// for while the user was still choosing a tool.
+fn prewarm_endpoint(state: &mut AppState) {
+    let now = std::time::Instant::now();
+    let due = state
+        .last_prewarm
+        .is_none_or(|last| now.duration_since(last) >= crate::ai::PREWARM_INTERVAL);
+    if !due {
+        return;
+    }
+    state.last_prewarm = Some(now);
+    crate::ai::prewarm_connection(state.http_client.clone(), state.settings.base_url.clone());
 }
 
 pub(crate) fn push_popup_state(state: &AppState) {

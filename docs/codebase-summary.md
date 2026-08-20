@@ -25,11 +25,12 @@ fast-english/
 │   ├── history.rs                         # Recent-result entries: shape, caps, policy
 │   ├── ai/
 │   │   ├── client.rs                      # AIClient trait (streaming + non-streaming)
-│   │   ├── openai.rs                      # OpenAI client (shared reqwest::Client)
-│   │   ├── anthropic.rs                   # Anthropic client
+│   │   ├── openai.rs                      # OpenAI-compatible client (shared reqwest::Client)
 │   │   ├── prompt.rs                      # Prompt/output normalization, script-density token budget
 │   │   ├── sse.rs                         # Byte-level SSE decoder for streaming completions
-│   │   └── mod.rs                         # create_ai_client() factory
+│   │   ├── response.rs                    # Completion shape + is-this-actually-an-answer checks
+│   │   ├── error.rs                       # Transport/HTTP failures as user-facing messages
+│   │   └── mod.rs                         # create_ai_client(), build_http_client(), prewarm_connection()
 │   ├── selection/
 │   │   ├── monitor.rs                     # Polling + debounce + manual capture
 │   │   ├── uia_text.rs                    # UIA text pattern detection
@@ -98,6 +99,8 @@ fast-english/
 - **Safe output rendering**: bridge escapes AI output before injecting into JS state payloads.
 - **Tiered selection detection**: UIA text -> UIA value -> clipboard fallback.
 - **Tiered editing execution**: UIA SetValue -> clipboard paste fallback.
+- **Failure classification**: `ai/error.rs` turns transport failures and HTTP statuses into actionable sentences; `ai/response.rs` decides whether a 200 actually carried an answer (error object, no choices, blank content, `finish_reason: length`). No caller ever sees a raw status code or body.
+- **HTTP timeouts**: `ai::build_http_client()` — connect 10s, per-read 60s, no overall request timeout, pool idle 300s. `ai::prewarm_connection()` warms the pool when the popup opens.
 - **Streaming completions**: `AIClient::process_streaming` decodes SSE chunks via `ai/sse.rs` and appends them to the live `Result` region under the same request-id guard (`accepts_response`) that rejects stale responses; `abort_active_request()` runs before a new request id is issued. A provider without a streaming override falls back to the non-streaming path through the same trait default. `test_connection` never streams.
 - **Idle selection poller**: `selection/monitor.rs` parks on a `tokio::sync::watch` channel while auto-popup is off instead of polling UIA every 500ms; it resumes in place when the setting turns back on. The manual hotkey path does not go through this loop.
 - **Recent Results (history)**: a completed result is recorded once, at completion only — never per chunk, never for a cancelled or failed request. Stored via `persistence::HistoryStore`, DPAPI-encrypted at `%APPDATA%\FastEnglish\history.dat`, capped at `history::MAX_ENTRIES` (20) and `history::MAX_TEXT_CHARS` (8000) per field, re-applied on load. A missing, truncated, undecryptable, or malformed file degrades to an empty history. Opening an entry rebuilds the result view with Replace disabled.

@@ -80,7 +80,7 @@
 
 | Area | Key Modules | Role |
 |---|---|---|
-| AI | `ai/mod.rs`, `ai/client.rs`, `ai/openai.rs`, `ai/anthropic.rs`, `ai/prompt.rs`, `ai/sse.rs` | Provider abstraction (shared `reqwest::Client`), streaming (`process_streaming`, default falls back to non-streaming) and non-streaming API calls, byte-level SSE decoding, script-density token budgeting. `create_ai_client()` factory in `mod.rs`. |
+| AI | `ai/mod.rs`, `ai/client.rs`, `ai/openai.rs`, `ai/prompt.rs`, `ai/sse.rs`, `ai/response.rs`, `ai/error.rs` | Provider abstraction (shared `reqwest::Client` built once by `build_http_client()`), streaming (`process_streaming`, default falls back to non-streaming) and non-streaming API calls, byte-level SSE decoding, script-density token budgeting, response validation (`response.rs`) and user-facing failure messages (`error.rs`). `create_ai_client()` factory in `mod.rs`. |
 | Selection | `selection/monitor.rs`, `uia_text.rs`, `uia_value.rs`, `clipboard_fallback.rs` | Detect selected text (UIA tiers + clipboard fallback) and emit context events. |
 | Editing | `editing/text_service.rs`, `editing/clipboard.rs` | Replace selected text (UIA SetValue first, clipboard paste fallback). |
 
@@ -169,9 +169,17 @@ WebView rendering is a projection of `PopupState`, not a separate business-state
 - **Policy**: a user's frame-drag wins for that popup session; content-driven auto-sizing resumes only on the next hide→show. Recorded as a decision in [`docs/decisions/0001-manual-resize-wins-for-session.md`](decisions/0001-manual-resize-wins-for-session.md).
 - **Ambiguity**: a monitor DPI/scale change also raises `WindowEvent::Resized`, so `window_resize_tracker` reads it as a user drag. Self-healing on the next show; not distinguished from a real drag.
 
+### Failure Reporting
+- **Every failure is a sentence, never a status code**: `ai/error.rs` classifies transport failures (unreachable host, DNS, connect timeout, stall, connection dropped mid-answer) and HTTP statuses (401/403 key, 404 base URL or model, 429 with `Retry-After`, 4xx context-length, 5xx) into messages that name the cause and the setting to change. HTML gateway pages and oversized bodies are described, never pasted.
+- **A success status is not a success**: `ai/response.rs` rejects a 200 carrying an `error` object, an empty `choices` array, blank content, and `finish_reason: length` — a truncated answer is reported rather than handed back as if it were finished.
+- **Empty input never becomes a request**: `start_ai_request` fails whitespace-only source text locally.
+- **Timeout policy**: `build_http_client()` sets a connect timeout (10s) and a per-read timeout (60s), and deliberately no overall request timeout — an overall one caps how long a legitimate long completion may take, which is what the previous 30s `timeout()` did. A stalled proxy now fails with a message; a slow-but-alive stream runs to completion.
+- **Connection prewarm**: showing the popup warms a pooled connection to the configured endpoint (at most once per `PREWARM_INTERVAL`), so the first run of a session does not pay for the TLS handshake on the critical path. `pool_idle_timeout` is 300s so later runs reuse it.
+
 ### Streaming Request Safety
 - **Request-id guard**: `accepts_stream_chunk`/`accepts_response` reject a chunk or final response whose request id no longer matches the active one, so a stale stream from a superseded or cancelled request cannot paint into a live view.
 - **Cancel aborts the task**: `abort_active_request()` runs before a new request id is issued, so cancelling stops the HTTP body being read instead of leaving a task that writes into a dead view.
+- **One streaming surface**: streamed text is painted only by the Processing view (`#processing-stream-output`). The editor view has no output region — running a tool always moves to the Processing screen, which is what makes first-token text visible without a second box that is empty whenever nothing is streaming.
 - **Manual-resize interaction**: every sizing path checks `_manualWindowSize` before resizing, so a stream growing the result region never resizes a window the user has already dragged.
 - **History gating**: `records_history` only accepts a completed, successful response tied to the still-active request id — never a chunk, and never a cancelled or failed request.
 

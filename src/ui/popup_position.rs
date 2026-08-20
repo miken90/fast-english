@@ -21,14 +21,21 @@ use super::popup_monitor;
 pub const POPUP_WIDTH: f32 = 520.0;
 /// Height used for first placement, before the document reports its own.
 ///
-/// The editor view needs 378.75 CSS px once the output card is on screen: a
-/// 1px border, 50 header and 37 tab row above, a 47 action row and 1px border
-/// below, and a body that cannot go under 243.75 (two cards at a 22.5 label
-/// plus an 80 text box, an 18.5 char count, two 10px gaps). Shorter than that
-/// the body is squeezed while its cards keep their own minimum, and the run
-/// button ends up drawn over the output. 400 keeps the first frame — the one
-/// painted before any measurement comes back — 21.25px clear of that range.
-pub const POPUP_INITIAL_HEIGHT: f32 = 400.0;
+/// The editor view holds one card now that the output card is gone, so its
+/// minimum drops from 378.75 to 266.25 CSS px: 135 of chrome (a 1px border, 50
+/// header and 37 tab row above, a 47 action row and 1px border below) over a
+/// body that cannot go under 131.25 — a 22.5 label, an 80 text box, a 10px gap
+/// and an 18.5 char count. That is 112.5 less than before: the removed card's
+/// own 22.5 label and 80 box, plus the 10px gap that separated it. Shorter
+/// than the minimum the body is squeezed while the card keeps its own height,
+/// and the run button ends up drawn over the text.
+///
+/// The first frame is painted before any measurement comes back, so it also
+/// has to cover ordinary content, not just the floor: the source box autosizes
+/// to four lines (19.375 x 4 plus 26 of padding and border = 103.5), which
+/// puts a typical editor view at 289.5. 296 clears both — 29.75 over the
+/// minimum, 6.5 over the common case.
+pub const POPUP_INITIAL_HEIGHT: f32 = 296.0;
 /// Floor for a content-driven height, so a broken measurement cannot collapse
 /// the window to nothing.
 pub const POPUP_MIN_HEIGHT: f32 = 120.0;
@@ -195,7 +202,11 @@ mod tests {
     const TABS_MIN_WIDTH: f32 = 406.08;
     /// Shortest window the editor view lays out in without one section
     /// covering another; see `POPUP_INITIAL_HEIGHT` for the breakdown.
-    const LAYOUT_MIN_HEIGHT: f32 = 378.75;
+    const LAYOUT_MIN_HEIGHT: f32 = 266.25;
+    /// The four-line source box a freshly opened editor actually lays out at,
+    /// on top of the same 135 of chrome. The first frame has to cover this or
+    /// the window visibly grows the moment the measurement lands.
+    const LAYOUT_TYPICAL_HEIGHT: f32 = 289.5;
 
     /// 1920x1080 at 100%, positioned to the LEFT of the primary monitor.
     fn secondary_left() -> WorkArea {
@@ -316,6 +327,10 @@ mod tests {
             assert!(
                 height >= LAYOUT_MIN_HEIGHT,
                 "{height} is below the {LAYOUT_MIN_HEIGHT} the editor view needs"
+            );
+            assert!(
+                height >= LAYOUT_TYPICAL_HEIGHT,
+                "{height} is below the {LAYOUT_TYPICAL_HEIGHT} an ordinary editor view lays out at"
             );
         }
     }
