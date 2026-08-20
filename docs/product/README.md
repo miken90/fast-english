@@ -1,28 +1,23 @@
 # Product Docs
 
-This directory contains current consumer-product behavior derived from real
-accepted intent. Harness deliberately ships no fake product domains.
+Per-domain product behavior for Fast English. Add a file here when a domain
+outgrows the overview; until then the canonical product source is
+[`../project-overview-pdr.md`](../project-overview-pdr.md), with per-release
+truth in the [release notes](../README.md#release-notes).
 
-When a user provides a product specification, derive smaller living documents
-here instead of keeping one growing specification as the operating manual. Name
-files after actual product domains, such as `overview.md`, `billing.md`,
-`permissions.md`, or `api-conventions.md`.
+Name files after real domains — `writing-tools.md`, `history.md`,
+`translation.md` — not after phases or tickets.
 
-## Current Product Contract
-
-No consumer-specific product contract is shipped in this generic directory.
-The upstream `repository-harness` contract lives in the root README, current
-workflow and architecture documents, lasting decisions, implementation, and
-executable tests.
-
-## Update Rule
+## Update rule
 
 When behavior changes:
 
-1. Update the affected product document when the expected behavior changed.
+1. Update the affected product document, or the overview if no domain file
+   exists yet.
 2. Update the active execution plan when complex work uses one.
-3. Add a lasting decision only when future work must inherit a consequential
-   product, architecture, data, security, compatibility, or validation choice.
-4. Add or update executable proof that exercises the behavior.
+3. Add a decision under [`../decisions/`](../decisions/) only when future work
+   must inherit a consequential product, architecture, data, security,
+   compatibility, or validation choice.
 
-Bounded changes do not require a parallel lifecycle record.
+State what was verified and how. A behavior nobody has seen running in the app
+is documented as unverified, not as shipped.

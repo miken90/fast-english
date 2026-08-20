@@ -1,40 +1,56 @@
 # Documentation Map
 
-Start with the smallest authoritative surface.
+Fast English is a Windows-only tray app (Rust + tao/wry over WebView2) that
+rewrites selected text through an OpenAI-compatible endpoint. Start with the
+smallest authoritative surface below.
 
-## Current Product
+## Product
 
-- `WORKFLOW.md`: request shape, planning, judgment, operation, validation, and
+- [`project-overview-pdr.md`](project-overview-pdr.md): what the product is,
+  who it is for, and the four writing tools it ships.
+- [`project-roadmap.md`](project-roadmap.md): phases, what is delivered, and
+  the known limitations of each release.
+- [`product/`](product/): per-domain product behavior, once a domain outgrows
+  the overview.
+
+## Engineering
+
+- [`system-architecture.md`](system-architecture.md): the canonical
+  architecture — process model, IPC, AI layer, timeout and failure policy,
+  window sizing. [`ARCHITECTURE.md`](ARCHITECTURE.md) is a pointer to it.
+- [`codebase-summary.md`](codebase-summary.md): module map and where each
+  concern lives.
+- [`code-standards.md`](code-standards.md): conventions this repo actually
+  follows.
+- [`design-guidelines.md`](design-guidelines.md): popup UI and visual rules.
+- [`patterns/encoding-invariants.md`](patterns/encoding-invariants.md):
+  invariants worth enforcing mechanically rather than by review.
+
+## Process
+
+- [`WORKFLOW.md`](WORKFLOW.md): request shape, planning, validation, and
   completion.
-- `ARCHITECTURE.md`: current product, code, state, update, and ownership
-  boundaries.
-- `HARNESS.md`: product principles and installed-core model.
-- `product/`: current product behavior and installation contract.
-- `decisions/`: lasting choices future work must inherit.
-- `plans/`: one durable working-memory document for work that needs it.
-- [`patterns/encoding-invariants.md`](patterns/encoding-invariants.md): turn
-  accepted architecture, reliability, security, and quality rules into native
-  mechanical validation.
-- `templates/`: optional decision, plan, runbook, and Harness-improvement
+- [`deployment-guide.md`](deployment-guide.md): build, package, and release —
+  including the Windows-only build rule and the version source of truth.
+- [`decisions/`](decisions/): lasting choices future work must inherit.
+- [`plans/`](plans/): working memory for work that needs it, active and
+  completed.
+- [`templates/`](templates/): decision, plan, runbook, and harness-improvement
   structures.
 
-## Consumer-Owned Truth
+## Release Notes
 
-The consumer's README, product documents, architecture, code, tests, CI,
-runtime signals, and application behavior remain authoritative. Harness does
-not overwrite those with upstream product assumptions.
+One file per shipped version, newest first:
+[0.5.2](release-notes-0.5.2.md) ·
+[0.5.1](release-notes-0.5.1.md) ·
+[0.5.0](release-notes-0.5.0.md) ·
+[0.4.0](release-notes-0.4.0.md) ·
+[0.3.0](release-notes-0.3.0.md)
 
-## Source Repository
+Each states plainly what was verified and what was not. Read the newest one
+before assuming a feature works in the running app.
 
-- Root `README.md`: product overview, installation, maintenance, EOL, and
-  development.
-- `crates/harness/`: safe core installer/updater.
-- `scripts/`: platform bootstrap, release, and validation entrypoints.
-- `tests/`: behavior ownership and repository contract.
+## Authority
 
-## History
-
-The former SQLite control plane, protocol v1, story packets, migration evidence,
-and compatibility documentation are preserved by Git history and immutable
-`harness-cli-v*` tags. They are intentionally absent from the current tree so
-search and agent retrieval return current product authority.
+Code, tests, and observable application behavior are authoritative. Where a
+document disagrees with the code, the code wins and the document is a bug.

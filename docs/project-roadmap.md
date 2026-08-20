@@ -81,21 +81,33 @@
 
 ## Phase 4: Quality & Reliability
 
-**Status**: Planned
+**Status**: Largely delivered (v0.5.2, 2026-08-20). 129 automated tests, up
+from none when this phase was written.
 
 ### Goals
-- [ ] Add unit tests for core logic (state transitions, prompt builder, AI clients)
-- [ ] Add integration tests for selection detection and text replacement
-- [ ] Structured error types (replace generic error messages)
-- [ ] Improve popup positioning accuracy
-- [ ] Add structured logging for debugging
-- [ ] Handle edge cases: very long text, empty selections, unsupported apps
+- [x] Add unit tests for core logic (state transitions, prompt builder, AI clients)
+- [x] Structured error types — `src/ai/error.rs` classifies every failure
+  (DNS, refused connection, connect timeout, stalled stream, 401/403, 404,
+  429 with `Retry-After`, 5xx, non-JSON body, gateway HTML, empty body, HTTP
+  200 carrying an error object, blank content) into a message naming the cause
+  and the setting to change. `src/ai/response.rs` decides whether a response is
+  an answer at all.
+- [x] Add structured logging for debugging — `RUST_LOG=fast_english=debug` logs
+  response-header latency, `first_token_ms`, character count, and
+  `finish_reason` per request.
+- [x] Handle edge cases: empty selections fire no request; a truncated or
+  late-broken answer is kept with a warning instead of discarded.
+- [x] Improve popup positioning accuracy — per-monitor physical-pixel
+  placement (`src/ui/popup_monitor.rs`), content-derived sizing.
+- [ ] Add integration tests for selection detection and text replacement —
+  still absent; both paths touch the live Windows shell.
 
 ---
 
 ## Phase 5: Enhanced UX
 
-**Status**: In Progress (streaming, diff view, and history delivered 2026-08-17, v0.5.0)
+**Status**: In Progress (streaming, diff view, and history delivered 2026-08-17,
+v0.5.0; flow, latency, failure handling, and prompts reworked 2026-08-20, v0.5.2)
 
 ### Delivered Features (v0.5.0)
 - [x] Streaming AI responses — text appears as the model produces it (`src/ai/sse.rs`)
@@ -110,13 +122,30 @@
 - [ ] Multiple result variants
 - [ ] Custom keyboard shortcuts per tool
 
-### Known Limitations (v0.5.0)
-- Streaming has never run against a live provider; verified only against
-  synthetic frames matching the OpenAI SSE spec. A non-OpenAI-compatible
-  endpoint may fail.
-- The diff view, history list, and streaming output have not been seen
-  rendering in the running app — verified by code review and automated tests
-  only. See `docs/release-notes-0.5.0.md`.
+### Delivered Features (v0.5.2)
+- [x] Dead editor Output card removed — Run goes to the Processing view, which
+  owns the streaming surface
+- [x] Failure classification with actionable messages (see Phase 4)
+- [x] Connect (10s) and per-read (60s) timeouts replacing a single 30s overall
+  timeout that had been silently killing any answer longer than 30 seconds
+- [x] TLS connection prewarm on popup open, so the first run of a session does
+  not pay the handshake on the critical path
+- [x] Every tab's prompt rewritten so input is treated as data — a selected
+  question is edited or translated, never answered — and Enhance and Fix
+  Grammar answer in the input's own language
+
+### Known Limitations (v0.5.2)
+- No automated test talks to a live provider. All 129 tests run against a local
+  server. Deliberate: a live test would spend real quota on every run
+  (decision 2026-08-20). The 0.5.2 popup flow was verified by hand on a test
+  build before release; the diff view and history list still have not been
+  confirmed rendering.
+- `read_timeout` is 60s. A proxy that buffers a long completion and sends
+  nothing for over a minute fails with "stopped sending data". Left as-is —
+  no evidence yet that it is too tight. Constant in `src/ai/mod.rs`.
+- The Inno Setup installer has still never been compiled; the portable zip is
+  the shipping format.
+- See `docs/release-notes-0.5.2.md`.
 
 ---
 

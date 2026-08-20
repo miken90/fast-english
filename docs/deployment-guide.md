@@ -68,6 +68,12 @@ Guardrails, so a stale version cannot ship silently:
   falling back to a literal.
 - `scripts/build-release.ps1` aborts if the version embedded in the built exe
   does not match `Cargo.toml`.
+- `scripts/build-release.ps1` refuses to write a portable zip when one of that
+  name already exists in `dist/`, because the filename derives from the version
+  and a rebuild at an unchanged version would otherwise overwrite an artifact
+  that may already be published. Bump the version, or pass `-Force` to overwrite
+  deliberately. The check runs after the build and the exe version assertion, so
+  a refused run still pays for a full build.
 
 One caveat: cargo can consider the crate fresh when you move *back* to a version
 it already has cached artifacts for, leaving the previous resource embedded. The
