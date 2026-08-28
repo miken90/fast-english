@@ -52,6 +52,12 @@ window.setSettings = function(data) {
     }
   }
 
+  // The settings window is created once and only shown/hidden thereafter, so
+  // DOMContentLoaded fires once for the life of the process. Re-render the
+  // idle Reset control on every open so an aborted confirm never survives
+  // close and reopen.
+  renderResetIdle();
+
   snapshotFormData();
 };
 
@@ -190,24 +196,55 @@ function checkDirty() {
     current.auto_start !== initialFormData.auto_start ||
     current.theme      !== initialFormData.theme;
 
-  var saveRow = document.querySelector('.save-row');
+  var root = document.getElementById('settings-root');
+  if (root) root.classList.toggle('is-dirty', dirty);
+
   var saveBtn = document.getElementById('btn-save');
-  if (saveRow) {
-    if (dirty) saveRow.classList.add('is-dirty');
-    else       saveRow.classList.remove('is-dirty');
-  }
   if (saveBtn) saveBtn.disabled = !dirty;
 }
 
 function resetFormToDefaults() {
   setInputValue('input-base-url', 'https://api.openai.com/v1');
   setInputValue('input-model', 'gpt-4.1-mini');
-  setInputValue('input-api-key', '');
+  // The API key is deliberately NOT reset: getFormData() feeds this input
+  // straight to KeyStore::save, and an empty value would DPAPI-encrypt "" over
+  // the stored key. Reset restores preferences, not credentials.
   setCheckbox('toggle-auto-popup', true);
   setCheckbox('toggle-auto-start', false);
   setInputValue('input-theme', 'auto');
   applyTheme('auto');
 }
+
+// ─── Reset to Defaults ─────────────────────────────────────────────────────
+
+var RESET_IDLE_HTML =
+  '<button class="btn btn--ghost btn--sm" id="btn-reset-settings">Reset to defaults</button>';
+var RESET_CONFIRM_HTML =
+  '<span class="reset-confirm">Reset preferences?' +
+  '<button class="btn btn--ghost btn--sm" id="btn-reset-yes">Yes</button>' +
+  '<button class="btn btn--ghost btn--sm" id="btn-reset-no">No</button></span>';
+
+function renderResetIdle() {
+  var area = document.getElementById('reset-area');
+  if (!area) return;
+  area.innerHTML = RESET_IDLE_HTML;
+}
+
+// Delegation: any innerHTML write into #reset-area detaches a node a direct
+// listener was attached to, so the listener lives on the container.
+document.getElementById('reset-area').addEventListener('click', function (e) {
+  var t = e.target;
+  if (!t || !t.id) return;
+  if (t.id === 'btn-reset-settings') {
+    document.getElementById('reset-area').innerHTML = RESET_CONFIRM_HTML;
+  } else if (t.id === 'btn-reset-yes') {
+    resetFormToDefaults();
+    checkDirty();
+    renderResetIdle();
+  } else if (t.id === 'btn-reset-no') {
+    renderResetIdle();
+  }
+});
 
 function restoreInitialFormData() {
   if (!initialFormData) return;
@@ -224,6 +261,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (window.hydrateStaticIcons) {
     window.hydrateStaticIcons();
   }
+
+  renderResetIdle();
 
   // Close
   var closeBtn = document.getElementById('settings-close');
@@ -258,54 +297,6 @@ document.addEventListener('DOMContentLoaded', function() {
       restoreInitialFormData();
       sendToRust('CloseSettings');
     });
-  }
-
-  var resetBtn = document.getElementById('btn-reset-settings');
-  var resetArea = document.getElementById('reset-area');
-  if (resetBtn && resetArea) {
-    resetBtn.addEventListener('click', function() {
-      resetArea.innerHTML =
-        '<span class="reset-confirm">' +
-          'Reset settings? ' +
-          '<button class="btn btn--secondary btn--sm" id="btn-reset-yes">Yes</button>' +
-          '<button class="btn btn--ghost btn--sm" id="btn-reset-no">No</button>' +
-        '</span>';
-      document.getElementById('btn-reset-yes').addEventListener('click', function() {
-        resetFormToDefaults();
-        checkDirty();
-        resetArea.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
-        bindResetButton();
-      });
-      document.getElementById('btn-reset-no').addEventListener('click', function() {
-        resetArea.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
-        bindResetButton();
-      });
-    });
-  }
-
-  function bindResetButton() {
-    var btn = document.getElementById('btn-reset-settings');
-    var area = document.getElementById('reset-area');
-    if (btn && area) {
-      btn.addEventListener('click', function() {
-        area.innerHTML =
-          '<span class="reset-confirm">' +
-            'Reset settings? ' +
-            '<button class="btn btn--secondary btn--sm" id="btn-reset-yes">Yes</button>' +
-            '<button class="btn btn--ghost btn--sm" id="btn-reset-no">No</button>' +
-          '</span>';
-        document.getElementById('btn-reset-yes').addEventListener('click', function() {
-          resetFormToDefaults();
-          checkDirty();
-          area.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
-          bindResetButton();
-        });
-        document.getElementById('btn-reset-no').addEventListener('click', function() {
-          area.innerHTML = '<button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>';
-          bindResetButton();
-        });
-      });
-    }
   }
 
   // Live field changes → notify Rust (theme only for live preview)

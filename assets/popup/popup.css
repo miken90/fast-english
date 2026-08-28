@@ -19,26 +19,11 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background:
-    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-    var(--color-surface-base);
-  box-shadow: 
+  background: var(--color-surface-base);
+  box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     var(--shadow-popup);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
   border: 1px solid var(--color-border-default);
-}
-
-:root[data-theme="light"] .popup-container {
-  background:
-    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
-    var(--color-surface-base);
-  box-shadow: 
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
-    var(--shadow-popup);
 }
 
 /* ---------- Manual window size ----------
@@ -67,7 +52,7 @@ body {
   flex-direction: column;
 }
 
-:root.popup-fill-window .editor-label {
+:root.popup-fill-window .editor-card__meta {
   flex: none;
 }
 
@@ -92,10 +77,9 @@ body {
    its bottom edge, painting under the action row — the run button ends up
    drawn over the output box. The overflow is absorbed here instead, so every
    section stays inside its own box and the buttons are never covered. */
-:root.popup-fill-window .editor-main,
 :root.popup-fill-window .result-main,
 :root.popup-fill-window .history-main,
-:root.popup-fill-window .processing-view,
+:root.popup-fill-window .processing-main,
 :root.popup-fill-window .error-view-inner {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -122,8 +106,9 @@ body {
 .popup-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px 8px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-subtle);
   cursor: grab;
   flex-shrink: 0;
 }
@@ -132,9 +117,58 @@ body {
   cursor: grabbing;
 }
 
-.popup-header--tight {
-  padding-top: 10px;
-  padding-bottom: 7px;
+.popup-header__spacer {
+  flex: 1;
+}
+
+.popup-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.popup-brand__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary-gradient);
+  box-shadow: var(--shadow-glow);
+}
+
+.popup-card {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.popup-card:focus-within {
+  border-color: var(--color-border-focus);
+}
+
+.popup-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-lg);
+  flex-shrink: 0;
+}
+
+.popup-footer__spacer {
+  flex: 1;
+}
+
+.popup-footer--center {
+  justify-content: center;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .header-actions {
@@ -143,16 +177,10 @@ body {
   gap: 4px;
 }
 
-.context-indicator {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
 .tool-switcher {
   display: flex;
-  gap: 6px;
-  padding: 0 14px 8px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg) 0;
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -166,31 +194,31 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  background: var(--color-surface-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  line-height: 16px;
+  font-weight: var(--font-weight-medium);
   padding: 6px 12px;
   white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition: all var(--transition-base);
 }
 
 .tool-pill:hover {
-  background: var(--color-surface-elevated);
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
-  transform: translateY(-0.5px);
 }
 
-.tool-pill__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: inherit;
+.tool-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* Tool specific active states with distinct design accents */
@@ -198,25 +226,21 @@ body {
   border-color: var(--color-tool-blue-fg);
   background: var(--color-tool-blue-bg);
   color: var(--color-tool-blue-fg);
-  box-shadow: 0 2px 8px var(--color-primary-glow);
 }
 .tool-pill[data-tool-id="fix-grammar"].active {
   border-color: var(--color-tool-green-fg);
   background: var(--color-tool-green-bg);
   color: var(--color-tool-green-fg);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
 }
 .tool-pill[data-tool-id="convert-prompt"].active {
   border-color: var(--color-tool-purple-fg);
   background: var(--color-tool-purple-bg);
   color: var(--color-tool-purple-fg);
-  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.15);
 }
 .tool-pill[data-tool-id="translate"].active {
   border-color: var(--color-tool-amber-fg);
   background: var(--color-tool-amber-bg);
   color: var(--color-tool-amber-fg);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
 }
 .tool-pill[data-tool-id="enhance-writing"].active:focus-visible {
   box-shadow: var(--focus-ring), 0 2px 8px var(--color-primary-glow);
@@ -234,8 +258,8 @@ body {
 .translate-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 14px 8px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg) 0;
   flex-shrink: 0;
 }
 
@@ -246,20 +270,21 @@ body {
 
 .lang-select {
   width: 100%;
+  min-height: 32px;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-primary);
+  background: var(--color-surface-input);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px 30px 8px 10px;
+  font-size: var(--font-size-base);
+  padding: 6px 26px 6px 10px;
   outline: none;
 }
 
 .lang-select:focus {
-  border-color: var(--primary);
+  border-color: var(--color-border-focus);
   box-shadow: var(--focus-ring-inset);
 }
 
@@ -276,32 +301,55 @@ body {
   color: var(--text-muted);
 }
 
-.btn-swap {
-  width: 33px;
-  height: 33px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.btn-swap:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--primary-light);
-}
-
-.editor-main,
 .result-main {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow: visible;
+}
+
+/* Absolute + zero-opacity so it never contributes to #popup-root.offsetHeight —
+   one fewer input to the measurement pass. */
+#result-copy-feedback {
+  position: absolute;
+  right: var(--spacing-lg);
+  bottom: 56px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--color-success-surface);
+  color: var(--color-success);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+#result-copy-feedback.visible {
+  opacity: 1;
+}
+
+/* One rule shared by all three result-mode bodies (raw / rich / diff).
+   overflow-y stays hidden until .scroll-region--at-max flips it to auto.
+   Declared BEFORE .scroll-region--at-max below: both are single-class
+   selectors of equal specificity, and the later rule wins a tie — repair R1
+   in the plan found exactly this trap on the old .result-output rule, whose
+   overflow-y:visible sat after .scroll-region--at-max and beat the flip. */
+.result-body {
+  min-height: 80px;
+  overflow-y: hidden;
+  padding: var(--spacing-md) 14px;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  outline: none;
 }
 
 /* The single scroll region, enabled only when the content exceeds the height
@@ -313,38 +361,38 @@ body {
 }
 
 .editor-card {
-  padding: 0 14px;
+  margin: var(--spacing-md) var(--spacing-lg);
+  padding: 0;
 }
 
-.editor-label {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+.editor-card__meta {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px 8px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .editor-textarea {
   width: 100%;
-  min-height: 80px;
+  display: block;
+  min-height: 120px;
+  border: none;
   border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-input);
+  background: transparent;
   color: var(--color-text-primary);
   font-family: inherit;
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  padding: 12px 14px;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  padding: var(--spacing-md) 14px;
   outline: none;
   resize: none;
   overflow-y: auto;
-  transition: all var(--transition-base);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 #editor-source-text {
   overflow-x: hidden;
-  overflow-y: hidden;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
@@ -363,6 +411,9 @@ body {
   .skeleton-bar {
     animation: none !important;
   }
+  .stream-output::after {
+    animation: none;
+  }
 }
 
 #editor-source-text::-webkit-scrollbar {
@@ -378,24 +429,8 @@ body {
   background: transparent;
 }
 
-.editor-textarea:focus {
-  border-color: var(--color-primary-default);
-  background: rgba(255, 255, 255, 0.02);
-  box-shadow: var(--focus-ring-inset);
-}
-
-:root[data-theme="light"] .editor-textarea:focus {
-  background: var(--color-surface-card);
-}
-
 .editor-textarea--readonly {
   color: var(--text-primary);
-}
-
-.result-output-card .editor-textarea,
-.result-output,
-.result-rich-preview {
-  min-height: 80px;
 }
 
 /* Readonly output is a div, not a textarea: no second scroll container to
@@ -403,96 +438,126 @@ body {
 .result-output {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  overflow-y: visible;
+}
+
+.result-card {
+  margin: var(--spacing-sm) var(--spacing-lg);
+}
+
+.result-card__meta {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.popup-header__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.popup-header__count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.btn--text-danger {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.btn--text-danger:hover {
+  color: var(--color-error);
+  background: var(--color-error-surface);
 }
 
 /* ---------- History ----------
    A list of recent results inside the same popup. The list is the view's
-   scroll region, so a long history never grows the window past the cap. */
+   scroll region, so a long history never grows the window past the cap.
+   No stylesheet max-height here — see plan sec3.4 / step 5a: the mockup's
+   340px cap is scaffolding for a page with no measurement pass. */
 .history-main {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 14px;
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-lg);
 }
 
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  overflow-y: auto;
   outline: none;
 }
 
 .history-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: block;
   width: 100%;
   text-align: left;
-  padding: 9px 11px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-input);
-  color: var(--color-text-primary);
-  font-family: inherit;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 10px var(--spacing-md);
   cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base);
+  font-family: inherit;
+  transition: background var(--transition-fast);
 }
 
 .history-item:hover,
 .history-item:focus-visible {
-  border-color: var(--color-border-focus);
-  background: var(--color-primary-surface);
+  background: var(--color-surface-hover);
+  outline: none;
+  box-shadow: var(--focus-ring-inset);
 }
 
 .history-item__head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 4px;
 }
 
-.history-item__tool {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--primary-light);
+.history-item__head .tool-tag {
+  max-width: 200px;
 }
 
 .history-item__time {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  white-space: nowrap;
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .history-item__output {
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The source is context for the result above it, so it reads as secondary. */
 .history-item__source {
   font-size: var(--font-size-sm);
-  line-height: 1.45;
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-empty {
-  padding: 18px 4px;
+  padding: var(--spacing-2xl);
   text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.action-row--history {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 /* Says the answer on screen is real but stops short — the model hit its token
@@ -503,14 +568,13 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0 14px;
+  margin: 0 var(--spacing-lg) var(--spacing-sm);
   padding: 8px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, .25);
   background: var(--color-warning-surface);
   color: var(--color-text-secondary);
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: var(--font-size-sm);
 }
 
 .result-notice__icon {
@@ -525,12 +589,19 @@ body {
 }
 
 /* Says why the diff is not on screen when the change was too large to compare.
-   Sits with the char count, in the same muted register. */
+   Sits next to the segmented control that failed, where the user is looking. */
 .result-note {
-  font-size: var(--font-size-sm);
-  line-height: 1.45;
-  color: var(--text-muted);
-  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--spacing-xs) var(--spacing-lg) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.result-note__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
 }
 
 /* ---------- Word diff ----------
@@ -538,21 +609,6 @@ body {
    output so switching modes does not move the text. Diff marks use their own
    dedicated palette (--color-diff-*) rather than the success/error tokens, so
    a change never reads as a status banner. */
-.result-diff {
-  min-height: 80px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow-y: visible;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-input);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  padding: 12px 14px;
-  outline: none;
-}
-
 .diff-ins {
   background: var(--color-diff-ins-bg);
   color: var(--color-diff-ins-fg);
@@ -575,23 +631,37 @@ body {
    it deliberately avoids .editor-textarea: inline processing dims that class,
    and text the user is reading must stay legible and selectable. */
 .stream-output {
-  min-height: 80px;
+  margin: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-md) 14px;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
   overflow-y: auto;
   overscroll-behavior: contain;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  text-align: left;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-input);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  padding: 12px 14px;
-  width: 100%;
 }
 
-.processing-skeleton { width: 100%; max-height: 84px; overflow: hidden; background: var(--color-surface-card); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--spacing-md) 14px; }
+/* Caret is a pseudo-element, never a child node: window.streamChunk does
+   host.output.textContent += text (popup.js:421), which would destroy any
+   appended <span>, and an extra child would also perturb isScrolledToBottom
+   (popup.js:425-427). */
+#processing-stream-output:not([hidden])::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  vertical-align: text-bottom;
+  background: var(--color-primary-hover);
+  border-radius: 1px;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.processing-skeleton { max-height: 84px; overflow: hidden; margin: var(--spacing-md) var(--spacing-lg); padding: var(--spacing-md) 14px; }
 .skeleton-bar { height: 10px; border-radius: var(--radius-full); background: linear-gradient(90deg, var(--color-skeleton-base) 25%, var(--color-skeleton-sheen) 50%, var(--color-skeleton-base) 75%); background-size: 200% 100%; animation: shimmer 1.4s ease infinite; margin-bottom: 8px; }
 .skeleton-bar:nth-child(2) { width: 85%; }
 .skeleton-bar:nth-child(3) { width: 55%; margin-bottom: 0; }
@@ -603,138 +673,106 @@ body {
   flex: 1 1 0;
 }
 
-.result-rich-preview {
-  background: var(--color-surface-input);
-  border: 1px solid var(--color-border-default);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  color: var(--color-text-primary);
-  overflow-wrap: anywhere;
-  transition: all var(--transition-base);
-}
-
-.result-source-block {
-  padding: 0 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .result-source-toggle {
-  width: 100%;
+  margin: var(--spacing-md) var(--spacing-lg) 0;
+  width: calc(100% - 2 * var(--spacing-lg));
+  min-width: 0;
   justify-content: flex-start;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: var(--font-size-sm);
-  padding: 8px 10px;
+  gap: 8px;
+}
+
+.result-source-toggle__chev {
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.result-source-toggle[aria-expanded="true"] .result-source-toggle__chev {
+  transform: rotate(90deg);
+}
+
+.result-source-toggle__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-source-wrap {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 8px;
+  margin: var(--spacing-xs) var(--spacing-lg) 0;
 }
 
+/* Not a SCROLL_REGION_IDS member, so a max-height here is fine — it is the
+   expanded-snippet reader, not a region applyMeasuredHeight owns. */
 .result-source-text {
-  min-height: 72px;
+  resize: none;
+  width: 100%;
   max-height: 100px;
-  background: rgba(0, 0, 0, 0.22);
-  font-size: 11.5px;
-}
-
-.action-row {
-  display: flex;
-  gap: 8px;
-  padding: 8px 14px 0;
-  flex-shrink: 0;
-}
-
-.action-row--editor {
-  padding-top: 4px;
-  padding-bottom: 8px;
-}
-
-.hint-inline {
+  border: none;
+  background: transparent;
+  padding: var(--spacing-sm) 14px;
+  color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  line-height: var(--line-height-relaxed);
+}
+
+.mode-group {
   display: flex;
-  align-items: center;
   gap: 4px;
-  margin-left: auto;
+  margin: var(--spacing-sm) var(--spacing-lg) 0;
+  background: var(--color-surface-input);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  width: max-content;
 }
 
-.char-count {
+.mode-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  text-align: right;
-  padding: 2px 14px 0;
-  flex-shrink: 0;
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  min-height: 24px;
 }
 
-.action-row--editor .btn,
-.action-row--error .btn {
-  flex: 1;
+.mode-btn[aria-pressed="true"] {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-sm);
 }
 
-.action-row--result {
-  justify-content: space-between;
-  padding-bottom: 8px;
+.mode-btn:focus-visible {
+  box-shadow: var(--focus-ring-inset);
 }
 
-.action-group-left,
-.action-group-right {
-  display: flex;
-  gap: 6px;
-}
-
-.action-row--result .btn--primary {
-  flex: none;
-  padding: 10px 20px;
-  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.3);
-}
-
-.action-row--result .btn--primary:focus-visible {
-  box-shadow: var(--focus-ring), 0 4px 16px rgba(96, 165, 250, 0.3);
-}
-
-.mode-group { display: flex; gap: 4px; padding: 3px; background: var(--color-surface-input); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
-.mode-group .btn { border: none; background: transparent; border-radius: var(--radius-sm); padding: 4px 12px; min-height: 24px; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); letter-spacing: normal; text-transform: none; color: var(--color-text-secondary); }
-.mode-group .btn:not(:disabled):hover { background: var(--color-surface-hover); color: var(--color-text-primary); transform: none; }
-.mode-group .btn:not(:disabled):active { transform: none; }
-#result-toggle-diff[aria-pressed="true"] { background: var(--color-surface-elevated); color: var(--color-text-primary); box-shadow: var(--shadow-sm); }
-.mode-group .btn:focus-visible { box-shadow: var(--focus-ring-inset); }
-
-.processing-view {
-  flex: 1;
-  min-height: 0;
+.processing-main {
   display: flex;
   flex-direction: column;
+}
+
+.processing-status {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 18px 14px 12px;
-  gap: 12px;
+  gap: 10px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(59, 130, 246, 0.16);
-  border-top-color: var(--primary);
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-primary-surface);
+  border-top-color: var(--color-primary-default);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.processing-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-align: center;
 }
 
 .error-view-inner {
@@ -746,31 +784,44 @@ body {
   justify-content: center;
   text-align: center;
   gap: 10px;
-  padding: 10px 16px 2px;
+  padding: var(--spacing-2xl) var(--spacing-2xl) var(--spacing-lg);
 }
 
 .error-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--error);
+  background: var(--color-error-surface);
+  color: var(--color-error);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .error-title {
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  color: var(--error);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
+/* max-width is fine here; max-height is not — #error-message is a
+   SCROLL_REGION_IDS member (plan sec3.4, step 5a). */
 .error-message {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.45;
-  max-width: 286px;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  max-width: 380px;
+  margin: 0 auto;
+  line-height: var(--line-height-base);
+}
+
+/* Unused today (renderError keeps textContent — plan step 9 / unresolved
+   question 10) but shipped so the style exists the day the copy needs it. */
+.err-code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface-input);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
 }
 
 .feedback-toast {
@@ -778,54 +829,75 @@ body {
   padding-bottom: 0;
 }
 
-.md-h1 { font-size: var(--font-size-xl); font-weight: 700; color: var(--text-primary); margin: 0 0 8px; }
-.md-h2 { font-size: var(--font-size-lg); font-weight: 700; color: var(--text-primary); margin: 0 0 6px; }
-.md-h3 { font-size: var(--font-size-md); font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
-.md-h4 { font-size: var(--font-size-base); font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+.md-h1 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin: 0 0 8px; }
+.md-h2 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin: 0 0 6px; }
+.md-h3 { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin: 0 0 4px; }
+.md-h4 { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin: 0 0 4px; }
 
 .md-code-block {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
+  background: var(--color-surface-input);
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
-  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   margin: 8px 0;
   overflow-x: auto;
 }
 
 .md-inline-code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-input);
   padding: 1px 5px;
-  border-radius: 4px;
-  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
 .result-rich-preview ul {
   padding-left: 18px;
   margin: 4px 0;
+  list-style: disc;
 }
 
 .result-rich-preview li {
   margin: 2px 0;
 }
 
+.result-rich-preview p {
+  margin: 0 0 8px;
+}
+
+.result-rich-preview p:last-child {
+  margin-bottom: 0;
+}
+
+.result-rich-preview strong {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.result-rich-preview em {
+  font-style: italic;
+}
+
 /* ---------- Error Banner ---------- */
 .error-banner {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: rgba(239, 68, 68, 0.1);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+  align-items: flex-start;
+  gap: 10px;
+  margin: var(--spacing-sm) var(--spacing-lg) 0;
+  padding: 8px 12px;
+  background: var(--color-error-surface);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
   color: var(--error);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   z-index: 10;
   flex-shrink: 0;
 }
 
 .error-banner__icon {
   flex-shrink: 0;
+  color: var(--color-error);
 }
 
 .error-banner__msg {

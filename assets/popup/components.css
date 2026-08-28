@@ -15,7 +15,7 @@
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
   min-height: 32px;
 }
@@ -31,158 +31,101 @@
   pointer-events: none;
 }
 
-.btn:active {
-  transform: scale(0.96);
+.btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* ---------- Button Variants ---------- */
 .btn--primary {
-  background: var(--color-primary-gradient);
-  box-shadow: 0 4px 12px var(--color-primary-glow);
+  background: var(--color-primary-default);
   color: var(--color-text-on-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 10px 16px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--radius-md);
 }
 
 .btn--primary:hover {
-  box-shadow: 0 6px 16px var(--color-primary-glow);
-  transform: translateY(-1px);
-  filter: brightness(1.05);
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-glow);
 }
 
 .btn--primary:active {
-  transform: scale(0.96) translateY(0);
-  filter: brightness(0.95);
+  background: var(--color-primary-active);
 }
 
 .btn--primary:focus-visible {
   box-shadow: var(--focus-ring), 0 4px 12px var(--color-primary-glow);
 }
 
+.btn--ghost,
 .btn--secondary {
-  background: var(--color-surface-elevated);
+  background: transparent;
   border: 1px solid var(--color-border-default);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 10px 16px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  gap: 7px;
 }
 
+.btn--ghost:hover,
 .btn--secondary:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
-  transform: translateY(-0.5px);
 }
 
+.btn--ghost:active,
 .btn--secondary:active {
   transform: scale(0.96) translateY(0);
 }
 
-.btn--ghost {
-  background: transparent;
-  border: 1px solid var(--color-border-default);
-  color: var(--color-text-secondary);
+.btn--sm {
+  min-height: 28px;
+  padding: 0 12px;
   font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: 8px 14px;
-}
-
-.btn--ghost:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
-  transform: translateY(-0.5px);
-}
-
-.btn--ghost:active {
-  transform: scale(0.96) translateY(0);
 }
 
 /* ---------- Icon Buttons ---------- */
 .btn--icon {
   background: transparent;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   padding: 0;
   flex-shrink: 0;
-  transition: all var(--transition-base);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .btn--icon:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  transform: scale(1.05);
 }
 
-.btn--icon:active {
-  transform: scale(0.92);
+.btn--icon svg {
+  width: 15px;
+  height: 15px;
 }
 
-/* Icon button with text (back button pattern) */
-.btn--icon-text {
+/* Back button pattern (icon + text). */
+.btn--back {
   background: transparent;
   border: none;
   color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all var(--transition-base);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
 }
 
-.btn--icon-text:hover {
+.btn--back:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  transform: translateX(-1px);
-}
-
-.btn--icon-text:active {
-  transform: scale(0.96);
-}
-
-/* ---------- Textarea Base ---------- */
-.textarea {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 12.5px;
-  line-height: 1.6;
-  padding: 12px 14px;
-  outline: none;
-  resize: vertical;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
-}
-
-.textarea:focus {
-  border-color: var(--primary);
-  box-shadow: var(--focus-ring-inset);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.textarea--readonly {
-  color: var(--text-primary);
-  resize: none;
-  cursor: default;
-}
-
-.textarea--highlighted {
-  border-color: rgba(59, 130, 246, 0.2);
-  color: var(--text-primary);
 }
 
 /* ---------- Status Dot ---------- */
@@ -220,15 +163,6 @@
   background: var(--warning);
 }
 
-/* ---------- Label Uppercase ---------- */
-.label-upper {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* ---------- Feedback Toast ---------- */
 .feedback-toast {
   font-size: var(--font-size-sm);
@@ -252,21 +186,35 @@
   color: var(--error);
 }
 
-/* ---------- Header (Draggable) ---------- */
-.header {
-  display: flex;
+/* ---------- Tool Tag ---------- */
+.tool-tag {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 18px 20px 14px;
-  cursor: grab;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  max-width: 220px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.header:active {
-  cursor: grabbing;
-}
+.tool-tag--blue { background: var(--color-tool-blue-bg); color: var(--color-tool-blue-fg); }
+.tool-tag--green { background: var(--color-tool-green-bg); color: var(--color-tool-green-fg); }
+.tool-tag--purple { background: var(--color-tool-purple-bg); color: var(--color-tool-purple-fg); }
+.tool-tag--amber { background: var(--color-tool-amber-bg); color: var(--color-tool-amber-fg); }
+.tool-tag--neutral { background: var(--color-surface-elevated); color: var(--color-text-secondary); }
 
-.header--tight {
-  padding: 14px 20px 10px;
+/* ---------- Screen-reader-only utility ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 /* ---------- Keyboard Hint Chip ---------- */

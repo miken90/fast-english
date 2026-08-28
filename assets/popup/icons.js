@@ -19,14 +19,26 @@
     refresh: '<path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>',
     // Clock face with a counter-clockwise arrow — the usual "recent" mark, and
     // distinct from refresh at 14px.
-    history: '<path d="M3 3v6h6"/><path d="M3.05 13a9 9 0 105.6-7.72L3 9"/><path d="M12 7v5l3.5 2"/>'
+    history: '<path d="M3 3v6h6"/><path d="M3.05 13a9 9 0 105.6-7.72L3 9"/><path d="M12 7v5l3.5 2"/>',
+    play: '<path d="M8 5v14l11-7z"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    chevron_right: '<path d="m9 18 6-6-6-6"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    check: '<path d="m5 13 4 4L19 7"/>',
+    warning: '<path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    error_circle: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>',
+    plug: '<path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>',
+    settings_gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/>'
   };
 
-  function renderIcon(name, size, strokeWidth) {
+  function renderIcon(name, size, strokeWidth, filled) {
     var iconName = name || 'info';
     var iconSize = size || 16;
     var width = strokeWidth || 2;
     var path = ICON_PATHS[iconName] || ICON_PATHS.info;
+    if (filled) {
+      return '<svg width="' + iconSize + '" height="' + iconSize + '" viewBox="0 0 24 24" fill="currentColor" stroke="none">' + path + '</svg>';
+    }
     return '<svg width="' + iconSize + '" height="' + iconSize + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + width + '">' + path + '</svg>';
   }
 
@@ -36,7 +48,8 @@
       var name = node.getAttribute('data-icon-name') || 'info';
       var size = Number(node.getAttribute('data-icon-size') || '16');
       var stroke = Number(node.getAttribute('data-icon-stroke') || '2.5');
-      node.innerHTML = renderIcon(name, size, stroke);
+      var filled = node.hasAttribute('data-icon-filled');
+      node.innerHTML = renderIcon(name, size, stroke, filled);
     });
   }
 

@@ -17,6 +17,8 @@
     <!-- Header -->
     <div class="settings-header">
       <span class="settings-title">Settings</span>
+      <span class="dirty-dot" id="dirty-indicator" title="Unsaved changes"></span>
+      <span class="settings-header__spacer"></span>
       <button class="btn btn--icon" id="settings-close" aria-label="Close">
         <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
       </button>
@@ -39,6 +41,7 @@
             autocomplete="off"
             spellcheck="false"
           />
+          <div class="field-help">OpenAI-compatible endpoint, including /v1.</div>
         </div>
 
         <div class="field">
@@ -63,10 +66,13 @@
             autocomplete="new-password"
             spellcheck="false"
           />
+          <div class="field-help">Encrypted on this device with your Windows account.</div>
         </div>
 
         <div class="test-row">
-          <button class="btn btn--secondary" id="btn-test-connection">Test Connection</button>
+          <button class="btn btn--ghost btn--sm" id="btn-test-connection">
+            <span data-icon-name="plug" data-icon-size="13"></span>Test Connection
+          </button>
           <div class="status-badge status-badge--idle" id="test-status-badge" role="status" aria-live="polite">
             <div class="status-dot status-dot--sm"></div>
             <span id="test-status-text">Not tested</span>
@@ -89,8 +95,8 @@
 
         <div class="preference-row">
           <div class="preference-label">
-            <span class="preference-name">Auto-popup</span>
-            <span class="preference-hint">Show popup on text selection</span>
+            <span class="preference-name">Auto popup on selection</span>
+            <span class="preference-hint">Show the popup when you select text anywhere.</span>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="toggle-auto-popup">
@@ -101,12 +107,17 @@
         <div class="preference-row">
           <div class="preference-label">
             <span class="preference-name">Start with Windows</span>
-            <span class="preference-hint">Launch app on system startup</span>
+            <span class="preference-hint">Launch in the tray at sign-in.</span>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="toggle-auto-start">
             <span class="toggle-slider"></span>
           </label>
+        </div>
+
+        <div class="preference-row">
+          <span class="preference-name">Reset</span>
+          <span id="reset-area"></span>
         </div>
       </div>
 
@@ -114,12 +125,10 @@
       <div class="settings-section">
         <div class="section-title">Keyboard Shortcut</div>
         <div class="hotkey-row">
-          <span class="hotkey-label">Open popup manually</span>
+          <span class="hotkey-label">Open popup</span>
           <div class="hotkey-keys">
             <span class="kbd">Ctrl</span>
-            <span class="hotkey-plus">+</span>
             <span class="kbd">Alt</span>
-            <span class="hotkey-plus">+</span>
             <span class="kbd">T</span>
           </div>
         </div>
@@ -128,16 +137,11 @@
     </div><!-- /.settings-body -->
 
     <div class="settings-footer">
-      <div class="save-row">
-        <button class="btn btn--primary btn-save" id="btn-save" disabled>Save Settings</button>
-        <span class="dirty-indicator" id="dirty-indicator">Unsaved changes</span>
-        <button class="btn btn--ghost" id="btn-cancel-settings">Cancel</button>
-        <span id="reset-area">
-          <button class="btn btn--ghost" id="btn-reset-settings">Reset to Defaults</button>
-        </span>
-        <span class="save-feedback" id="save-feedback" aria-live="polite"></span>
-      </div>
-      <div class="label-upper" id="version-label">Fast English v0.1.0</div>
+      <span class="settings-version" id="version-label">Fast English v0.1.0</span>
+      <span class="save-feedback" id="save-feedback" aria-live="polite"></span>
+      <span class="settings-footer__spacer"></span>
+      <button class="btn btn--ghost" id="btn-cancel-settings">Cancel</button>
+      <button class="btn btn--primary" id="btn-save" disabled>Save</button>
     </div>
 
   </div><!-- /.settings-container -->

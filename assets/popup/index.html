@@ -16,16 +16,14 @@
 
     <section id="view-editor" class="view" tabindex="-1">
       <div class="popup-header">
-        <div class="context-indicator">
-          <div class="status-dot status-dot--pulse"></div>
-          <span class="label-upper">Editor</span>
-        </div>
+        <span class="popup-brand"><span class="popup-brand__dot"></span>Fast English</span>
+        <span class="popup-header__spacer"></span>
         <div class="header-actions">
           <button class="btn btn--icon" id="editor-history-btn" aria-label="Recent results" title="Recent results">
             <span data-icon-name="history" data-icon-size="14" data-icon-stroke="2.5"></span>
           </button>
           <button class="btn btn--icon" id="editor-settings-btn" aria-label="Open settings">
-            <span data-icon-name="info" data-icon-size="14" data-icon-stroke="2.5"></span>
+            <span data-icon-name="settings_gear" data-icon-size="14" data-icon-stroke="2.5"></span>
           </button>
           <button class="btn btn--icon" id="editor-close" aria-label="Close">
             <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
@@ -41,7 +39,7 @@
           <span class="lang-select-arrow" data-icon-name="chevron_down" data-icon-size="12" data-icon-stroke="2.5"></span>
         </div>
 
-        <button class="btn-swap" id="translate-swap-btn" aria-label="Swap languages">
+        <button class="btn btn--icon" id="translate-swap-btn" aria-label="Swap languages">
           <span data-icon-name="swap" data-icon-size="14" data-icon-stroke="2"></span>
         </button>
 
@@ -52,149 +50,145 @@
       </div>
 
       <div class="error-banner" id="editor-error-banner" hidden>
-        <span class="error-banner__icon" data-icon-name="info" data-icon-size="14" data-icon-stroke="2"></span>
+        <span class="error-banner__icon" data-icon-name="error_circle" data-icon-size="14" data-icon-stroke="2"></span>
         <span class="error-banner__msg"></span>
-        <button class="btn btn--ghost" id="editor-error-retry">Retry</button>
-        <button class="btn btn--ghost" id="editor-error-dismiss">Dismiss</button>
+        <button class="btn btn--ghost btn--sm" id="editor-error-retry">Retry</button>
+        <button class="btn btn--ghost btn--sm" id="editor-error-dismiss">Dismiss</button>
       </div>
 
-      <div class="editor-main">
-        <div class="editor-card">
-          <div class="editor-label" id="editor-source-label">Source</div>
-          <textarea id="editor-source-text" class="editor-textarea" rows="2" placeholder="Enter text..."></textarea>
-        </div>
-        <div class="char-count" id="editor-char-count">0 chars</div>
+      <div class="popup-card editor-card">
+        <span class="sr-only" id="editor-source-label">Source</span>
+        <textarea id="editor-source-text" class="editor-textarea" rows="2"
+                  placeholder="Enter text…" aria-labelledby="editor-source-label"></textarea>
+        <div class="editor-card__meta"><span id="editor-char-count">0 characters</span></div>
       </div>
 
-      <div class="action-row action-row--editor">
-        <button class="btn btn--primary" id="editor-run-btn">Run</button>
-        <span class="hint-inline"><span class="kbd">Ctrl</span><span class="kbd">Enter</span> · <span class="kbd">Esc</span></span>
+      <div class="popup-footer">
+        <span class="hint"><span class="kbd">Esc</span> dismiss</span>
+        <span class="popup-footer__spacer"></span>
+        <span class="hint"><span class="kbd">Ctrl</span><span class="kbd">Enter</span></span>
+        <button class="btn btn--primary" id="editor-run-btn">
+          <span data-icon-name="play" data-icon-size="13" data-icon-filled="1"></span>Run
+        </button>
       </div>
     </section>
 
     <section id="view-processing" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <div class="context-indicator">
-          <div class="status-dot status-dot--pulse"></div>
-          <span class="label-upper" id="processing-tool">Processing</span>
-        </div>
+      <div class="popup-header">
+        <span class="processing-status">
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="processing-label" aria-live="polite"></span>
+          <span class="tool-tag tool-tag--blue" id="processing-tool"></span>
+        </span>
+        <span class="popup-header__spacer"></span>
         <button class="btn btn--icon" id="processing-close" aria-label="Close">
           <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
       </div>
 
-      <div class="processing-view">
-        <div class="spinner"></div>
-        <div class="processing-label" id="processing-label" aria-live="polite">Processing…</div>
-        <div id="processing-skeleton" class="processing-skeleton" aria-hidden="true" hidden>
-          <div class="skeleton-bar"></div>
-          <div class="skeleton-bar"></div>
-          <div class="skeleton-bar"></div>
+      <div class="processing-main">
+        <div id="processing-skeleton" class="popup-card processing-skeleton" aria-hidden="true" hidden>
+          <div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar"></div>
         </div>
-        <div id="processing-stream-output" class="stream-output" role="region" aria-live="polite" aria-label="Streaming output" hidden></div>
-        <button class="btn btn--ghost" id="processing-cancel-btn">Cancel</button>
+        <div id="processing-stream-output" class="popup-card stream-output"
+             role="region" aria-live="polite" aria-label="Streaming output" hidden></div>
+      </div>
+
+      <div class="popup-footer">
+        <span class="hint"><span class="kbd">Esc</span> dismiss</span>
+        <span class="popup-footer__spacer"></span>
+        <button class="btn btn--ghost" id="processing-cancel-btn">
+          <span data-icon-name="stop" data-icon-size="12" data-icon-filled="1"></span>Cancel
+        </button>
       </div>
     </section>
 
     <section id="view-result" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="result-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
+      <div class="popup-header">
+        <button class="btn btn--back" id="result-back">
+          <span data-icon-name="back" data-icon-size="14" data-icon-stroke="2"></span>Back
         </button>
-        <div class="context-indicator">
-          <div class="status-dot status-dot--success"></div>
-          <span class="label-upper" id="result-tool-label">Result</span>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn--icon" id="result-close" aria-label="Close">
-            <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-          </button>
-        </div>
+        <span class="tool-tag" id="result-tool-label"></span>
+        <span class="popup-header__spacer"></span>
+        <button class="btn btn--icon" id="result-close" aria-label="Close">
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+        </button>
       </div>
 
       <div class="result-main">
+        <button class="btn btn--back result-source-toggle" id="result-source-toggle"
+                aria-expanded="false" aria-controls="result-source-wrap">
+          <span class="result-source-toggle__chev" data-icon-name="chevron_right" data-icon-size="12"></span>
+          <span class="result-source-toggle__text"></span>
+        </button>
+        <div class="result-source-wrap" id="result-source-wrap" hidden>
+          <textarea id="result-source-snippet" class="popup-card result-source-text" readonly
+                    aria-label="Original text"></textarea>
+        </div>
+
+        <div class="mode-group" role="group" aria-label="Output view mode">
+          <button class="btn mode-btn" id="result-toggle-raw" aria-pressed="true">Raw</button>
+          <button class="btn mode-btn" id="result-toggle-md" aria-pressed="false">Markdown</button>
+          <button class="btn mode-btn" id="result-toggle-diff" aria-pressed="false">Diff</button>
+        </div>
+        <div class="result-note" id="result-diff-note" role="status" hidden>
+          <span class="result-note__icon" data-icon-name="info" data-icon-size="12" data-icon-stroke="2"></span>
+          <span class="result-note__msg">Too much changed to compare — showing the result on its own.</span>
+        </div>
+
+        <div class="popup-card result-card">
+          <div id="result-output" class="result-body result-output" tabindex="0" role="region" aria-label="Output"></div>
+          <div class="result-rich-preview result-body" id="result-rich-preview" style="display:none;"></div>
+          <div class="result-diff result-body" id="result-diff" tabindex="0" role="region" aria-label="Changes from your text" style="display:none;"></div>
+          <div class="result-card__meta"><span id="result-char-count">0 characters</span></div>
+        </div>
+
         <div class="result-notice" id="result-notice" role="status" hidden>
-          <span class="result-notice__icon" data-icon-name="info" data-icon-size="13" data-icon-stroke="2"></span>
+          <span class="result-notice__icon" data-icon-name="warning" data-icon-size="13" data-icon-stroke="2"></span>
           <span class="result-notice__msg"></span>
         </div>
-        <div class="editor-card result-output-card">
-          <div class="editor-label">Output</div>
-          <div id="result-output" class="editor-textarea editor-textarea--readonly result-output" tabindex="0" role="region" aria-label="Output"></div>
-          <div class="result-rich-preview" id="result-rich-preview" style="display:none;"></div>
-          <div class="result-diff" id="result-diff" tabindex="0" role="region" aria-label="Changes from your text" style="display:none;"></div>
-        </div>
-        <div class="char-count" id="result-char-count">0 chars</div>
-        <div class="result-note" id="result-diff-note" role="status" hidden>Too much changed to compare — showing the result on its own.</div>
 
-        <div class="result-source-block">
-          <button class="btn btn--ghost result-source-toggle" id="result-source-toggle" aria-expanded="false" aria-controls="result-source-wrap">
-            Source snippet
-          </button>
-          <div class="result-source-wrap" id="result-source-wrap" hidden>
-            <textarea id="result-source-snippet" class="editor-textarea editor-textarea--readonly result-source-text" readonly></textarea>
-          </div>
-        </div>
-
-        <div class="feedback-toast feedback-toast--success" id="result-copy-feedback" aria-live="polite"></div>
+        <div id="result-copy-feedback" aria-live="polite"></div>
       </div>
 
-      <div class="action-row action-row--result">
-        <div class="action-group-left">
-          <button class="btn btn--icon" id="result-rerun-btn" aria-label="Rerun" title="Rerun">
-            <span data-icon-name="refresh" data-icon-size="14" data-icon-stroke="2.5"></span>
-          </button>
-          <div class="mode-group">
-            <button class="btn btn--ghost btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Preview</button>
-            <button class="btn btn--ghost btn-toggle-diff" id="result-toggle-diff" aria-pressed="false" title="Show what changed">Diff</button>
-          </div>
-          <button class="btn btn--ghost" id="result-use-output-btn">Edit output</button>
-        </div>
-        <div class="action-group-right">
-          <button class="btn btn--secondary" id="result-copy-btn">Copy</button>
-          <button class="btn btn--primary" id="result-replace-btn">Replace</button>
-        </div>
+      <div class="popup-footer">
+        <button class="btn btn--ghost" id="result-rerun-btn">
+          <span data-icon-name="refresh" data-icon-size="13"></span>Rerun</button>
+        <button class="btn btn--ghost" id="result-use-output-btn">Edit output</button>
+        <span class="popup-footer__spacer"></span>
+        <button class="btn btn--ghost" id="result-copy-btn">
+          <span data-icon-name="copy" data-icon-size="13"></span>Copy</button>
+        <button class="btn btn--primary" id="result-replace-btn">
+          <span data-icon-name="check" data-icon-size="13"></span>Replace</button>
       </div>
     </section>
 
     <section id="view-history" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="history-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
+      <div class="popup-header">
+        <button class="btn btn--back" id="history-back">
+          <span data-icon-name="back" data-icon-size="14" data-icon-stroke="2"></span>Back
         </button>
-        <div class="context-indicator">
-          <div class="status-dot"></div>
-          <span class="label-upper">Recent Results</span>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn--icon" id="history-close" aria-label="Close">
-            <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
-          </button>
-        </div>
+        <span class="popup-header__title">History</span>
+        <span class="popup-header__count" id="history-count"></span>
+        <span class="popup-header__spacer"></span>
+        <button class="btn btn--text-danger" id="history-clear-btn">Clear</button>
+        <button class="btn btn--icon" id="history-close" aria-label="Close">
+          <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
+        </button>
       </div>
 
       <div class="history-main">
         <div id="history-list" class="history-list" role="list" tabindex="0"></div>
-        <div id="history-empty" class="history-empty" hidden>No results yet.</div>
-      </div>
-
-      <div class="action-row action-row--history">
-        <span class="hint-inline" id="history-count"></span>
-        <button class="btn btn--ghost" id="history-clear-btn">Clear history</button>
+        <div id="history-empty" class="history-empty" hidden>No results yet — run a tool to see it here.</div>
       </div>
     </section>
 
     <section id="view-error" class="view" tabindex="-1">
-      <div class="popup-header popup-header--tight">
-        <button class="btn btn--icon-text" id="error-back">
-          <span data-icon-name="back" data-icon-size="16" data-icon-stroke="2.5"></span>
-          Back
+      <div class="popup-header">
+        <button class="btn btn--back" id="error-back">
+          <span data-icon-name="back" data-icon-size="14" data-icon-stroke="2"></span>Back
         </button>
-        <div class="context-indicator">
-          <div class="status-dot status-dot--error"></div>
-          <span class="label-upper">Error</span>
-        </div>
+        <span class="popup-header__spacer"></span>
         <button class="btn btn--icon" id="error-close" aria-label="Close">
           <span data-icon-name="close" data-icon-size="14" data-icon-stroke="2.5"></span>
         </button>
@@ -202,15 +196,16 @@
 
       <div class="error-view-inner">
         <div class="error-icon">
-          <span data-icon-name="info" data-icon-size="22" data-icon-stroke="2"></span>
+          <span data-icon-name="error_circle" data-icon-size="22" data-icon-stroke="2"></span>
         </div>
         <div class="error-title">Something went wrong</div>
         <div class="error-message" id="error-message"></div>
       </div>
 
-      <div class="action-row action-row--error">
-        <button class="btn btn--primary" id="error-retry-btn">Try again</button>
-        <button class="btn btn--secondary" id="error-dismiss-btn">Dismiss</button>
+      <div class="popup-footer popup-footer--center">
+        <button class="btn btn--ghost" id="error-dismiss-btn">Dismiss</button>
+        <button class="btn btn--primary" id="error-retry-btn">
+          <span data-icon-name="refresh" data-icon-size="13"></span>Try again</button>
       </div>
     </section>
 

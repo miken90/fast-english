@@ -21,21 +21,36 @@ use super::popup_monitor;
 pub const POPUP_WIDTH: f32 = 520.0;
 /// Height used for first placement, before the document reports its own.
 ///
-/// The editor view holds one card now that the output card is gone, so its
-/// minimum drops from 378.75 to 266.25 CSS px: 135 of chrome (a 1px border, 50
-/// header and 37 tab row above, a 47 action row and 1px border below) over a
-/// body that cannot go under 131.25 — a 22.5 label, an 80 text box, a 10px gap
-/// and an 18.5 char count. That is 112.5 less than before: the removed card's
-/// own 22.5 label and 80 box, plus the 10px gap that separated it. Shorter
-/// than the minimum the body is squeezed while the card keeps its own height,
-/// and the run button ends up drawn over the text.
+/// Derived from the rebuilt editor chrome (dark theme, 100% scale, all values
+/// from `tokens.css`), one flex column, top to bottom:
 ///
-/// The first frame is painted before any measurement comes back, so it also
-/// has to cover ordinary content, not just the floor: the source box autosizes
-/// to four lines (19.375 x 4 plus 26 of padding and border = 103.5), which
-/// puts a typical editor view at 289.5. 296 clears both — 29.75 over the
-/// minimum, 6.5 over the common case.
-pub const POPUP_INITIAL_HEIGHT: f32 = 296.0;
+/// | Band | Arithmetic | px |
+/// |---|---|---|
+/// | Container border-top | 1px | 1 |
+/// | Header | 12 pad-top + 32 icon-button + 12 pad-bottom + 1 border-bottom | 57 |
+/// | Tool pills row | 12 pad-top + pill (1+6+16+6+1) | 42 |
+/// | Card block | 12 margin + [1 border + 120 textarea + meta (15 line + 8 pad) + 1 border] + 12 margin | 169 |
+/// | Footer | 8 pad-top + 32 button + 16 pad-bottom | 56 |
+/// | Container border-bottom | 1px | 1 |
+/// | **Total** | | **326** |
+///
+/// The 42px pills row assumes the pills do not wrap (`.tool-pill` carries
+/// `white-space: nowrap; flex-shrink: 0`) — a wrapped row is ~72px, pushing
+/// the total to ~356.
+///
+/// The floor and the typical case now coincide: the autosized four-line box
+/// is `--line-height-relaxed` 1.6 × `--font-size-md` 14 = 22.4, ×4 = 89.6,
+/// plus 24 of padding = 113.6 — below the 120px CSS `min-height`, so an empty
+/// editor and a four-line editor lay out at the same height. There is no
+/// separate min-vs-typical split to track.
+///
+/// Confirmed by measurement, not only derived: a headless-browser screenshot
+/// harness read `#popup-root.getBoundingClientRect().height` for the idle
+/// editor fixture (no wrapper, popup as document root) at three swept
+/// `screen.availHeight` values (1032, 688, 485) and got exactly 326 at all
+/// three — the layout does not secretly depend on the injected screen height,
+/// so 326 describes the unclamped first frame this constant exists for.
+pub const POPUP_INITIAL_HEIGHT: f32 = 326.0;
 /// Floor for a content-driven height, so a broken measurement cannot collapse
 /// the window to nothing.
 pub const POPUP_MIN_HEIGHT: f32 = 120.0;

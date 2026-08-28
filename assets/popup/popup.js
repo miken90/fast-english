@@ -64,6 +64,13 @@ function showView(viewName) {
     }
   });
 
+  if (viewName === 'editor') {
+    // renderEditor may have run autosize while this view was still
+    // display:none, when layout metrics are unavailable — recompute now
+    // that it is actually visible.
+    autosizeEditorSourceTextarea(document.getElementById('editor-source-text'));
+  }
+
   var activeView = document.getElementById('view-' + viewName);
   if (activeView) {
     var focusable = activeView.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
@@ -156,16 +163,6 @@ function renderEditor(data) {
 
   renderToolSwitcher();
 
-  var headerLabel = document.querySelector('#view-editor .label-upper');
-  if (headerLabel) {
-    headerLabel.textContent = (appState.tool && appState.tool.title) || 'Editor';
-  }
-
-  var runBtn = document.getElementById('editor-run-btn');
-  if (runBtn) {
-    runBtn.textContent = RUN_LABELS[appState.tool.id] || 'Run';
-  }
-
   var sourceEl = document.getElementById('editor-source-text');
   if (sourceEl) {
     sourceEl.value = appState.sourceText;
@@ -189,20 +186,6 @@ function renderEditor(data) {
   }
 }
 
-const TOOL_SHORT_LABELS = {
-  'enhance-writing': 'Enhance',
-  'fix-grammar': 'Grammar',
-  'convert-prompt': 'Prompt',
-  'translate': 'Translate'
-};
-
-const RUN_LABELS = {
-  'enhance-writing': 'Enhance',
-  'fix-grammar': 'Fix',
-  'convert-prompt': 'Convert',
-  'translate': 'Translate'
-};
-
 function renderToolSwitcher() {
   const row = document.getElementById('tool-switcher');
   if (!row) return;
@@ -215,10 +198,16 @@ function renderToolSwitcher() {
     btn.setAttribute('aria-pressed', tool.id === appState.tool.id ? 'true' : 'false');
     btn.dataset.toolId = tool.id;
 
-    var iconName = tool.id.replace(/-/g, '_');
-    var iconSvg = window.renderIcon ? window.renderIcon(iconName, 13, 2.5) : '';
-    btn.innerHTML = (iconSvg ? '<span class="tool-pill__icon">' + iconSvg + '</span>' : '') +
-                    '<span class="tool-pill__label">' + (TOOL_SHORT_LABELS[tool.id] || tool.title) + '</span>';
+    var label = document.createElement('span');
+    label.className = 'tool-pill__label';
+    label.textContent = tool.title;          // never innerHTML — tool.title is
+                                              // Rust-supplied and unescaped.
+    if (tool.id === appState.tool.id) {
+      var dot = document.createElement('span');
+      dot.className = 'tool-pill__dot';
+      btn.appendChild(dot);                  // dot only on the selected pill
+    }
+    btn.appendChild(label);
 
     btn.addEventListener('click', function() {
       sendToRust('ToolSelected', { kind: tool.id });
@@ -263,15 +252,45 @@ function setProcessingSkeletonVisible(visible) {
   else el.setAttribute('hidden', '');
 }
 
+// Tool ids come from src/ui/webview_bridge.rs:187-194 (`tool_id`). Single
+// source of truth for the tag colour, shared with the history view (P4) via
+// toolIdFromLabel — the history payload carries only the Display label, not
+// the id (src/ui/webview_bridge.rs sends `tool: escape_html(&entry.tool_label)`).
+var TOOL_TAG_CLASSES = {
+  'enhance-writing': 'tool-tag--blue',
+  'fix-grammar':     'tool-tag--green',
+  'convert-prompt':  'tool-tag--purple',
+  'translate':       'tool-tag--amber'
+};
+function toolTagClass(id) { return TOOL_TAG_CLASSES[id] || 'tool-tag--neutral'; }
+
+// Prefixes are the Display impl in src/app.rs:149-153 — Translate appends
+// " {from} → {to}". Unknown labels fall through to the neutral tag.
+var TOOL_LABEL_PREFIXES = [
+  ['Enhance Writing', 'enhance-writing'],
+  ['Fix Grammar',     'fix-grammar'],
+  ['Convert Prompt',  'convert-prompt'],
+  ['Translate',       'translate']
+];
+function toolIdFromLabel(label) {
+  for (var i = 0; i < TOOL_LABEL_PREFIXES.length; i++) {
+    if ((label || '').indexOf(TOOL_LABEL_PREFIXES[i][0]) === 0) return TOOL_LABEL_PREFIXES[i][1];
+  }
+  return null;
+}
+
 function renderProcessing(data) {
   if (data.tool) appState.tool = data.tool;
   var toolTitle = appState.tool && appState.tool.title ? appState.tool.title : 'Processing';
 
   var topLabel = document.getElementById('processing-tool');
-  if (topLabel) topLabel.textContent = toolTitle;
+  if (topLabel) {
+    topLabel.textContent = toolTitle;
+    topLabel.className = 'tool-tag ' + toolTagClass(appState.tool && appState.tool.id);
+  }
 
   var label = document.getElementById('processing-label');
-  if (label) label.textContent = 'Running ' + toolTitle + '…';
+  if (label) label.textContent = 'Running';
   setProcessingSkeletonVisible(true);
 }
 
@@ -298,7 +317,10 @@ function renderResult(data) {
   }
 
   var label = document.getElementById('result-tool-label');
-  if (label) label.textContent = (appState.tool && appState.tool.title) || 'Result';
+  if (label) {
+    label.textContent = (appState.tool && appState.tool.title) || 'Result';
+    label.className = 'tool-tag ' + toolTagClass(appState.tool && appState.tool.id);
+  }
 
   var outputEl = document.getElementById('result-output');
   var richEl = document.getElementById('result-rich-preview');
@@ -461,9 +483,10 @@ function renderHistory(data) {
     var head = document.createElement('div');
     head.className = 'history-item__head';
 
+    var toolLabel = unescHtml(entry.tool || '');
     var tool = document.createElement('span');
-    tool.className = 'history-item__tool';
-    tool.textContent = unescHtml(entry.tool || '');
+    tool.className = 'tool-tag ' + toolTagClass(toolIdFromLabel(toolLabel));
+    tool.textContent = toolLabel;
 
     var when = document.createElement('span');
     when.className = 'history-item__time';
@@ -492,12 +515,17 @@ function renderHistory(data) {
   });
 }
 
-/** Unix seconds to the user's own locale format. */
+/** Same-day entries get a bare time; older ones a short date, so yesterday
+ * and last month stay distinguishable without a full date+time on every row. */
 function formatTimestamp(seconds) {
   if (!seconds) return '';
-  var date = new Date(seconds * 1000);
-  if (isNaN(date.getTime())) return '';
-  return date.toLocaleString();
+  var d = new Date(seconds * 1000);
+  if (isNaN(d.getTime())) return '';
+  var now = new Date();
+  var sameDay = d.getFullYear() === now.getFullYear() &&
+                d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                 : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function renderError(data) {
@@ -544,7 +572,7 @@ function rerunFromResult() {
 
 function setCharCount(countId, text) {
   var cc = document.getElementById(countId);
-  if (cc) cc.textContent = (text || '').length + ' chars';
+  if (cc) cc.textContent = (text || '').length + ' characters';
 }
 
 function autosizeEditorSourceTextarea(textarea) {
@@ -588,6 +616,7 @@ var RESIZE_DEBOUNCE_MS = 150;
 var STREAM_REGION_RATIO = 0.45;
 
 var _resizeTimer = null;
+var _rafHandle = null;
 var _imeComposing = false;
 /** True once the user has dragged the window frame; Rust decides this. */
 var _manualWindowSize = false;
@@ -660,6 +689,13 @@ window.setManualWindowSize = function(on) {
       clearTimeout(_resizeTimer);
       _resizeTimer = null;
     }
+    // A rAF queued by requestSnapResizeForCurrentView() before the drag
+    // started outlives this schedule-time check — it still runs afterwards
+    // and would silently override the drag the user just made.
+    if (_rafHandle) {
+      cancelAnimationFrame(_rafHandle);
+      _rafHandle = null;
+    }
     // Inline caps and heights left by the measurement pass outrank the fill
     // rules, so they have to go before the layout can stretch.
     SCROLL_REGION_IDS.forEach(function(id) {
@@ -682,7 +718,11 @@ window.setManualWindowSize = function(on) {
 };
 
 function applyMeasuredHeight() {
+  // Belt and braces beside the schedule-time check in measureAndResize: a
+  // rAF queued before manual mode was armed can still reach here.
+  if (_manualWindowSize) return;
   _resizeTimer = null;
+  _rafHandle = null;
   var root = document.getElementById('popup-root');
   if (!root) return;
 
@@ -722,7 +762,7 @@ function measureAndResize(immediate) {
     _resizeTimer = null;
   }
   if (immediate) {
-    requestAnimationFrame(applyMeasuredHeight);
+    _rafHandle = requestAnimationFrame(applyMeasuredHeight);
     return;
   }
   _resizeTimer = setTimeout(applyMeasuredHeight, RESIZE_DEBOUNCE_MS);
@@ -799,17 +839,11 @@ function setResultMode(mode) {
     if (richEl) richEl.innerHTML = simpleMarkdown(appState.resultOutput || '');
   }
 
-  var mdBtn = document.getElementById('result-toggle-md');
-  if (mdBtn) {
-    mdBtn.textContent = next === 'rich' ? 'Raw' : 'Preview';
-    mdBtn.setAttribute('aria-pressed', next === 'rich' ? 'true' : 'false');
-  }
-
-  var diffBtn = document.getElementById('result-toggle-diff');
-  if (diffBtn) {
-    diffBtn.setAttribute('aria-pressed', next === 'diff' ? 'true' : 'false');
-    diffBtn.classList.toggle('active', next === 'diff');
-  }
+  var MODE_BUTTON_IDS = { raw: 'result-toggle-raw', rich: 'result-toggle-md', diff: 'result-toggle-diff' };
+  Object.keys(MODE_BUTTON_IDS).forEach(function(name) {
+    var b = document.getElementById(MODE_BUTTON_IDS[name]);
+    if (b) b.setAttribute('aria-pressed', name === next ? 'true' : 'false');
+  });
 }
 
 function setDiffNoteVisible(visible) {
@@ -862,7 +896,9 @@ function setSourceSnippetExpanded(expanded) {
   if (!toggle || !wrap) return;
 
   toggle.setAttribute('aria-expanded', appState.sourceSnippetExpanded ? 'true' : 'false');
-  toggle.textContent = appState.sourceSnippetExpanded ? 'Hide source snippet' : 'Source snippet';
+  var txt = toggle.querySelector('.result-source-toggle__text');
+  if (txt) txt.textContent = appState.sourceSnippetExpanded
+    ? 'Hide original' : 'Original: ' + (appState.sourceText || '');
   if (appState.sourceSnippetExpanded) {
     wrap.removeAttribute('hidden');
   } else {
@@ -1018,13 +1054,18 @@ document.addEventListener('DOMContentLoaded', function() {
   bindClick('result-replace-btn', function() { sendToRust('ReplaceResult'); });
   bindClick('result-copy-btn', function() { sendToRust('CopyResult'); });
 
+  bindClick('result-toggle-raw', function() {
+    setResultMode('raw');
+    requestSnapResizeForCurrentView();
+  });
+
   bindClick('result-toggle-md', function() {
-    setResultMode(appState.resultMode === 'rich' ? 'raw' : 'rich');
+    setResultMode('rich');
     requestSnapResizeForCurrentView();
   });
 
   bindClick('result-toggle-diff', function() {
-    setResultMode(appState.resultMode === 'diff' ? 'raw' : 'diff');
+    setResultMode('diff');
     // The mode change alters the content height. This goes through
     // measureAndResize, so a window the user sized by hand is left alone.
     requestSnapResizeForCurrentView();
@@ -1087,9 +1128,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (appState.view === 'editor') {
+      // Gate on the RENDERED view, not appState.view: a failure that follows
+      // the editor or processing renders the inline error banner inside
+      // #view-editor while appState.view is still 'error' (VIEW_RENDERERS.error
+      // routes there). Reading appState.view here left Ctrl+Enter dead on that
+      // screen while the Run button, which has no such check, kept working.
+      var activeId = (document.querySelector('.view.active') || {}).id;
+      if (activeId === 'view-editor') {
         runCurrentTool();
-      } else if (appState.view === 'result') {
+      } else if (activeId === 'view-result') {
         rerunFromResult();
       }
     }

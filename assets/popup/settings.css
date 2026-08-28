@@ -12,10 +12,7 @@
 
 /* ---------- Settings Container ---------- */
 .settings-container {
-  background:
-    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-    var(--color-surface-base);
+  background: var(--color-surface-base);
   border: 1px solid var(--color-border-default);
   border-radius: 0;
   box-shadow: 
@@ -30,11 +27,7 @@
 }
 
 :root[data-theme="light"] .settings-container {
-  background:
-    radial-gradient(130% 100% at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(120% 100% at 100% 100%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
-    var(--color-surface-base);
-  box-shadow: 
+  box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
     var(--shadow-popup);
 }
@@ -54,13 +47,23 @@
 }
 
 .settings-title {
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  background: linear-gradient(to bottom right, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.settings-header__spacer {
+  flex: 1;
 }
 
 /* ---------- Scrollable Body ---------- */
@@ -85,10 +88,10 @@
 
 .section-title {
   font-size: var(--font-size-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: .06em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-bottom: 14px;
 }
 
@@ -111,11 +114,12 @@
   width: 100%;
   background: var(--color-surface-input);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-family: inherit;
-  font-size: 12.5px;
-  padding: 9px 12px;
+  font-size: var(--font-size-base);
+  min-height: 32px;
+  padding: 6px 10px;
   outline: none;
   transition: all var(--transition-base);
 }
@@ -130,6 +134,13 @@
 }
 .field-input::placeholder { color: var(--text-muted); }
 .field-input[type="password"] { letter-spacing: 0.1em; }
+
+.field-help {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  line-height: var(--line-height-base);
+}
 
 /* ---------- Test Connection Row ---------- */
 .test-row {
@@ -146,10 +157,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
   transition: all var(--transition-fast);
 }
 
@@ -179,7 +190,11 @@
 
 .status-badge--idle    .status-dot { background: var(--text-muted); }
 .status-badge--testing .status-dot { background: var(--color-info); animation: pulse 2s ease-in-out infinite; }
-.status-badge--success .status-dot { background: var(--success); }
+.status-badge--success .status-dot {
+  background: var(--success)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 13 4 4L19 7'/%3E%3C/svg%3E")
+    center / 60% no-repeat;
+}
 .status-badge--failure .status-dot { background: var(--error); }
 
 /* ---------- Toggle Switch ---------- */
@@ -208,14 +223,15 @@
 .preference-hint {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* Toggle */
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 40px;
-  height: 22px;
+  width: 36px;
+  height: 20px;
   flex-shrink: 0;
 }
 
@@ -239,11 +255,10 @@
 .toggle-slider::before {
   content: "";
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 2px;
   background: var(--color-text-muted);
   border-radius: 50%;
   transition: transform var(--transition-base), background var(--transition-base);
@@ -255,7 +270,7 @@
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(18px) translateY(-50%);
+  transform: translateX(16px);
   background: var(--color-primary-hover);
 }
 
@@ -282,63 +297,36 @@
   align-items: center;
 }
 
-.hotkey-plus {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-}
-
-/* ---------- Save Button + Footer ---------- */
+/* ---------- Footer ---------- */
 .settings-footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   flex-shrink: 0;
 }
 
-.save-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+.settings-version {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
-.btn-save {
+.settings-footer__spacer {
   flex: 1;
 }
 
 /* ---------- Dirty Indicator ---------- */
-.dirty-indicator {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--warning, #fbbf2e);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.save-row.is-dirty .dirty-indicator { opacity: 1; }
-
-/* ---------- Save Button Disabled ---------- */
-.btn-save:disabled {
-  opacity: 0.4;
-  cursor: default;
-  pointer-events: none;
-  box-shadow: none;
-  transform: none;
-}
+#settings-root.is-dirty #dirty-indicator { opacity: 1; }
 
 /* ---------- Reset Confirmation Inline ---------- */
 .reset-confirm {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
-}
-
-.reset-confirm .btn-test {
-  font-size: var(--font-size-xs);
-  padding: 5px 10px;
 }
 
 .save-feedback {
