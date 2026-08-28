@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05060a">
+<title>SCR-05 Error — ui-restyle mockup</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Error state with recovery path (retry) per error-recovery guideline.
+     Icon + text — color never sole carrier. */
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #05060a; min-height: 100vh; display: grid; place-items: center; font-family: var(--font-family); padding: 40px; }
+  .popup { width: 520px; background: var(--color-surface-base); border-radius: 20px; box-shadow: var(--shadow-popup); border: 1px solid var(--color-border-subtle); overflow: hidden; color: var(--color-text-primary); }
+  .hdr { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--color-border-subtle); }
+  .back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-base); font-family: var(--font-family); padding: 4px 6px; border-radius: var(--radius-sm); transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .back:hover { color: var(--color-text-primary); background: var(--color-surface-hover); }
+  .back:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .back svg { width: 14px; height: 14px; }
+  .hdr .spacer { flex: 1; }
+  .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; background: transparent; border: none; border-radius: var(--radius-sm); color: var(--color-text-secondary); cursor: pointer; }
+  .icon-btn:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  .body { padding: var(--spacing-2xl) var(--spacing-2xl) var(--spacing-lg); text-align: center; }
+  .glyph {
+    width: 44px; height: 44px; margin: 0 auto var(--spacing-md); display: grid; place-items: center;
+    border-radius: 50%; background: var(--color-error-surface); color: var(--color-error);
+  }
+  .glyph svg { width: 22px; height: 22px; }
+  h1 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin-bottom: var(--spacing-xs); }
+  .msg { font-size: var(--font-size-base); color: var(--color-text-secondary); line-height: var(--line-height-base); max-width: 380px; margin: 0 auto; }
+  .msg code { font-family: var(--font-mono); font-size: var(--font-size-sm); color: var(--color-text-primary); background: var(--color-surface-input); padding: 1px 6px; border-radius: var(--radius-sm); }
+
+  .ftr { display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm); padding: 0 var(--spacing-lg) var(--spacing-2xl); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 16px; border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: var(--font-family); font-weight: var(--font-weight-medium); cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .btn svg { width: 13px; height: 13px; }
+  .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .btn-ghost { background: transparent; border: 1px solid var(--color-border-default); color: var(--color-text-secondary); }
+  .btn-ghost:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .btn-primary { background: var(--color-primary-default); border: none; color: var(--color-text-on-primary); font-weight: var(--font-weight-semibold); }
+  .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); }
+
+  .caption { max-width: 520px; margin-top: 16px; font-size: 12px; color: #5b6270; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div>
+  <div class="popup" role="alertdialog" aria-label="Fast English error">
+    <div class="hdr">
+      <button class="back"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7-7 7 7 7"/></svg>Back</button>
+      <span class="spacer"></span>
+      <button class="icon-btn" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <div class="body">
+      <div class="glyph" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg></div>
+      <h1>Something went wrong</h1>
+      <p class="msg">The provider stopped sending data before the answer finished (<code>read timeout after 60s</code>). Your text is untouched — try again or check Settings → Test Connection.</p>
+    </div>
+
+    <div class="ftr">
+      <button class="btn btn-ghost">Dismiss</button>
+      <button class="btn btn-primary"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Try again</button>
+    </div>
+  </div>
+
+  <p class="caption">SCR-05 Error (full view, failures outside editor context) · dark theme.
+    Message states cause + recovery path (error-recovery guideline). Editor-context failures use the SCR-01 inline banner instead — same error tokens, compact row.
+  </p>
+</div>
+</body>
+</html>

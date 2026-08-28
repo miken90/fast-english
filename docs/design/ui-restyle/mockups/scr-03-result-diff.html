@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05060a">
+<title>SCR-03 Result (diff mode) — ui-restyle mockup</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Mockup-only scaffolding. Follows: Grammarly suggestion card (diff styling),
+     Remote AI revised panel (source + output split), Qatalog (kbd hints). */
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: #05060a; min-height: 100vh; display: grid; place-items: center;
+    font-family: var(--font-family); padding: 40px;
+  }
+  .popup {
+    width: 520px; background: var(--color-surface-base);
+    border-radius: 20px; box-shadow: var(--shadow-popup);
+    border: 1px solid var(--color-border-subtle);
+    overflow: hidden; color: var(--color-text-primary);
+  }
+  .hdr {
+    display: flex; align-items: center; gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: none; cursor: pointer;
+    color: var(--color-text-secondary); font-size: var(--font-size-base);
+    font-family: var(--font-family); padding: 4px 6px; border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .back:hover { color: var(--color-text-primary); background: var(--color-surface-hover); }
+  .back:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .back svg { width: 14px; height: 14px; }
+  .tool-tag {
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-medium);
+    color: var(--color-tool-blue-fg); background: var(--color-tool-blue-bg);
+    padding: 2px 10px; border-radius: var(--radius-full);
+  }
+  .hdr .spacer { flex: 1; }
+  .icon-btn {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    background: transparent; border: none; border-radius: var(--radius-sm);
+    color: var(--color-text-secondary); cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  /* Collapsed source snippet */
+  .src {
+    margin: var(--spacing-md) var(--spacing-lg) 0;
+    display: flex; align-items: center; gap: 8px; width: calc(100% - 40px);
+    background: transparent; border: none; cursor: pointer; text-align: left;
+    color: var(--color-text-muted); font-size: var(--font-size-sm); font-family: var(--font-family);
+    padding: 4px 2px; border-radius: var(--radius-sm);
+  }
+  .src:hover { color: var(--color-text-secondary); }
+  .src:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .src svg { width: 12px; height: 12px; flex: none; }
+  .src .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+  /* Mode toggles — segmented */
+  .modes {
+    display: flex; gap: 4px; margin: var(--spacing-sm) var(--spacing-lg) 0;
+    background: var(--color-surface-input); border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md); padding: 3px; width: max-content;
+  }
+  .mode {
+    border: none; background: transparent; cursor: pointer;
+    padding: 4px 12px; border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm); font-family: var(--font-family);
+    color: var(--color-text-secondary); transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .mode[aria-pressed="true"] {
+    background: var(--color-surface-elevated); color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium); box-shadow: var(--shadow-sm);
+  }
+  .mode:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+  /* Output card with word diff */
+  .out {
+    margin: var(--spacing-sm) var(--spacing-lg);
+    background: var(--color-surface-card); border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg); padding: var(--spacing-md) 14px;
+    font-size: var(--font-size-md); line-height: var(--line-height-relaxed);
+  }
+  .diff-del {
+    background: var(--color-diff-del-bg); color: var(--color-diff-del-fg);
+    text-decoration: line-through; border-radius: 3px; padding: 0 2px;
+  }
+  .diff-ins {
+    background: var(--color-diff-ins-bg); color: var(--color-diff-ins-fg);
+    border-radius: 3px; padding: 0 2px;
+  }
+  .out-meta { display: flex; justify-content: flex-end; margin-top: 6px; font-size: var(--font-size-xs); color: var(--color-text-muted); }
+
+  /* Truncation notice — warning beside a KEPT answer, not an error */
+  .notice {
+    margin: 0 var(--spacing-lg); display: flex; gap: 10px; align-items: flex-start;
+    background: var(--color-warning-surface); border: 1px solid rgba(245,158,11,.25);
+    border-radius: var(--radius-md); padding: 8px 12px;
+    font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: var(--line-height-base);
+  }
+  .notice svg { width: 14px; height: 14px; flex: none; margin-top: 2px; color: var(--color-warning); }
+  .notice b { color: var(--color-text-primary); font-weight: var(--font-weight-medium); }
+
+  /* Footer actions */
+  .ftr { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 14px;
+    border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: var(--font-family);
+    font-weight: var(--font-weight-medium); cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .btn svg { width: 13px; height: 13px; }
+  .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .btn-ghost { background: transparent; border: 1px solid var(--color-border-default); color: var(--color-text-secondary); }
+  .btn-ghost:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .btn-primary { background: var(--color-primary-default); border: none; color: var(--color-text-on-primary); font-weight: var(--font-weight-semibold); }
+  .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); }
+  .ftr .spacer { flex: 1; }
+
+  .caption { max-width: 520px; margin-top: 16px; font-size: 12px; color: #5b6270; line-height: 1.5; }
+  .caption a { color: #60A5FA; }
+</style>
+</head>
+<body>
+<div>
+  <div class="popup" role="dialog" aria-label="Fast English result">
+    <div class="hdr">
+      <button class="back"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7-7 7 7 7"/></svg>Back</button>
+      <span class="tool-tag">Enhance Writing</span>
+      <span class="spacer"></span>
+      <button class="icon-btn" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <button class="src" aria-expanded="false">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="txt">Original: The meeting go well yesterday and everyone agree that we should move forward…</span>
+    </button>
+
+    <div class="modes" role="group" aria-label="Output view mode">
+      <button class="mode" aria-pressed="false">Raw</button>
+      <button class="mode" aria-pressed="false">Markdown</button>
+      <button class="mode" aria-pressed="true">Diff</button>
+    </div>
+
+    <div class="out" aria-label="Result with changes highlighted">
+      The meeting <span class="diff-del">go</span> <span class="diff-ins">went</span> well yesterday<span class="diff-ins">,</span> and everyone <span class="diff-del">agree</span> <span class="diff-ins">agreed</span> that we should move forward with the new plan as soon as possible.
+      <div class="out-meta">126 characters</div>
+    </div>
+
+    <div class="notice" role="status">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span><b>Answer may be incomplete.</b> The model stopped early — what you see is kept. Rerun on a shorter selection for the full text.</span>
+    </div>
+
+    <div class="ftr">
+      <button class="btn btn-ghost"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Rerun</button>
+      <button class="btn btn-ghost">Edit output</button>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+      <button class="btn btn-primary"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 13 4 4L19 7"/></svg>Replace</button>
+    </div>
+  </div>
+
+  <p class="caption">SCR-03 Result · diff mode · dark theme · follows
+    <a href="https://mobbin.com/screens/82d0d01f-8aa2-4fe4-a658-1498c92fb1ae">Grammarly suggestion card</a> (del strikethrough / ins highlight),
+    <a href="https://mobbin.com/screens/f6ab68ea-04c0-41e2-905b-636d34db16ec">Remote AI revised panel</a> (source + output split).
+    Truncation notice restyled as warning-beside-kept-answer (copy = Open Question 4). Raw/Markdown modes and copy-toast specced in design-spec.md §5–6.
+  </p>
+</div>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05060a">
+<title>SCR-06 Settings — ui-restyle mockup</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Follows: n8n credential modal (form + test-connection banner),
+     Adaline provider modal (helper text under fields). 380×560 window. */
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #05060a; min-height: 100vh; display: grid; place-items: center; font-family: var(--font-family); padding: 40px; }
+  .win {
+    width: 380px; height: 560px; display: flex; flex-direction: column;
+    background: var(--color-surface-base); border-radius: 16px;
+    box-shadow: var(--shadow-popup); border: 1px solid var(--color-border-subtle);
+    overflow: hidden; color: var(--color-text-primary);
+  }
+  .hdr { display: flex; align-items: center; padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--color-border-subtle); }
+  .title { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
+  .dirty { width: 6px; height: 6px; border-radius: 50%; background: var(--color-warning); margin-left: 8px; }
+  .hdr .spacer { flex: 1; }
+  .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; background: transparent; border: none; border-radius: var(--radius-sm); color: var(--color-text-secondary); cursor: pointer; }
+  .icon-btn:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  .scroll { flex: 1; overflow-y: auto; padding: var(--spacing-lg); }
+  .sec { margin-bottom: var(--spacing-section); }
+  .sec-title { font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: var(--spacing-sm); }
+  .field { margin-bottom: var(--spacing-md); }
+  label { display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); margin-bottom: 5px; }
+  input[type=url], input[type=text], input[type=password], select {
+    width: 100%; min-height: 32px; padding: 6px 10px;
+    background: var(--color-surface-input); color: var(--color-text-primary);
+    border: 1px solid var(--color-border-default); border-radius: var(--radius-md);
+    font-family: var(--font-family); font-size: var(--font-size-base); outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  input:focus-visible, select:focus-visible { border-color: var(--color-border-focus); box-shadow: var(--focus-ring-inset); }
+  input::placeholder { color: var(--color-text-muted); }
+  .help { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px; line-height: var(--line-height-base); }
+
+  .test-row { display: flex; align-items: center; gap: var(--spacing-sm); }
+  .btn-sm { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 12px; background: transparent; border: 1px solid var(--color-border-default); border-radius: var(--radius-md); color: var(--color-text-secondary); font-size: var(--font-size-sm); font-family: var(--font-family); font-weight: var(--font-weight-medium); cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .btn-sm:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .btn-sm:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); padding: 3px 10px; border-radius: var(--radius-full); }
+  .badge svg { width: 11px; height: 11px; }
+  .badge-success { color: var(--color-success); background: var(--color-success-surface); }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); padding: 7px 0; }
+  .row-label { font-size: var(--font-size-base); color: var(--color-text-primary); }
+  .row-hint { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+  .toggle { position: relative; width: 36px; height: 20px; flex: none; border-radius: var(--radius-full); background: var(--color-surface-elevated); border: 1px solid var(--color-border-default); cursor: pointer; transition: background var(--transition-fast); }
+  .toggle.on { background: var(--color-primary-default); border-color: transparent; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform var(--transition-base); }
+  .toggle.on::after { transform: translateX(16px); }
+  .toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+  kbd { font-family: var(--font-family); font-size: var(--font-size-xs); background: var(--color-kbd-bg); border: 1px solid var(--color-kbd-border); color: var(--color-kbd-fg); border-radius: var(--radius-sm); padding: 1px 7px; }
+
+  .ftr { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-md) var(--spacing-lg); border-top: 1px solid var(--color-border-subtle); }
+  .ver { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+  .ftr .spacer { flex: 1; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 14px; border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: var(--font-family); font-weight: var(--font-weight-medium); cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .btn-ghost { background: transparent; border: 1px solid var(--color-border-default); color: var(--color-text-secondary); }
+  .btn-ghost:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .btn-primary { background: var(--color-primary-default); border: none; color: var(--color-text-on-primary); font-weight: var(--font-weight-semibold); }
+  .btn-primary:hover { background: var(--color-primary-hover); box-shadow: var(--shadow-glow); }
+
+  .caption { max-width: 380px; margin-top: 16px; font-size: 12px; color: #5b6270; line-height: 1.5; }
+  .caption a { color: #60A5FA; }
+</style>
+</head>
+<body>
+<div>
+  <div class="win" role="dialog" aria-label="Fast English settings">
+    <div class="hdr">
+      <span class="title">Settings</span><span class="dirty" title="Unsaved changes"></span>
+      <span class="spacer"></span>
+      <button class="icon-btn" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <div class="scroll">
+      <div class="sec">
+        <div class="sec-title">AI Connection</div>
+        <div class="field">
+          <label for="u">Base URL</label>
+          <input id="u" name="base-url" type="url" autocomplete="off" spellcheck="false" value="https://api.openai.com/v1">
+          <div class="help">OpenAI-compatible endpoint, including /v1.</div>
+        </div>
+        <div class="field">
+          <label for="m">Model</label>
+          <input id="m" name="model" type="text" autocomplete="off" spellcheck="false" placeholder="gpt-4o-mini">
+        </div>
+        <div class="field">
+          <label for="k">API Key</label>
+          <input id="k" name="api-key" type="password" autocomplete="off" spellcheck="false" value="****************">
+          <div class="help">Used only to test; stored in Windows Credential Manager.</div>
+        </div>
+        <div class="test-row">
+          <button class="btn-sm"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/></svg>Test Connection</button>
+          <span class="badge badge-success"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7"/></svg>Connected</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-title">Preferences</div>
+        <div class="field">
+          <label for="t">Theme</label>
+          <select id="t"><option>Auto (System)</option><option selected>Dark</option><option>Light</option></select>
+        </div>
+        <div class="row">
+          <div><div class="row-label">Auto popup on selection</div><div class="row-hint">Show the popup when you select text anywhere.</div></div>
+          <button class="toggle on" role="switch" aria-checked="true" aria-label="Auto popup on selection"></button>
+        </div>
+        <div class="row">
+          <div><div class="row-label">Start with Windows</div><div class="row-hint">Launch in the tray at sign-in.</div></div>
+          <button class="toggle" role="switch" aria-checked="false" aria-label="Start with Windows"></button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-title">Keyboard Shortcut</div>
+        <div class="row">
+          <div class="row-label">Open popup</div>
+          <span><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ftr">
+      <span class="ver">v0.5.2</span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost">Cancel</button>
+      <button class="btn btn-primary">Save</button>
+    </div>
+  </div>
+
+  <p class="caption">SCR-06 Settings (380×560) · dark theme · follows
+    <a href="https://mobbin.com/screens/d692ee23-3644-494e-9f0b-b09d8e04d073">n8n credential modal</a> (test + status),
+    <a href="https://mobbin.com/screens/3bf39a0e-210e-474b-877b-8c03d93d3a98">Adaline</a> (helper text).
+    Badge states: idle outline / testing info-surface + spinner / success / failure. Reset-to-defaults lives under Preferences in final spec (inline confirm swap kept).
+  </p>
+</div>
+</body>
+</html>

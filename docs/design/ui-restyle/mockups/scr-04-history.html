@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#05060a">
+<title>SCR-04 History — ui-restyle mockup</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  /* Follows: Grok history panel (low-chrome rows), Sana AI (timestamp placement). */
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #05060a; min-height: 100vh; display: grid; place-items: center; font-family: var(--font-family); padding: 40px; }
+  .popup { width: 520px; background: var(--color-surface-base); border-radius: 20px; box-shadow: var(--shadow-popup); border: 1px solid var(--color-border-subtle); overflow: hidden; color: var(--color-text-primary); }
+  .hdr { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--color-border-subtle); }
+  .back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: var(--color-text-secondary); font-size: var(--font-size-base); font-family: var(--font-family); padding: 4px 6px; border-radius: var(--radius-sm); transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .back:hover { color: var(--color-text-primary); background: var(--color-surface-hover); }
+  .back:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .back svg { width: 14px; height: 14px; }
+  .title { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
+  .count { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+  .hdr .spacer { flex: 1; }
+  .txt-btn { background: none; border: none; cursor: pointer; color: var(--color-text-muted); font-size: var(--font-size-sm); font-family: var(--font-family); padding: 4px 8px; border-radius: var(--radius-sm); transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+  .txt-btn:hover { color: var(--color-error); background: var(--color-error-surface); }
+  .txt-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; background: transparent; border: none; border-radius: var(--radius-sm); color: var(--color-text-secondary); cursor: pointer; }
+  .icon-btn:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+  .icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  .list { padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-lg); display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow-y: auto; }
+  .item {
+    display: block; width: 100%; text-align: left; background: transparent; border: none;
+    border-radius: var(--radius-md); padding: 10px var(--spacing-md); cursor: pointer;
+    font-family: var(--font-family); transition: background var(--transition-fast);
+  }
+  .item:hover { background: var(--color-surface-hover); }
+  .item:focus-visible { outline: none; box-shadow: var(--focus-ring-inset); }
+  .item-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .tag { font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); padding: 1px 8px; border-radius: var(--radius-full); }
+  .tag-blue   { color: var(--color-tool-blue-fg);   background: var(--color-tool-blue-bg); }
+  .tag-green  { color: var(--color-tool-green-fg);  background: var(--color-tool-green-bg); }
+  .tag-purple { color: var(--color-tool-purple-fg); background: var(--color-tool-purple-bg); }
+  .tag-amber  { color: var(--color-tool-amber-fg);  background: var(--color-tool-amber-bg); }
+  .time { margin-left: auto; font-size: var(--font-size-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+  .out { font-size: var(--font-size-base); color: var(--color-text-primary); line-height: var(--line-height-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src { font-size: var(--font-size-sm); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+  .caption { max-width: 520px; margin-top: 16px; font-size: 12px; color: #5b6270; line-height: 1.5; }
+  .caption a { color: #60A5FA; }
+</style>
+</head>
+<body>
+<div>
+  <div class="popup" role="dialog" aria-label="Fast English history">
+    <div class="hdr">
+      <button class="back"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7-7 7 7 7"/></svg>Back</button>
+      <span class="title">History</span>
+      <span class="count">4 results</span>
+      <span class="spacer"></span>
+      <button class="txt-btn">Clear</button>
+      <button class="icon-btn" aria-label="Close"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <div class="list" role="list">
+      <button class="item" role="listitem">
+        <div class="item-top"><span class="tag tag-blue">Enhance Writing</span><span class="time">11:38 PM</span></div>
+        <div class="out">The meeting went well yesterday, and everyone agreed that we should move forward…</div>
+        <div class="src">The meeting go well yesterday and everyone agree that we should…</div>
+      </button>
+      <button class="item" role="listitem">
+        <div class="item-top"><span class="tag tag-green">Fix Grammar</span><span class="time">10:02 PM</span></div>
+        <div class="out">Please review the attached report and let me know if you have any questions.</div>
+        <div class="src">Please review the attach report and let me know if you has any…</div>
+      </button>
+      <button class="item" role="listitem">
+        <div class="item-top"><span class="tag tag-amber">Translate</span><span class="time">9:47 PM</span></div>
+        <div class="out">We will deliver the final build before the end of this week.</div>
+        <div class="src">Chúng tôi sẽ bàn giao bản build cuối cùng trước cuối tuần này.</div>
+      </button>
+      <button class="item" role="listitem">
+        <div class="item-top"><span class="tag tag-purple">Convert Prompt</span><span class="time">8:15 PM</span></div>
+        <div class="out">Write a professional follow-up email thanking the client for today's call and…</div>
+        <div class="src">viết mail cảm ơn khách sau buổi call hôm nay</div>
+      </button>
+    </div>
+  </div>
+
+  <p class="caption">SCR-04 History · dark theme · follows
+    <a href="https://mobbin.com/screens/5bf3fb45-8d30-4608-afda-d17d2ea7969e">Grok history panel</a> (low-chrome rows),
+    <a href="https://mobbin.com/screens/7e164f55-0807-4fb9-957e-324eb42cd9ea">Sana AI</a> (timestamp-right).
+    Empty state: centered muted “No results yet — run a tool to see it here” (specced, not mocked). Clear keeps its confirm dialog.
+  </p>
+</div>
+</body>
+</html>
