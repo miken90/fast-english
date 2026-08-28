@@ -68,7 +68,7 @@
 
       <div class="action-row action-row--editor">
         <button class="btn btn--primary" id="editor-run-btn">Run</button>
-        <span class="hint-inline">Ctrl+Enter · Esc</span>
+        <span class="hint-inline"><span class="kbd">Ctrl</span><span class="kbd">Enter</span> · <span class="kbd">Esc</span></span>
       </div>
     </section>
 
@@ -86,6 +86,11 @@
       <div class="processing-view">
         <div class="spinner"></div>
         <div class="processing-label" id="processing-label" aria-live="polite">Processing…</div>
+        <div id="processing-skeleton" class="processing-skeleton" aria-hidden="true" hidden>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-bar"></div>
+        </div>
         <div id="processing-stream-output" class="stream-output" role="region" aria-live="polite" aria-label="Streaming output" hidden></div>
         <button class="btn btn--ghost" id="processing-cancel-btn">Cancel</button>
       </div>
@@ -139,8 +144,10 @@
           <button class="btn btn--icon" id="result-rerun-btn" aria-label="Rerun" title="Rerun">
             <span data-icon-name="refresh" data-icon-size="14" data-icon-stroke="2.5"></span>
           </button>
-          <button class="btn btn--ghost btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Preview</button>
-          <button class="btn btn--ghost btn-toggle-diff" id="result-toggle-diff" aria-pressed="false" title="Show what changed">Diff</button>
+          <div class="mode-group">
+            <button class="btn btn--ghost btn-toggle-md" id="result-toggle-md" title="Toggle markdown preview">Preview</button>
+            <button class="btn btn--ghost btn-toggle-diff" id="result-toggle-diff" aria-pressed="false" title="Show what changed">Diff</button>
+          </div>
           <button class="btn btn--ghost" id="result-use-output-btn">Edit output</button>
         </div>
         <div class="action-group-right">

@@ -46,6 +46,7 @@
   --color-error-surface:   rgba(239, 68, 68, 0.12);
   --color-warning:         #F59E0B;
   --color-warning-surface: rgba(245, 158, 11, 0.12);
+  --color-info: #38BDF8; --color-info-surface: rgba(56,189,248,0.12);
 
   /* Color: Tool Accents */
   --color-tool-blue-bg:   rgba(59, 130, 246, 0.10);
@@ -56,6 +57,11 @@
   --color-tool-purple-fg: #C084FC;
   --color-tool-amber-bg:  rgba(245, 158, 11, 0.10);
   --color-tool-amber-fg:  #FBBF24;
+  --color-diff-ins-bg: rgba(34,197,94,0.14); --color-diff-ins-fg: #86EFAC; --color-diff-del-bg: rgba(239,68,68,0.12); --color-diff-del-fg: #FCA5A5;
+  --color-kbd-bg: rgba(255,255,255,0.07); --color-kbd-border: rgba(255,255,255,0.12); --color-kbd-fg: var(--color-text-secondary);
+  --color-skeleton-base: rgba(255,255,255,0.05); --color-skeleton-sheen: rgba(255,255,255,0.10);
+  --focus-ring: 0 0 0 2px var(--color-surface-base), 0 0 0 4px var(--color-primary-default);
+  --focus-ring-inset: inset 0 0 0 2px var(--color-primary-default);
 
   /* Spacing */
   --spacing-xs:      4px;
@@ -88,7 +94,7 @@
   /* Font */
   --font-family:          'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono:            'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-  --font-size-xs:         9px;
+  --font-size-xs:         10px;
   --font-size-sm:         11px;
   --font-size-base:       13px;
   --font-size-md:         14px;
@@ -192,6 +198,7 @@
   --color-tool-purple-fg: #7C3AED;
   --color-tool-amber-bg:  rgba(217, 119, 6, 0.08);
   --color-tool-amber-fg:  #D97706;
+  --color-info: #0284C7; --color-info-surface: rgba(2,132,199,0.10); --color-diff-ins-bg: rgba(22,163,74,0.12); --color-diff-ins-fg: #15803D; --color-diff-del-bg: rgba(220,38,38,0.10); --color-diff-del-fg: #B91C1C; --color-kbd-bg: rgba(0,0,0,0.05); --color-kbd-border: rgba(0,0,0,0.10); --color-kbd-fg: var(--color-text-secondary); --color-skeleton-base: rgba(0,0,0,0.05); --color-skeleton-sheen: rgba(0,0,0,0.09);
 
   /* Backward compat aliases for light theme */
   --surface:          var(--color-surface-card);
@@ -218,4 +225,13 @@
   --tool-purple-fg:   var(--color-tool-purple-fg);
   --tool-amber-bg:    var(--color-tool-amber-bg);
   --tool-amber-fg:    var(--color-tool-amber-fg);
+}
+
+/* ── Reduced motion baseline (applies app-wide) ── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+  }
 }

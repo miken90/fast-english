@@ -254,6 +254,15 @@ function populateTranslateDropdowns() {
   });
 }
 
+/* The pre-stream placeholder. Visibility only — it holds no state and the
+   stream itself is unchanged. */
+function setProcessingSkeletonVisible(visible) {
+  var el = document.getElementById('processing-skeleton');
+  if (!el) return;
+  if (visible) el.removeAttribute('hidden');
+  else el.setAttribute('hidden', '');
+}
+
 function renderProcessing(data) {
   if (data.tool) appState.tool = data.tool;
   var toolTitle = appState.tool && appState.tool.title ? appState.tool.title : 'Processing';
@@ -263,6 +272,7 @@ function renderProcessing(data) {
 
   var label = document.getElementById('processing-label');
   if (label) label.textContent = 'Running ' + toolTitle + '…';
+  setProcessingSkeletonVisible(true);
 }
 
 function renderResult(data) {
@@ -361,6 +371,7 @@ function streamRegionHeight() {
 }
 
 function beginStream(host) {
+  setProcessingSkeletonVisible(false);
   _streaming = true;
   host.output.textContent = '';
   if (host.reveal) host.reveal.removeAttribute('hidden');
@@ -379,6 +390,7 @@ function beginStream(host) {
 }
 
 function endStream() {
+  setProcessingSkeletonVisible(false);
   if (!_streaming) return;
   _streaming = false;
   STREAM_OUTPUT_IDS.forEach(function(id) {
