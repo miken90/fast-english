@@ -81,7 +81,7 @@
 
 ## Phase 4: Quality & Reliability
 
-**Status**: Largely delivered (v0.5.2, 2026-08-20). 129 automated tests, up
+**Status**: Largely delivered (v0.6.0, 2026-08-28). 129 automated tests, up
 from none when this phase was written.
 
 ### Goals
@@ -133,6 +133,35 @@ v0.5.0; flow, latency, failure handling, and prompts reworked 2026-08-20, v0.5.2
 - [x] Every tab's prompt rewritten so input is treated as data — a selected
   question is edited or translated, never answered — and Enhance and Fix
   Grammar answer in the input's own language
+
+### Delivered Features (v0.6.0)
+- [x] Popup and settings interface rebuilt across all six screens to match the
+  approved design package (`docs/design/ui-restyle/`) — brand header, rounded
+  full-name tool pills, compact primary action, grouped result-mode control,
+  colour-tagged history rows, reworked settings layout with per-field help
+- [x] Everything from the preceding restyle kept: design tokens, unified focus
+  rings (incl. a `forced-colors` fallback for Windows High Contrast), dedicated
+  diff colours, keyboard-hint chips, pre-stream skeleton, disabled states
+- [x] Editor text box can scroll — an id-selector `overflow-y: hidden` had been
+  outranking the scroll class, clipping long input with no way to reach it
+- [x] Editor text box no longer opens under-sized — autosize was running while
+  its view was still `display:none`, so it fell back to the four-line minimum
+- [x] Reset to Defaults no longer overwrites the stored API key with an empty
+  value; an abandoned reset confirmation no longer survives a settings reopen;
+  the API-key help text now describes the storage accurately
+- [x] `POPUP_INITIAL_HEIGHT` 296 → 326 to match the rebuilt chrome
+
+### Known Limitations (v0.6.0)
+- **Shipped without a human visual QA pass.** Verification was structural and
+  geometric only: 129 tests, contract checks, and a screenshot matrix against
+  the mockups at three screen heights. Focus-ring rendering under real keyboard
+  navigation and live-window resize behaviour have never been eyeballed.
+- The `auto` theme never applies the light palette — `applyTheme` writes `"auto"`
+  into `data-theme` while `tokens.css` themes only `[data-theme="light"]`.
+  Choosing Light explicitly works. Pre-existing.
+- Carried forward from v0.5.2: no live-provider test (deliberate, spends quota);
+  `read_timeout` 60s; the Inno Setup installer has never been compiled.
+- See `docs/release-notes-0.6.0.md`.
 
 ### Known Limitations (v0.5.2)
 - No automated test talks to a live provider. All 129 tests run against a local

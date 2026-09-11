@@ -56,11 +56,12 @@ fast-english/
 │   └── popup/
 │       ├── index.html                     # Popup UI markup
 │       ├── tokens.css                     # Design tokens (colors, spacing, shadows)
-│       ├── base.css                       # Global reset + root variables (system font stack)
+│       ├── base.css                       # Global reset, focus ring, reduced-motion and forced-colors baselines
 │       ├── components.css                 # Shared component library (buttons, textareas, status)
 │       ├── popup.css                      # Popup-specific styling
-│       ├── popup.js                       # Popup client logic + IPC + roving tabindex + streaming/history views
+│       ├── popup.js                       # Popup client logic + IPC + view rendering + measurement/resize
 │       ├── diff.js                        # Word-level LCS diff rendering for Fix Grammar/Enhance Writing
+│       ├── icons.js                       # Centralised inline SVG glyph set (renderIcon + data-icon-name hydration)
 │       ├── settings.html                  # Settings UI markup
 │       ├── settings.css                   # Settings-specific styling
 │       └── settings.js                    # Settings client logic + IPC posts
@@ -129,7 +130,7 @@ All HTML files load tokens → base → components, then app-specific CSS for ov
 - Universal editor popup refactor consolidated tool UX under one flow (`Editor`/`Processing`/`Result`/`Error`) with shared action handling.
 - Replace behavior is intentionally gated by `canReplace` in result state; copy/rerun paths remain available when replace is blocked.
 - Result view includes iterative workflow support via `UseOutputAsInput` and re-run actions.
-- Phase 2: Keyboard navigation (roving tabindex), aria-live attributes, cancel processing flow implemented.
+- Phase 2: Keyboard navigation, aria-live attributes, cancel processing flow implemented. (Note: the tool pills are plain `aria-pressed` buttons — roving tabindex was never implemented and is deliberately out of scope, see `docs/design-guidelines.md`.)
 
 ## Reliability Improvements (Hotkey Race Prevention)
 

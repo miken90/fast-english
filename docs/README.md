@@ -23,7 +23,7 @@ smallest authoritative surface below.
   concern lives.
 - [`code-standards.md`](code-standards.md): conventions this repo actually
   follows.
-- [`design-guidelines.md`](design-guidelines.md): popup UI and visual rules.
+- [`design-guidelines.md`](design-guidelines.md): design direction, the implementation constraints a designer must respect, and pointers to the canonical token/spec/mockup sources under `design/ui-restyle/`.
 - [`patterns/encoding-invariants.md`](patterns/encoding-invariants.md):
   invariants worth enforcing mechanically rather than by review.
 
@@ -42,6 +42,7 @@ smallest authoritative surface below.
 ## Release Notes
 
 One file per shipped version, newest first:
+[0.6.0](release-notes-0.6.0.md) ·
 [0.5.2](release-notes-0.5.2.md) ·
 [0.5.1](release-notes-0.5.1.md) ·
 [0.5.0](release-notes-0.5.0.md) ·
