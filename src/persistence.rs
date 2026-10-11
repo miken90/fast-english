@@ -347,4 +347,41 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
     }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn api_key_format_matches_raw_dpapi_current_user_blob() {
+        use windows::Win32::Security::Cryptography::{
+            CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
+        };
+
+        let secret = b"sk-test";
+        let input = CRYPT_INTEGER_BLOB {
+            cbData: secret.len() as u32,
+            pbData: secret.as_ptr() as *mut u8,
+        };
+        let mut output = CRYPT_INTEGER_BLOB::default();
+
+        let blob = unsafe {
+            CryptProtectData(
+                &input,
+                None,
+                None,
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output,
+            )
+            .expect("CryptProtectData succeeded");
+
+            let slice = std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec();
+            windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(
+                output.pbData as *mut std::ffi::c_void,
+            ));
+            slice
+        };
+
+        let decrypted = dpapi_decrypt(&blob).expect("dpapi_decrypt succeeds on raw DPAPI blob");
+        assert_eq!(decrypted, secret);
+    }
 }

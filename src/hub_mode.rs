@@ -103,6 +103,16 @@ fn create_auto_reset_event(name: PCWSTR) -> windows::core::Result<HANDLE> {
     unsafe { CreateEventW(None, false, false, name) }
 }
 
+#[cfg(test)]
+pub(crate) fn signal_names() -> Vec<String> {
+    unsafe {
+        vec![
+            SETTINGS_EVENT_NAME.to_string().unwrap(),
+            OPEN_EVENT.to_string().unwrap(),
+        ]
+    }
+}
+
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;

@@ -42,6 +42,13 @@ mod tests {
             "history entry for schemaVersion {version} differs from the contract keys"
         );
 
+        let code_signals: BTreeSet<String> = crate::hub_mode::signal_names().into_iter().collect();
+        assert_eq!(
+            key_set(&contract["signals"]),
+            code_signals,
+            "hub signal names changed: update hub-contract.json signals and tell the hub owner"
+        );
+
         let flag = contract["hubFlag"].as_str().unwrap().to_string();
         assert!(crate::cli_args::parse(["FastEnglish.exe".to_string(), flag]).hub);
     }
