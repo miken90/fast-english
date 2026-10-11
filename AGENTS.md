@@ -130,6 +130,7 @@ powershell.exe -Command "Get-Process FastEnglish -ErrorAction SilentlyContinue"
 - Never add a version literal to a resource, manifest, script, or installer file. Bump `Cargo.toml` (and let `Cargo.lock` follow) and rebuild
 - A release build fails if the version embedded in the built exe does not match `Cargo.toml`
 - Use PowerShell for build, packaging, and release commands
+- If `AppSettings` fields, the key file format or `--hub` behaviour changed, bump `settings.schemaVersion` in `hub-contract.json`, add the history entry, and tell the my-utilities hub owner before releasing
 
 ### Code Conventions
 - **File naming:** snake_case (Rust standard)

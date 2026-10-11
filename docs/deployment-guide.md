@@ -109,7 +109,7 @@ powershell.exe -Command "cd D:\WORKSPACES\PERSONAL\fast-eng; & 'C:\Program Files
 
 1. Bump `version` in `Cargo.toml` (the only place it is written) and let `Cargo.lock` follow
 2. Run format, lint, release build, and packaging commands
-3. Verify `dist/` contains the expected portable artifacts
+3. Verify `dist/` contains the expected portable artifacts (`FastEnglish.exe`, `hub-contract.json`). If `AppSettings` fields, the key file format or `--hub` behaviour changed, bump `settings.schemaVersion` in `hub-contract.json`, add the history entry in `tests-data/hub_contract_history.json`, and tell the my-utilities hub owner before releasing
 4. Draft release notes from `git log <previous-tag>..HEAD`
 5. Create draft release with `gh release create`
 6. Review notes and assets, then publish

@@ -116,6 +116,24 @@ if ($embedded -ne $version) {
 }
 Write-Host "  OK  embedded version matches Cargo.toml ($embedded)" -ForegroundColor Green
 
+# --- Hub contract ---
+# The committed hub-contract.json is the template; the copy next to the exe
+# gains the version and the exe hash so the hub can verify what it runs.
+$contractSrc = "hub-contract.json"
+if (!(Test-Path -LiteralPath $contractSrc)) {
+    Fail "hub-contract.json is missing from the repo root"
+}
+$contract = Get-Content -LiteralPath $contractSrc -Raw | ConvertFrom-Json
+$contract | Add-Member -NotePropertyName version -NotePropertyValue $version -Force
+$contract | Add-Member -NotePropertyName exeSha256 -NotePropertyValue $distHash.ToLowerInvariant() -Force
+$distContract = Join-Path $dist "hub-contract.json"
+# UTF8Encoding($false): Set-Content -Encoding UTF8 writes a BOM on PS 5.1.
+[System.IO.File]::WriteAllText(
+    (Join-Path (Get-Location).Path $distContract),
+    ($contract | ConvertTo-Json -Depth 10),
+    (New-Object System.Text.UTF8Encoding($false)))
+Assert-FreshArtifact -Path $distContract -Label "dist\hub-contract.json"
+
 # --- Portable zip ---
 $zipName = "FastEnglish-$version-portable.zip"
 $zipPath = Join-Path $dist $zipName
@@ -127,7 +145,7 @@ if ((Test-Path -LiteralPath $zipPath) -and -not $Force) {
     Fail "dist\$zipName already exists and Cargo.toml's version ($version) has not changed. Refusing to overwrite a possibly-published zip. Bump the version in Cargo.toml, or rerun with -Force to overwrite deliberately."
 }
 
-Compress-Archive -LiteralPath $distExe -DestinationPath $zipPath -Force -ErrorAction Continue
+Compress-Archive -LiteralPath $distExe, $distContract -DestinationPath $zipPath -Force -ErrorAction Continue
 Assert-FreshArtifact -Path $zipPath -Label "dist\$zipName"
 
 # --- Installer (opt-in) ---
