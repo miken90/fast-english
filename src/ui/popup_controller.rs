@@ -311,7 +311,11 @@ pub(crate) fn handle_webview_ipc(
         }
 
         JsToRust::OpenSettings => {
-            open_settings(state);
+            // In hub mode the hub owns settings; its watcher opens the Fast
+            // English page. Standalone, open our own window.
+            if !crate::hub_mode::request_hub_settings() {
+                open_settings(state);
+            }
         }
 
         JsToRust::OpenHistory => {
