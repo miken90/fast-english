@@ -1,8 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod cli_args;
 mod history;
 mod hotkey;
+mod hub_contract;
+mod hub_mode;
 mod persistence;
 mod settings;
 
@@ -33,6 +36,27 @@ fn main() -> Result<()> {
             .unwrap_or_else(|| "<non-string panic payload>".to_string());
         eprintln!("panic at {location}: {payload}");
     }));
+
+    let cli = cli_args::parse(std::env::args());
+
+    // Only the hub-launched copy is single-instance; standalone behaviour
+    // stays the same. Named (not `_`) so the mutex lives for the whole process.
+    #[cfg(target_os = "windows")]
+    let _hub_guard = if cli.hub {
+        match hub_mode::acquire()? {
+            Some(guard) => Some(guard),
+            None => return Ok(()),
+        }
+    } else {
+        None
+    };
+    #[cfg(target_os = "windows")]
+    if cli.hub {
+        // On failure the popup's settings button opens our own window instead.
+        if let Err(e) = hub_mode::create_settings_request_event() {
+            tracing::error!(error = %e, "Hub settings event creation failed");
+        }
+    }
 
     info!("Fast English starting...");
 
@@ -78,9 +102,19 @@ fn main() -> Result<()> {
     #[cfg(target_os = "windows")]
     let _hotkey_manager = hotkey::register_hotkey(event_tx.clone());
 
-    // Create system tray (continues without it if creation fails)
+    // Create system tray (continues without it if creation fails).
+    // Hub mode has no tray: the hub owns it.
     #[cfg(target_os = "windows")]
-    let _tray = ui::tray::create_tray(event_tx.clone());
+    let _tray = if cli.hub {
+        None
+    } else {
+        ui::tray::create_tray(event_tx.clone())
+    };
+
+    #[cfg(target_os = "windows")]
+    if cli.hub {
+        hub_mode::spawn_open_listener(event_tx.clone());
+    }
 
     info!("Fast English ready");
 

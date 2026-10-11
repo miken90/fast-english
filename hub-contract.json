@@ -1,0 +1,1 @@
+{"contract":1,"module":"fast-english","hubFlag":"--hub","channel":null,"signals":["Local\\FastEnglish.Hub.SettingsRequested"],"settings":{"schemaVersion":1,"keys":["base_url","model","auto_popup_enabled","auto_start","theme"],"secrets":["api.key"]}}

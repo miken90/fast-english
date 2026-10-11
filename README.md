@@ -17,6 +17,8 @@ A native Windows system tray app that provides AI-powered text rewriting tools. 
 - **In-place replacement** — replaces selected text directly via UI Automation or clipboard fallback
 - **Native Rust** — built with Rust, WebView2 (wry/tao), and Windows APIs
 
+`FastEnglish.exe --hub` is used by the my-utilities hub: no tray icon, single instance, settings opened in the hub.
+
 ## Requirements
 
 - Windows 10 or later
