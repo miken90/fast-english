@@ -114,6 +114,7 @@ fn main() -> Result<()> {
     #[cfg(target_os = "windows")]
     if cli.hub {
         hub_mode::spawn_open_listener(event_tx.clone());
+        hub_mode::spawn_history_listener(event_tx.clone());
     }
 
     info!("Fast English ready");

@@ -15,6 +15,7 @@ use windows::Win32::System::Threading::{
 
 const HUB_MUTEX: PCWSTR = w!("Local\\FastEnglish.Hub");
 const OPEN_EVENT: PCWSTR = w!("Local\\FastEnglish.Hub.Open");
+const HISTORY_EVENT: PCWSTR = w!("Local\\FastEnglish.Hub.History");
 const SETTINGS_EVENT_NAME: PCWSTR = w!("Local\\FastEnglish.Hub.SettingsRequested");
 
 /// Raw event handle of the settings-request event; set once in hub mode.
@@ -74,27 +75,35 @@ fn request_named(handle: HANDLE) -> bool {
 /// return to the previous window after the flyout closes, so the hotkey path
 /// cannot be used. Each signal opens the popup like the tray item did.
 pub fn spawn_open_listener(tx: Sender<AppEvent>) {
-    spawn_listener(OPEN_EVENT, tx);
+    spawn_listener(OPEN_EVENT, AppEvent::OpenPopupRequested, tx);
 }
 
-fn spawn_listener(name: PCWSTR, tx: Sender<AppEvent>) {
+/// The hub's "Recent results" action sets `Local\FastEnglish.Hub.History`.
+pub fn spawn_history_listener(tx: Sender<AppEvent>) {
+    spawn_listener(HISTORY_EVENT, AppEvent::HistoryRequested, tx);
+}
+
+fn spawn_listener(name: PCWSTR, event: AppEvent, tx: Sender<AppEvent>) {
     let handle = match create_auto_reset_event(name) {
         Ok(h) => h.0 as isize,
         Err(e) => {
-            error!(error = %e, "Hub open event creation failed");
+            error!(error = %e, "Hub event creation failed");
             return;
         }
     };
     std::thread::spawn(move || {
         let handle = HANDLE(handle as *mut _);
-        info!("Hub open listener started");
+        info!(?event, "Hub listener started");
         loop {
             if unsafe { WaitForSingleObject(handle, INFINITE) } != WAIT_OBJECT_0 {
                 break;
             }
-            if tx.blocking_send(AppEvent::OpenPopupRequested).is_err() {
+            if tx.blocking_send(event.clone()).is_err() {
                 break;
             }
+        }
+        unsafe {
+            let _ = CloseHandle(handle);
         }
     });
 }
@@ -109,6 +118,7 @@ pub(crate) fn signal_names() -> Vec<String> {
         vec![
             SETTINGS_EVENT_NAME.to_string().unwrap(),
             OPEN_EVENT.to_string().unwrap(),
+            HISTORY_EVENT.to_string().unwrap(),
         ]
     }
 }
@@ -157,7 +167,7 @@ mod tests {
     fn open_signal_sends_open_popup_request() {
         let name = test_name("open");
         let (tx, mut rx) = tokio::sync::mpsc::channel::<AppEvent>(4);
-        spawn_listener(PCWSTR(name.as_ptr()), tx);
+        spawn_listener(PCWSTR(name.as_ptr()), AppEvent::OpenPopupRequested, tx);
         unsafe {
             let ev = OpenEventW(EVENT_ALL_ACCESS, false, PCWSTR(name.as_ptr())).unwrap();
             SetEvent(ev).unwrap();
@@ -172,6 +182,29 @@ mod tests {
                     std::thread::sleep(Duration::from_millis(10))
                 }
                 Err(_) => panic!("open signal did not reach the channel"),
+            }
+        }
+    }
+
+    #[test]
+    fn history_signal_sends_history_request() {
+        let name = test_name("history");
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<AppEvent>(4);
+        spawn_listener(PCWSTR(name.as_ptr()), AppEvent::HistoryRequested, tx);
+        unsafe {
+            let ev = OpenEventW(EVENT_ALL_ACCESS, false, PCWSTR(name.as_ptr())).unwrap();
+            SetEvent(ev).unwrap();
+            let _ = CloseHandle(ev);
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match rx.try_recv() {
+                Ok(AppEvent::HistoryRequested) => break,
+                Ok(_) => panic!("unexpected event"),
+                Err(_) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(10))
+                }
+                Err(_) => panic!("history signal did not reach the channel"),
             }
         }
     }
